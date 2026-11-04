@@ -7,6 +7,7 @@ Living log of concepts introduced, questions asked, and assessment scores (0: no
 | Largest-remainder money distribution | M0 | 2 | 0 -> pending |
 | Zod runtime configuration & PayPal safety guard | M0 | 1 | 0 -> pending |
 | Bryntum TaskModel custom fields & runtime mapping | M1 | 2 | 0 -> pending |
+| Partial unique index for financial single-release | M2 | 2 | 0 -> pending |
 
 ## Log
 
@@ -19,6 +20,13 @@ Score: 0 -> pending
 
 ### 2026-11-04 23:01 | concept: Bryntum TaskModel custom fields & runtime mapping | milestone: M1 | difficulty: 2
 Q: In `apps/web/src/models/MilestoneTaskModel.ts`, we declare `static override get fields()` returning custom field definitions (`milestoneId`, `amountCents`, etc.) alongside TypeScript `declare` statements. Why does Bryntum require runtime static field declarations rather than TypeScript type definitions alone, and what role will this play when we sync changes with the backend in M2?
+A: pending
+Verdict: pending
+Feedback given: none
+Score: 0 -> pending
+
+### 2026-11-04 23:49 | concept: Partial unique index for financial single-release | milestone: M2 | difficulty: 2
+Q: In `apps/api/src/db/schema.ts` (ledgerEntries definition), we enforce `uniqueIndex('one_released_per_milestone').on(table.milestoneId).where(sql\`type = 'released'\`)`. Why is a partial index necessary here instead of a simple unique constraint on `milestone_id`, and what valid ledger entries would a standard unique index reject?
 A: pending
 Verdict: pending
 Feedback given: none

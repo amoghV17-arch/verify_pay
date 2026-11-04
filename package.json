@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"pnpm --filter @milestone/api dev\" \"pnpm --filter @milestone/web dev\"",
-    "build": "pnpm --filter @milestone/shared typecheck && pnpm --filter @milestone/api typecheck && pnpm --filter @milestone/web build",
+    "build": "pnpm --filter @milestone/shared typecheck && pnpm --filter @milestone/api build && pnpm --filter @milestone/web build",
     "start": "pnpm --filter @milestone/api start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -16,8 +16,8 @@
     "test:e2e": "playwright test",
     "check:secrets": "node scripts/secret-scan.mjs",
     "db:up": "node scripts/db-up.mjs",
-    "db:migrate": "node -e \"console.log('[db:migrate] Placeholder for M2 migrations')\"",
-    "db:seed": "node -e \"console.log('[db:seed] Placeholder for M2 seed script')\"",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed.mjs",
     "eval": "pnpm --filter @milestone/evals eval",
     "smoke:sandbox": "node -e \"console.log('[smoke:sandbox] Placeholder for M3 sandbox test')\"",
     "demo:reset": "node -e \"console.log('[demo:reset] Placeholder for M10 demo reset')\"",
@@ -37,4 +37,3 @@
     "vitest": "^1.6.0"
   }
 }
-

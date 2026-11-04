@@ -1,6 +1,10 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { AppConfig } from '@milestone/shared';
+import { registerAuth } from './auth/index.js';
+import { registerProjectRoutes } from './routes/projects.js';
+import { registerGanttRoutes } from './routes/gantt.js';
 
 export function buildServer(config: AppConfig): FastifyInstance {
   const server = Fastify({
@@ -13,6 +17,13 @@ export function buildServer(config: AppConfig): FastifyInstance {
     origin: true,
     credentials: true,
   });
+
+  // Register Auth and Session Handling
+  server.register(registerAuth);
+
+  // Register Core Data and Sync Routes
+  server.register(registerProjectRoutes);
+  server.register(registerGanttRoutes);
 
   // Health check endpoint for Render and local checks per ARCHITECTURE.md
   server.get('/healthz', async () => {
@@ -39,4 +50,3 @@ export function buildServer(config: AppConfig): FastifyInstance {
 
   return server;
 }
-

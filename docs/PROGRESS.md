@@ -7,16 +7,16 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-04T17:31:04.609Z
+Generated: 2026-11-04T18:20:01.974Z
 
-Overall (hours-weighted): [##..................]  11%   Day 1/5, 5 day(s) left   Schedule: AMBER
-Current milestone: M2 Data layer and Gantt sync
+Overall (hours-weighted): [####................]  18%   Day 1/5, 5 day(s) left   Schedule: GREEN
+Current milestone: M3 PayPal adapter, mock, and funding
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
 | M0 Foundation and automation | 3 | 10/10 | [####################] 100% |
 | M1 Bryntum Gantt spike | 4 | 7/7 | [####################] 100% |
-| M2 Data layer and Gantt sync | 4 | 0/7 | [....................]   0% |
+| M2 Data layer and Gantt sync | 4 | 7/7 | [####################] 100% |
 | M3 PayPal adapter, mock, and funding | 6 | 0/10 | [....................]   0% |
 | M4 Payout release | 4 | 0/7 | [....................]   0% |
 | M5 AI layer and Planner | 5 | 0/8 | [....................]   0% |
@@ -49,3 +49,5 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-04 14:37 | M0 | Handoff: Built monorepo foundation with pnpm workspace (apps/web, apps/api, packages/shared, evals, scripts), strict TypeScript, ESLint, Prettier, Vitest, Playwright, secret scanner, docker fallback for db:up, CI, and Zod config guard. Not done: database schema and Bryntum Gantt (scheduled for M2 and M1). Next session must know: M1 is Bryntum Gantt spike (Gate H4: Bryntum trial package). Docker is absent on local system so database work uses DATABASE_URL.
 - 2026-11-04 17:31 | M2 | overall 11% | AMBER | M1 Bryntum Gantt spike complete with custom money model, design tokens, and E2E verification
 - 2026-11-04 23:01 | M1 | Handoff: Built Bryntum Gantt spike (Gate H4 trial package, MilestoneTaskModel with amountCents/paymentStatus/acceptanceCriteria/deliverableType, MilestoneGantt with custom timeline badges & money/status columns, design tokens with 6 milestone fill treatments, 12 tasks + 4 milestones sample dataset, responsive screenshots). Not done: live database sync and backend API endpoints (scheduled for M2). Next session must know: M2 will implement Drizzle schema, migrations, seed script, project/task CRUD, and Bryntum load/sync endpoints ignoring client-side money changes.
+- 2026-11-04 18:20 | M3 | overall 18% | GREEN | M2 data layer and Gantt sync complete with Drizzle schema, PGlite testing, Bryntum load/sync, and monetary tamper protection
+- 2026-11-04 23:50 | M2 | Handoff: Built complete data layer with Drizzle ORM (schema.ts, migrations, in-memory PGlite for tests, node-postgres for PostgreSQL), database constraints (unique idempotency key, partial unique index for single released milestone entry), seed script with Acme & Arjun personas and 12-task project, Fastify project CRUD, demo auth with signed cookie sessions, and Bryntum load/sync endpoints with monetary tamper protection (tests prove forged client money and status payloads are rejected). Not done: PayPal payment capture, ledger funding, and webhook handling (scheduled for M3). Next session must know: M3 implements PayPalPort with mockAdapter and sandboxAdapter (Gates H2 and H3 for sandbox credentials).

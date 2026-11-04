@@ -61,13 +61,13 @@ Learning checkpoint: yes
 ## M2 Data layer and Gantt sync
 Estimate: 4 h
 Goal: the Gantt reads and writes real data.
-- [ ] Drizzle schema and migrations for all tables in `ARCHITECTURE.md`
-- [ ] Constraints: unique idempotency key, partial unique index for one `released` per milestone
-- [ ] Seed script with demo personas and a sample project
-- [ ] Projects, tasks, dependencies, milestones CRUD with role checks
-- [ ] Bryntum load/sync endpoints; server ignores client changes to money and status fields
-- [ ] Demo auth: persona switch with signed cookie sessions
-- [ ] Integration tests for sync rules and role checks
+- [x] Drizzle schema and migrations for all tables in `ARCHITECTURE.md`
+- [x] Constraints: unique idempotency key, partial unique index for one `released` per milestone
+- [x] Seed script with demo personas and a sample project
+- [x] Projects, tasks, dependencies, milestones CRUD with role checks
+- [x] Bryntum load/sync endpoints; server ignores client changes to money and status fields
+- [x] Demo auth: persona switch with signed cookie sessions
+- [x] Integration tests for sync rules and role checks
 Acceptance: reload the page, edits persist; a crafted sync request cannot change `amountCents` or status (test proves it).
 Learning checkpoint: yes
 

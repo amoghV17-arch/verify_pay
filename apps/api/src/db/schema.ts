@@ -1,0 +1,201 @@
+import {
+  pgTable,
+  text,
+  integer,
+  real,
+  boolean,
+  timestamp,
+  jsonb,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import { sql, relations } from 'drizzle-orm';
+
+// --- Users (Client & Freelancer Personas) ---
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  avatar: text('avatar'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Projects ---
+export const projects = pgTable('projects', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  brief: text('brief').notNull(),
+  currency: text('currency').default('USD').notNull(),
+  totalCents: integer('total_cents').default(0).notNull(),
+  status: text('status').default('draft').notNull(), // 'draft' | 'planned' | 'funded' | 'active' | 'closed' | 'cancelled'
+  autonomyMode: text('autonomy_mode').default('assisted').notNull(), // 'manual' | 'assisted' | 'auto'
+  releaseWindowSeconds: integer('release_window_seconds').default(20).notNull(),
+  clientId: text('client_id').references(() => users.id).notNull(),
+  freelancerId: text('freelancer_id').references(() => users.id).notNull(),
+  freelancerPaypalEmail: text('freelancer_paypal_email'),
+  planJson: jsonb('plan_json'),
+  planPromptVersion: text('plan_prompt_version'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  version: integer('version').default(1).notNull(),
+});
+
+// --- Tasks ---
+export const tasks = pgTable('tasks', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  parentId: text('parent_id'),
+  name: text('name').notNull(),
+  startDate: text('start_date').notNull(),
+  durationDays: real('duration_days').default(1).notNull(),
+  percentDone: integer('percent_done').default(0).notNull(),
+  milestoneId: text('milestone_id'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  bryntumExt: jsonb('bryntum_ext'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  version: integer('version').default(1).notNull(),
+});
+
+// --- Dependencies ---
+export const dependencies = pgTable('dependencies', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  fromTaskId: text('from_task_id').references(() => tasks.id, { onDelete: 'cascade' }).notNull(),
+  toTaskId: text('to_task_id').references(() => tasks.id, { onDelete: 'cascade' }).notNull(),
+  type: integer('type').default(2).notNull(), // Bryntum DependencyType (2 = Finish-to-Start)
+  lag: integer('lag').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Milestones ---
+export const milestones = pgTable('milestones', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  taskId: text('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  percent: integer('percent').notNull(),
+  criteria: jsonb('criteria').notNull(), // Array<{ id: string, description: string, passed?: boolean, evidence?: string }>
+  deliverableType: text('deliverable_type').default('document').notNull(), // 'text' | 'repo' | 'url' | 'image' | 'document' | 'figma'
+  status: text('status').default('unfunded').notNull(), // MilestoneStatuses
+  releaseAt: timestamp('release_at', { withTimezone: true }),
+  approvedBy: text('approved_by'), // 'ai' | 'client'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  version: integer('version').default(1).notNull(),
+});
+
+// --- Deliverables ---
+export const deliverables = pgTable('deliverables', {
+  id: text('id').primaryKey(),
+  milestoneId: text('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').notNull(), // 'text' | 'repo' | 'url' | 'image' | 'document' | 'figma'
+  payload: jsonb('payload').notNull(),
+  submittedBy: text('submitted_by').references(() => users.id).notNull(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Reviews ---
+export const reviews = pgTable('reviews', {
+  id: text('id').primaryKey(),
+  milestoneId: text('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }).notNull(),
+  deliverableId: text('deliverable_id').references(() => deliverables.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').default('initial').notNull(), // 'initial' | 'appeal'
+  model: text('model').notNull(),
+  promptVersion: text('prompt_version').notNull(),
+  trace: jsonb('trace'),
+  criteriaResults: jsonb('criteria_results'),
+  verdict: text('verdict').notNull(), // 'release' | 'request_changes' | 'escalate_to_human'
+  minConfidence: real('min_confidence').notNull(),
+  injectionSuspected: boolean('injection_suspected').default(false).notNull(),
+  latencyMs: integer('latency_ms'),
+  tokens: jsonb('tokens'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Ledger Entries ---
+export const ledgerEntries = pgTable(
+  'ledger_entries',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+    milestoneId: text('milestone_id').references(() => milestones.id, { onDelete: 'set null' }),
+    type: text('type').notNull(), // 'funded' | 'release_pending' | 'released' | 'release_failed' | 'refunded'
+    amountCents: integer('amount_cents').notNull(),
+    paypalRef: text('paypal_ref'),
+    idempotencyKey: text('idempotency_key').notNull().unique(),
+    meta: jsonb('meta'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    // Partial unique index enforcing invariant 2: At most one 'released' entry per milestone
+    oneReleasedPerMilestone: uniqueIndex('one_released_per_milestone')
+      .on(table.milestoneId)
+      .where(sql`type = 'released'`),
+  })
+);
+
+// --- Payout Batches ---
+export const payoutBatches = pgTable('payout_batches', {
+  id: text('id').primaryKey(),
+  milestoneId: text('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }).notNull(),
+  senderBatchId: text('sender_batch_id').notNull().unique(),
+  paypalBatchId: text('paypal_batch_id'),
+  status: text('status').notNull(),
+  raw: jsonb('raw'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- PayPal Events ---
+export const paypalEvents = pgTable('paypal_events', {
+  id: text('id').primaryKey(),
+  paypalEventId: text('paypal_event_id').notNull().unique(),
+  type: text('type').notNull(),
+  payload: jsonb('payload').notNull(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Activity Log ---
+export const activity = pgTable('activity', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  actor: text('actor').notNull(), // 'client' | 'freelancer' | 'ai' | 'system'
+  kind: text('kind').notNull(),
+  text: text('text').notNull(),
+  meta: jsonb('meta'),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Relations ---
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  client: one(users, { fields: [projects.clientId], references: [users.id] }),
+  freelancer: one(users, { fields: [projects.freelancerId], references: [users.id] }),
+  tasks: many(tasks),
+  dependencies: many(dependencies),
+  milestones: many(milestones),
+  ledgerEntries: many(ledgerEntries),
+  activity: many(activity),
+}));
+
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
+  project: one(projects, { fields: [tasks.projectId], references: [projects.id] }),
+  fromDependencies: many(dependencies, { relationName: 'fromTask' }),
+  toDependencies: many(dependencies, { relationName: 'toTask' }),
+}));
+
+export const dependenciesRelations = relations(dependencies, ({ one }) => ({
+  project: one(projects, { fields: [dependencies.projectId], references: [projects.id] }),
+  fromTask: one(tasks, { fields: [dependencies.fromTaskId], references: [tasks.id], relationName: 'fromTask' }),
+  toTask: one(tasks, { fields: [dependencies.toTaskId], references: [tasks.id], relationName: 'toTask' }),
+}));
+
+export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+  project: one(projects, { fields: [milestones.projectId], references: [projects.id] }),
+  task: one(tasks, { fields: [milestones.taskId], references: [tasks.id] }),
+  deliverables: many(deliverables),
+  reviews: many(reviews),
+  ledgerEntries: many(ledgerEntries),
+}));
+
