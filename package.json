@@ -1,0 +1,40 @@
+{
+  "name": "milestone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @milestone/api dev\" \"pnpm --filter @milestone/web dev\"",
+    "build": "pnpm --filter @milestone/shared typecheck && pnpm --filter @milestone/api typecheck && pnpm --filter @milestone/web build",
+    "start": "pnpm --filter @milestone/api start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check:secrets": "node scripts/secret-scan.mjs",
+    "db:up": "node scripts/db-up.mjs",
+    "db:migrate": "node -e \"console.log('[db:migrate] Placeholder for M2 migrations')\"",
+    "db:seed": "node -e \"console.log('[db:seed] Placeholder for M2 seed script')\"",
+    "eval": "pnpm --filter @milestone/evals eval",
+    "smoke:sandbox": "node -e \"console.log('[smoke:sandbox] Placeholder for M3 sandbox test')\"",
+    "demo:reset": "node -e \"console.log('[demo:reset] Placeholder for M10 demo reset')\"",
+    "verify": "node scripts/verify.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.5.0",
+    "@milestone/shared": "workspace:*",
+    "@playwright/test": "^1.44.1",
+    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/parser": "^7.13.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.5.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
+

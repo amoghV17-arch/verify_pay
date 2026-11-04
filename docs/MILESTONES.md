@@ -32,16 +32,16 @@ Legend: **Gate** means the agent must stop and ask the owner (see `HUMAN_TASKS.m
 ## M0 Foundation and automation
 Estimate: 3 h
 Goal: a repo where the agent can work safely and fast.
-- [ ] Gate H1: repo exists with MIT license; kit files committed
-- [ ] pnpm workspace with `apps/web`, `apps/api`, `packages/shared`, `evals`, `scripts`
-- [ ] TypeScript strict, ESLint, Prettier, shared tsconfig
-- [ ] Vitest and Playwright configured with one passing test each
-- [ ] `docker-compose.yml` for Postgres; `pnpm db:up` works
-- [ ] zod-validated config loader with unsafe-combination guard (`PAYPAL_ENV`)
-- [ ] `.env.example` complete; secret-scan check in `pnpm verify`
-- [ ] GitHub Actions CI runs `pnpm verify`
-- [ ] `pnpm verify` green on a clean clone
-- [ ] `docs/DECISIONS.md` created with stack versions recorded
+- [x] Gate H1: repo exists with MIT license; kit files committed
+- [x] pnpm workspace with `apps/web`, `apps/api`, `packages/shared`, `evals`, `scripts`
+- [x] TypeScript strict, ESLint, Prettier, shared tsconfig
+- [x] Vitest and Playwright configured with one passing test each
+- [x] `docker-compose.yml` for Postgres; `pnpm db:up` works
+- [x] zod-validated config loader with unsafe-combination guard (`PAYPAL_ENV`)
+- [x] `.env.example` complete; secret-scan check in `pnpm verify`
+- [x] GitHub Actions CI runs `pnpm verify`
+- [x] `pnpm verify` green on a clean clone
+- [x] `docs/DECISIONS.md` created with stack versions recorded
 Acceptance: fresh clone, `pnpm install && pnpm db:up && pnpm verify` passes.
 Learning checkpoint: yes
 
