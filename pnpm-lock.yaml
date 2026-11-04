@@ -78,6 +78,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@bryntum/gantt':
+        specifier: npm:@bryntum/gantt-trial@latest
+        version: '@bryntum/gantt-trial@7.3.8'
       '@milestone/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -224,6 +227,13 @@ packages:
   '@babel/types@7.29.11':
     resolution: {integrity: sha512-WCsemW40Cpc6gouC1SrY6PBaZ+oLRlEVY9XBvZBI7il/HyUrb2nJ505wE1MHEFyDZNnrWDEuy4jL50WVHfTTSQ==}
     engines: {node: '>=6.9.0'}
+
+  '@bryntum/gantt-trial-lib@1.0.1':
+    resolution: {integrity: sha512-VWtowNi9FBCC6EWz8zZjrnPALCsFrYt4HPwmsgqv3qediQPfyYM/5Bq3rFuEUa1/2C/1u7YXzW2q1HZykHnp+Q==}
+
+  '@bryntum/gantt-trial@7.3.8':
+    resolution: {integrity: sha512-u3qbPxYnd5Ut+hJTnofPdTBPznQVrR2YezYtpJGIbw6ed056frR0bMQUcqus5dkbi2MIFkgBm0HNfS/naZUirg==}
+    engines: {node: '>=0.10.0'}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1992,6 +2002,12 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.11
       '@babel/helper-validator-identifier': 7.29.7
+
+  '@bryntum/gantt-trial-lib@1.0.1': {}
+
+  '@bryntum/gantt-trial@7.3.8':
+    dependencies:
+      '@bryntum/gantt-trial-lib': 1.0.1
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true

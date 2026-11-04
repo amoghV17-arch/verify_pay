@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bryntum/gantt": "npm:@bryntum/gantt-trial@latest",
     "@milestone/shared": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -21,4 +22,3 @@
     "vite": "^5.3.1"
   }
 }
-

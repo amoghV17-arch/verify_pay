@@ -8,5 +8,10 @@ export default defineConfig({
   use: {
     headless: true,
   },
+  webServer: {
+    command: 'pnpm --filter @milestone/web preview --port 5173',
+    port: 5173,
+    reuseExistingServer: !process.env.CI,
+    timeout: 30000,
+  },
 });
-

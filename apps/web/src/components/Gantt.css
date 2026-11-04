@@ -1,0 +1,312 @@
+:root {
+  --chalk: #F5F7F9;
+  --paper: #FFFFFF;
+  --ink: #16202B;
+  --slate: #5B6B7C;
+  --line: #DDE3E9;
+  --tide: #1F7A8C;
+  --brass: #B07A12;
+  --settled: #1D8F5A;
+  --flag: #C8402F;
+  --focus: #2F5FD0;
+}
+
+/* Bryntum Gantt Container & Component Theme Overrides */
+.milestone-gantt-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 580px;
+  background-color: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(22, 32, 43, 0.05);
+  font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.milestone-gantt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--chalk);
+  border-bottom: 1px solid var(--line);
+}
+
+.milestone-gantt-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.milestone-gantt-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--slate);
+  flex-wrap: wrap;
+}
+
+.milestone-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.milestone-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  transform: rotate(45deg);
+}
+
+.milestone-gantt-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+}
+
+/* Base Bryntum Gantt customizations */
+.b-gantt {
+  font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  color: var(--ink) !important;
+  background-color: var(--paper) !important;
+}
+
+.b-grid-header,
+.b-grid-header-container {
+  background-color: var(--chalk) !important;
+  border-bottom-color: var(--line) !important;
+  color: var(--slate) !important;
+  font-weight: 600 !important;
+  font-size: 0.8125rem !important;
+}
+
+.b-grid-cell {
+  border-bottom-color: var(--line) !important;
+  color: var(--ink) !important;
+  font-size: 0.875rem !important;
+}
+
+.b-grid-row:hover {
+  background-color: #F8FAFC !important;
+}
+
+/* Standard task bar styling */
+.b-gantt-task:not(.b-milestone) {
+  border-radius: 4px !important;
+  background-color: rgba(31, 122, 140, 0.85) !important;
+  border: 1px solid var(--tide) !important;
+  box-shadow: 0 1px 2px rgba(22, 32, 43, 0.08) !important;
+  color: #FFFFFF !important;
+}
+
+.b-gantt-task-percent {
+  background-color: var(--tide) !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+/* Tabular numbers for dates and financial columns */
+.tabular-numbers,
+.b-grid-cell[data-column="amountCents"],
+.b-grid-cell[data-column="startDate"],
+.b-grid-cell[data-column="endDate"],
+.b-grid-cell[data-column="duration"] {
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ==========================================================================
+   Milestone Money States (6 Fill Treatments per docs/DESIGN.md section 3)
+   ========================================================================== */
+
+/* Bryntum renders milestone diamond via :before on .b-milestone */
+.b-gantt-task.b-milestone {
+  background: transparent !important;
+}
+
+.b-gantt-task.b-milestone:before {
+  width: 18px !important;
+  height: 18px !important;
+  box-shadow: 0 1px 3px rgba(22, 32, 43, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 1. Unfunded: Dashed outline, no fill */
+.b-gantt-task.b-milestone.milestone-status-unfunded:before {
+  border: 2px dashed var(--slate) !important;
+  background: var(--paper) !important;
+}
+
+/* 2. Funded: Solid tide at 25% fill, tide outline, small filled circle */
+.b-gantt-task.b-milestone.milestone-status-funded:before,
+.b-gantt-task.b-milestone.milestone-status-submitted:before {
+  border: 2px solid var(--tide) !important;
+  background: rgba(31, 122, 140, 0.25) !important;
+}
+
+/* 3. In review: Brass stripe texture (slow), clock glyph */
+@keyframes stripeDrift {
+  0% { background-position: 0 0; }
+  100% { background-position: 24px 0; }
+}
+
+.b-gantt-task.b-milestone.milestone-status-in_review:before,
+.b-gantt-task.b-milestone.milestone-status-in-review:before,
+.b-gantt-task.b-milestone.milestone-status-awaiting_client:before {
+  border: 2px solid var(--brass) !important;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--brass),
+    var(--brass) 4px,
+    #cf972a 4px,
+    #cf972a 8px
+  ) !important;
+  background-size: 24px 24px !important;
+  animation: stripeDrift 2.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b-gantt-task.b-milestone.milestone-status-in_review:before,
+  .b-gantt-task.b-milestone.milestone-status-in-review:before {
+    animation: none !important;
+  }
+}
+
+/* 4. Changes requested: Flag outline, solid flag corner mark */
+.b-gantt-task.b-milestone.milestone-status-changes_requested:before,
+.b-gantt-task.b-milestone.milestone-status-changes-requested:before,
+.b-gantt-task.b-milestone.milestone-status-appealed:before {
+  border: 2px solid var(--flag) !important;
+  background: rgba(200, 64, 47, 0.15) !important;
+}
+
+/* 5. Approved / releasing: Brass solid, small spinner */
+.b-gantt-task.b-milestone.milestone-status-approved:before,
+.b-gantt-task.b-milestone.milestone-status-releasing:before {
+  border: 2px solid var(--brass) !important;
+  background: var(--brass) !important;
+}
+
+/* 6. Paid: Solid settled fill, check glyph */
+.b-gantt-task.b-milestone.milestone-status-paid:before {
+  border: 2px solid var(--settled) !important;
+  background: var(--settled) !important;
+}
+
+/* Custom Milestone Label / Badge on Timeline */
+.milestone-timeline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 14px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(22, 32, 43, 0.06);
+}
+
+.milestone-badge-paid {
+  border-color: var(--settled);
+  color: var(--settled);
+  background: rgba(29, 143, 90, 0.08);
+}
+
+.milestone-badge-approved {
+  border-color: var(--brass);
+  color: var(--brass);
+  background: rgba(176, 122, 18, 0.08);
+}
+
+.milestone-badge-in_review {
+  border-color: var(--brass);
+  color: var(--brass);
+  background: rgba(176, 122, 18, 0.08);
+}
+
+.milestone-badge-funded {
+  border-color: var(--tide);
+  color: var(--tide);
+  background: rgba(31, 122, 140, 0.08);
+}
+
+.milestone-badge-changes_requested {
+  border-color: var(--flag);
+  color: var(--flag);
+  background: rgba(200, 64, 47, 0.08);
+}
+
+.milestone-badge-unfunded {
+  border-color: var(--slate);
+  color: var(--slate);
+  background: var(--chalk);
+}
+
+/* Grid Status Pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  line-height: 1.2;
+}
+
+.status-pill.unfunded {
+  background-color: #E2E8F0;
+  color: var(--slate);
+}
+
+.status-pill.funded {
+  background-color: rgba(31, 122, 140, 0.15);
+  color: var(--tide);
+}
+
+.status-pill.in_review {
+  background-color: rgba(176, 122, 18, 0.15);
+  color: var(--brass);
+}
+
+.status-pill.changes_requested {
+  background-color: rgba(200, 64, 47, 0.15);
+  color: var(--flag);
+}
+
+.status-pill.approved {
+  background-color: rgba(176, 122, 18, 0.2);
+  color: #7d570d;
+}
+
+.status-pill.paid {
+  background-color: rgba(29, 143, 90, 0.15);
+  color: var(--settled);
+}
+
+/* Money Column */
+.money-cell {
+  font-family: 'Instrument Sans', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  display: block;
+  width: 100%;
+}
+
