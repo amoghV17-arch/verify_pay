@@ -51,3 +51,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Why:** Complies with Gate H4, ensures the repository remains open and cloneable by hackathon judges, while providing the full Bryntum Gantt Pro API, timeline rendering, dependency tracking, and theme customization.
 
 
+
+## M2 Data Layer and Gantt Sync decisions
+
+### Database Engine and In-Memory PGlite Testing
+- **Context:** Local developer machines and CI pipelines may lack active Docker daemons, but all integration tests and financial invariants require real PostgreSQL relational semantics, constraints, and partial indexes.
+- **Decision:** Use Drizzle ORM with node-postgres (`Pool`) when `DATABASE_URL` is set, and `@electric-sql/pglite` in-memory for Vitest and local fallbacks without Docker.
+- **Why:** Enables hermetic, sub-second test runs that execute real PostgreSQL SQL migrations, constraints, and partial indexes without external infrastructure.
+
+### Partial Unique Index on Milestone Releases
+- **Context:** Invariant 2 mandates that at most one `released` ledger entry can ever exist per milestone, preventing double payouts.
+- **Decision:** Implemented database-level partial unique index: `CREATE UNIQUE INDEX "one_released_per_milestone" ON "ledger_entries" ("milestone_id") WHERE type = 'released'`.
+- **Why:** Guarantees concurrency safety at the PostgreSQL engine level regardless of API retry storms or race conditions.
+
+### Bryntum Sync Monetary Tamper Guard
+- **Context:** Bryntum Gantt allows users to edit timeline records. A client payload could maliciously attempt to modify `amountCents` or set status to `paid`.
+- **Decision:** Server-side sync endpoint strictly whitelists schedule mutations (`name`, `startDate`, `durationDays`, `percentDone`, `parentId`, `sortOrder`) and completely strips and ignores `amountCents` and `paymentStatus`.
+- **Why:** Preserves the core security invariant that LLM review policies and PayPal transactions alone control financial status.

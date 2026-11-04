@@ -36,22 +36,47 @@ export function formatStatusLabel(status?: string): string {
 }
 
 interface GanttProps {
+  projectId?: string;
   onTaskSelect?: (task: MilestoneTaskModel) => void;
+  onSyncSuccess?: () => void;
 }
 
-export const MilestoneGantt: React.FC<GanttProps> = ({ onTaskSelect }) => {
+export const MilestoneGantt: React.FC<GanttProps> = ({
+  projectId = 'proj_brand_launch',
+  onTaskSelect,
+  onSyncSuccess,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttInstanceRef = useRef<Gantt | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Create ProjectModel with custom MilestoneTaskModel
+    // Create ProjectModel with Bryntum Load/Sync transport
     const project = new ProjectModel({
       taskModelClass: MilestoneTaskModel,
+      transport: {
+        load: {
+          url: `/api/gantt/${projectId}/load`,
+          credentials: 'include',
+        },
+        sync: {
+          url: `/api/gantt/${projectId}/sync`,
+          credentials: 'include',
+        },
+      },
+      autoLoad: true,
+      autoSync: true,
+      // Fallback initial data in case of offline dev
       tasksData: sampleTasks as unknown as Record<string, unknown>[],
       dependenciesData: sampleDependencies as unknown as Record<string, unknown>[],
     });
+
+    if (onSyncSuccess) {
+      project.on('sync', () => {
+        onSyncSuccess();
+      });
+    }
 
     const gantt = new Gantt({
       appendTo: containerRef.current,
@@ -173,7 +198,7 @@ export const MilestoneGantt: React.FC<GanttProps> = ({ onTaskSelect }) => {
       gantt.destroy();
       ganttInstanceRef.current = null;
     };
-  }, [onTaskSelect]);
+  }, [projectId, onTaskSelect, onSyncSuccess]);
 
   return (
     <div className="milestone-gantt-wrapper">

@@ -8,6 +8,20 @@ export function App(): React.ReactElement {
   const [selectedTask, setSelectedTask] = useState<MilestoneTaskModel | null>(null);
   const [persona, setPersona] = useState<'client' | 'freelancer'>('client');
 
+  const handlePersonaChange = async (targetPersona: 'client' | 'freelancer') => {
+    setPersona(targetPersona);
+    try {
+      await fetch('/api/auth/persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ persona: targetPersona }),
+      });
+    } catch {
+      // offline dev fallback
+    }
+  };
+
   // Compute summary metrics from sample tasks
   const milestones = sampleTasks.filter((t) => t.milestone);
   const totalBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
@@ -98,7 +112,7 @@ export function App(): React.ReactElement {
             <span style={{ color: 'var(--slate)', padding: '0 0.35rem', fontWeight: 500 }}>Viewing as:</span>
             <button
               type="button"
-              onClick={() => setPersona('client')}
+              onClick={() => handlePersonaChange('client')}
               style={{
                 padding: '0.25rem 0.6rem',
                 borderRadius: '4px',
@@ -114,7 +128,7 @@ export function App(): React.ReactElement {
             </button>
             <button
               type="button"
-              onClick={() => setPersona('freelancer')}
+              onClick={() => handlePersonaChange('freelancer')}
               style={{
                 padding: '0.25rem 0.6rem',
                 borderRadius: '4px',
@@ -239,7 +253,7 @@ export function App(): React.ReactElement {
       >
         {/* Gantt Container */}
         <div style={{ minWidth: 0, height: '100%' }}>
-          <MilestoneGantt onTaskSelect={setSelectedTask} />
+          <MilestoneGantt projectId="proj_brand_launch" onTaskSelect={setSelectedTask} />
         </div>
 
         {/* Side Trust Panel Drawer Preview */}
