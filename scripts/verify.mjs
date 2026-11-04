@@ -6,6 +6,7 @@ const steps = [
   { name: 'ESLint', cmd: 'pnpm run lint' },
   { name: 'TypeScript Typecheck', cmd: 'pnpm run typecheck' },
   { name: 'Unit & Integration Tests (Vitest)', cmd: 'pnpm run test' },
+  { name: 'Build Web App', cmd: 'pnpm --filter @milestone/web build' },
   { name: 'E2E Tests (Playwright)', cmd: 'pnpm run test:e2e' },
 ];
 
@@ -27,4 +28,3 @@ for (const step of steps) {
 console.log('========================================');
 console.log('ALL VERIFICATION CHECKS PASSED!');
 console.log('========================================');
-
