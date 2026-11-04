@@ -1,0 +1,19 @@
+{
+  "name": "@milestone/evals",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@milestone/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "tsx": "^4.16.2",
+    "typescript": "^5.4.5"
+  }
+}
+

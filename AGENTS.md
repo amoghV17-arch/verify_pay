@@ -10,7 +10,7 @@ Winning means a complete, polished, working, honestly-presented product. Judges 
 
 ## Run mode
 
-RUN_MODE: auto
+RUN_MODE: milestone
 
 (The owner can change the line above to `milestone`, or say "switch to milestone mode" in chat.)
 
