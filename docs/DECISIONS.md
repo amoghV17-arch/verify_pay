@@ -43,3 +43,11 @@ Format for judgment calls: Context, Decision, Why.
 - ESLint: `9.5.0`
 - Prettier: `3.3.2`
 
+## M1 Bryntum Gantt Spike decisions
+
+### Bryntum Access and Packaging (Gate H4)
+- **Context:** Milestone uses Bryntum Gantt for the interactive timeline and milestone financial status. Anyone cloning the public GitHub repository must be able to run the application without proprietary license keys or gated registry credentials.
+- **Decision:** Use `@bryntum/gantt-trial` aliased as `@bryntum/gantt: "npm:@bryntum/gantt-trial@latest"` with `allowBuilds` enabled in `pnpm-workspace.yaml`.
+- **Why:** Complies with Gate H4, ensures the repository remains open and cloneable by hackathon judges, while providing the full Bryntum Gantt Pro API, timeline rendering, dependency tracking, and theme customization.
+
+

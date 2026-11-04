@@ -48,13 +48,13 @@ Learning checkpoint: yes
 ## M1 Bryntum Gantt spike
 Estimate: 4 h
 Goal: kill the biggest risk early. A themed Gantt renders in the SPA.
-- [ ] Gate H4: Bryntum access decision recorded (trial package for the public repo)
-- [ ] Gantt component renders a hardcoded 12-task project with dependencies and 4 milestones
-- [ ] Custom task fields: `milestoneId`, `amountCents`, `paymentStatus`, `acceptanceCriteria`, `deliverableType`
-- [ ] Milestone renderer shows the state glyph and amount; state classes for all 6 fill treatments
-- [ ] Theme tokens from `DESIGN.md` applied (colors, fonts)
-- [ ] Drag to reschedule and dependency creation work
-- [ ] Screenshot saved to `docs/screens/m1-gantt.png`
+- [x] Gate H4: Bryntum access decision recorded (trial package for the public repo)
+- [x] Gantt component renders a hardcoded 12-task project with dependencies and 4 milestones
+- [x] Custom task fields: `milestoneId`, `amountCents`, `paymentStatus`, `acceptanceCriteria`, `deliverableType`
+- [x] Milestone renderer shows the state glyph and amount; state classes for all 6 fill treatments
+- [x] Theme tokens from `DESIGN.md` applied (colors, fonts)
+- [x] Drag to reschedule and dependency creation work
+- [x] Screenshot saved to `docs/screens/m1-gantt.png`
 Acceptance: the Gantt looks intentional (not default), and renders with the trial package from a clean clone.
 Learning checkpoint: yes
 

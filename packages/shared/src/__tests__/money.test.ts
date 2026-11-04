@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { centsToDecimal, decimalToCents, distributePercentages } from '../money.js';
+import { centsToDecimal, decimalToCents, distributePercentages, formatCents } from '../money.js';
 
 describe('money utilities', () => {
   it('converts integer cents to decimal strings properly', () => {
@@ -7,6 +7,13 @@ describe('money utilities', () => {
     expect(centsToDecimal(50)).toBe('0.50');
     expect(centsToDecimal(0)).toBe('0.00');
     expect(centsToDecimal(105)).toBe('1.05');
+  });
+
+  it('formats integer cents as currency with thousand separators', () => {
+    expect(formatCents(120000)).toBe('$1,200.00');
+    expect(formatCents(18000)).toBe('$180.00');
+    expect(formatCents(1000000)).toBe('$10,000.00');
+    expect(formatCents(0)).toBe('$0.00');
   });
 
   it('converts decimal strings and numbers to integer cents', () => {
@@ -27,4 +34,3 @@ describe('money utilities', () => {
     expect(split3.reduce((a, b) => a + b, 0)).toBe(10001);
   });
 });
-

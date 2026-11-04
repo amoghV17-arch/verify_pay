@@ -7,15 +7,15 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-04T14:36:31.572Z
+Generated: 2026-11-04T17:31:04.609Z
 
-Overall (hours-weighted): [#...................]   5%   Day 1/5, 5 day(s) left   Schedule: AMBER
-Current milestone: M1 Bryntum Gantt spike
+Overall (hours-weighted): [##..................]  11%   Day 1/5, 5 day(s) left   Schedule: AMBER
+Current milestone: M2 Data layer and Gantt sync
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
 | M0 Foundation and automation | 3 | 10/10 | [####################] 100% |
-| M1 Bryntum Gantt spike | 4 | 0/7 | [....................]   0% |
+| M1 Bryntum Gantt spike | 4 | 7/7 | [####################] 100% |
 | M2 Data layer and Gantt sync | 4 | 0/7 | [....................]   0% |
 | M3 PayPal adapter, mock, and funding | 6 | 0/10 | [....................]   0% |
 | M4 Payout release | 4 | 0/7 | [....................]   0% |
@@ -47,3 +47,5 @@ Current milestone: M1 Bryntum Gantt spike
 Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-04 14:36 | M1 | overall 5% | AMBER | M0 foundation complete, pnpm verify passes
 - 2026-11-04 14:37 | M0 | Handoff: Built monorepo foundation with pnpm workspace (apps/web, apps/api, packages/shared, evals, scripts), strict TypeScript, ESLint, Prettier, Vitest, Playwright, secret scanner, docker fallback for db:up, CI, and Zod config guard. Not done: database schema and Bryntum Gantt (scheduled for M2 and M1). Next session must know: M1 is Bryntum Gantt spike (Gate H4: Bryntum trial package). Docker is absent on local system so database work uses DATABASE_URL.
+- 2026-11-04 17:31 | M2 | overall 11% | AMBER | M1 Bryntum Gantt spike complete with custom money model, design tokens, and E2E verification
+- 2026-11-04 23:01 | M1 | Handoff: Built Bryntum Gantt spike (Gate H4 trial package, MilestoneTaskModel with amountCents/paymentStatus/acceptanceCriteria/deliverableType, MilestoneGantt with custom timeline badges & money/status columns, design tokens with 6 milestone fill treatments, 12 tasks + 4 milestones sample dataset, responsive screenshots). Not done: live database sync and backend API endpoints (scheduled for M2). Next session must know: M2 will implement Drizzle schema, migrations, seed script, project/task CRUD, and Bryntum load/sync endpoints ignoring client-side money changes.
