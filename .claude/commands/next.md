@@ -1,0 +1,1 @@
+Read RUN_MODE in AGENTS.md. Run `node scripts/progress.mjs --write`, then take the first unchecked milestone in docs/MILESTONES.md and follow the work loop in AGENTS.md. If RUN_MODE is auto, continue to the next milestone unless a gate stops you. If it is milestone, STOP after the status report.

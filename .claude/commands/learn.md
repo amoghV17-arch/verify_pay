@@ -1,0 +1,1 @@
+Follow docs/LEARNING_MODE.md. Look at the git diff since the last learning checkpoint, list the concepts actually introduced, and ask ONE new question grounded in a real file of this repo. Do not block the build.
