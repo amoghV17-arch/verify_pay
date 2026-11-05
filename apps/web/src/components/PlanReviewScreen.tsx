@@ -286,6 +286,25 @@ export const PlanReviewScreen: React.FC<PlanReviewScreenProps> = ({
               >
                 AI Planned
               </span>
+              {(currentPlan.isFixture || initialPlan.isFixture || currentPlan.provider === 'fixture') && (
+                <span
+                  id="fixture-badge"
+                  style={{
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    border: '1px solid #fde68a',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                  title="Plan generated via recorded offline test fixtures"
+                >
+                  Fixture Replay
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--slate, #5b6b7c)', marginTop: '2px' }}>
               Total Budget: {formatCents(Math.round(initialPlan.totalBudget * 100))} • {currentPlan.tasks.length} tasks • {milestones.length} milestones
@@ -631,3 +650,4 @@ export const PlanReviewScreen: React.FC<PlanReviewScreenProps> = ({
     </div>
   );
 };
+

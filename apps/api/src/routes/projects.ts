@@ -7,7 +7,7 @@ import { createLlmPort } from '../ai/llmFactory.js';
 import { PlannerService } from '../ai/planner.js';
 import { validatePlanGraph, computeSchedule } from '../ai/scheduler.js';
 import { sseHub } from '../services/sse.js';
-import type { ComputedPlan } from '@milestone/shared';
+import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
   const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity } = schema;
@@ -177,7 +177,9 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     }
 
     try {
-      const llm = createLlmPort();
+      const llm =
+        (request.server as unknown as { llmAdapter?: LlmPort }).llmAdapter ||
+        createLlmPort((request.server as unknown as { appConfig?: AppConfig }).appConfig || {});
       const planner = new PlannerService(llm);
 
       const result = await planner.generatePlan({
@@ -202,6 +204,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         plan: result.plan,
         attempts: result.attempts,
         trace: result.trace,
+        isFixture: result.plan?.isFixture ?? (result.trace?.provider === 'fixture'),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

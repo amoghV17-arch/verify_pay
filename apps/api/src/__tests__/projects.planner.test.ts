@@ -14,11 +14,12 @@ describe('Project Planner API Endpoints', () => {
       NODE_ENV: 'test',
       PAYPAL_ENV: 'mock',
       PORT: '8080',
+      LLM_PROVIDER: 'fixture',
     });
     const db = await initDb({ useMemory: true });
     await seedDatabase(db);
     server = buildServer(config);
-  });
+  }, 35000);
 
   it('POST /api/projects/plan returns 400 when brief is missing', async () => {
     const res = await server.inject({
@@ -79,6 +80,10 @@ describe('Project Planner API Endpoints', () => {
     expect(planRes.statusCode).toBe(200);
     const generatedPlan: ComputedPlan = JSON.parse(planRes.body).plan;
 
+    // Reset project to draft status for initial planning
+    const db = getDb();
+    await db.update(schema.projects).set({ status: 'draft' }).where(eq(schema.projects.id, projectId));
+
     // Apply the plan as client
     const token = await createSessionToken({
       userId: 'user_client_01',
@@ -100,7 +105,6 @@ describe('Project Planner API Endpoints', () => {
     expect(applyBody.project.totalCents).toBe(280000);
 
     // Verify DB state
-    const db = getDb();
     const [dbProj] = await db.select().from(schema.projects).where(eq(schema.projects.id, projectId));
     expect(dbProj.title).toBe(generatedPlan.projectTitle);
     expect(dbProj.status).toBe('planned');

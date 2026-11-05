@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PlannerService } from '../ai/planner.js';
 import { FixtureAdapter } from '../ai/adapters/fixtureAdapter.js';
+import { createLlmPort } from '../ai/llmFactory.js';
 import {
   validatePlanGraph,
   computeSchedule,
@@ -178,6 +179,32 @@ describe('Planner AI Service & Scheduler', () => {
       expect(result.attempts).toBe(2); // 1 repair attempt was made
       expect(result.validationHistory.length).toBe(1); // 1 validation failure recorded
       expect(result.plan).toBeDefined();
+    });
+
+    it('createLlmPort enforces explicit LLM_PROVIDER=fixture and fails fast on missing keys', () => {
+      // 1. Explicit fixture returns FixtureAdapter
+      const fixtureLlm = createLlmPort({ LLM_PROVIDER: 'fixture' });
+      expect(fixtureLlm.provider).toBe('fixture');
+
+      // 2. Real provider without API key throws clear error
+      expect(() =>
+        createLlmPort({ LLM_PROVIDER: 'anthropic', LLM_API_KEY: '' })
+      ).toThrowError(/LLM_API_KEY is required for provider "anthropic"/);
+
+      expect(() =>
+        createLlmPort({ LLM_PROVIDER: 'gemini', LLM_API_KEY: '' })
+      ).toThrowError(/LLM_API_KEY is required for provider "gemini"/);
+
+      // 3. Missing provider throws configuration error
+      const origEnv = process.env.LLM_PROVIDER;
+      try {
+        delete process.env.LLM_PROVIDER;
+        expect(() => createLlmPort({})).toThrowError(/No LLM_PROVIDER configured/);
+      } finally {
+        if (origEnv !== undefined) {
+          process.env.LLM_PROVIDER = origEnv;
+        }
+      }
     });
   });
 });

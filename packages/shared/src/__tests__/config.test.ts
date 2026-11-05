@@ -36,5 +36,42 @@ describe('loadConfig and environment guards', () => {
       }),
     ).toThrowError(/PAYPAL_ENV must be either "mock" or "sandbox"/);
   });
+
+  it('strictly rejects LLM_PROVIDER=fixture in production environment', () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'production',
+        LLM_PROVIDER: 'fixture',
+      }),
+    ).toThrowError(/LLM_PROVIDER cannot be "fixture" in production/);
+  });
+
+  it('rejects real LLM provider with missing LLM_API_KEY', () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'development',
+        LLM_PROVIDER: 'anthropic',
+        LLM_API_KEY: '',
+      }),
+    ).toThrowError(/LLM_API_KEY must be provided when LLM_PROVIDER is "anthropic"/);
+  });
+
+  it('accepts real LLM provider when LLM_API_KEY is configured', () => {
+    const config = loadConfig({
+      NODE_ENV: 'development',
+      LLM_PROVIDER: 'anthropic',
+      LLM_API_KEY: 'sk-ant-test-key-12345',
+    });
+    expect(config.LLM_PROVIDER).toBe('anthropic');
+    expect(config.LLM_API_KEY).toBe('sk-ant-test-key-12345');
+  });
+
+  it('accepts explicit LLM_PROVIDER=fixture in development', () => {
+    const config = loadConfig({
+      NODE_ENV: 'development',
+      LLM_PROVIDER: 'fixture',
+    });
+    expect(config.LLM_PROVIDER).toBe('fixture');
+  });
 });
 

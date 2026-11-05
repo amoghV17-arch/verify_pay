@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-import { AppConfig, PayPalPort } from '@milestone/shared';
+import { AppConfig, PayPalPort, LlmPort } from '@milestone/shared';
 import { registerAuth } from './auth/index.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerGanttRoutes } from './routes/gantt.js';
@@ -9,9 +9,11 @@ import { registerFundRoutes } from './routes/fund.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerMilestoneRoutes } from './routes/milestones.js';
 import { createPayPalAdapter } from './paypal/index.js';
+import { createLlmPort } from './ai/llmFactory.js';
 
 export interface BuildServerOptions {
   paypalAdapter?: PayPalPort;
+  llmAdapter?: LlmPort;
 }
 
 export function buildServer(config: AppConfig, options?: BuildServerOptions): FastifyInstance {
@@ -48,6 +50,20 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   // Initialize PayPal Adapter
   const paypalAdapter = options?.paypalAdapter || createPayPalAdapter(config);
   server.decorate('paypalAdapter', paypalAdapter);
+
+  // Initialize LLM Adapter if configured or supplied
+  let llmAdapter = options?.llmAdapter;
+  if (!llmAdapter && config.LLM_PROVIDER) {
+    try {
+      llmAdapter = createLlmPort(config);
+    } catch {
+      // Defer throwing to explicit AI calls
+    }
+  }
+  if (llmAdapter) {
+    server.decorate('llmAdapter', llmAdapter);
+  }
+  server.decorate('appConfig', config);
 
   // Register Core Data and Sync Routes
   server.register(registerProjectRoutes);

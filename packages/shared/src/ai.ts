@@ -147,5 +147,7 @@ export interface ComputedPlan {
   tasks: ScheduledTask[];
   milestones: ScheduledMilestone[];
   promptVersion: string;
+  provider?: string;
+  isFixture?: boolean;
 }
 

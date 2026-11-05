@@ -149,8 +149,17 @@ export async function runPlannerEval(): Promise<PlannerEvalSummary> {
     mkdirSync(resultsDir, { recursive: true });
   }
 
-  writeFileSync(join(resultsDir, 'latest.json'), JSON.stringify(summary, null, 2), 'utf8');
-  console.log(`\nResults written to: ${join(resultsDir, 'latest.json')}`);
+  // Evals must never publish fixture results as model results
+  if (llm.provider === 'fixture') {
+    const fixtureFilePath = join(resultsDir, 'latest-fixture.json');
+    writeFileSync(fixtureFilePath, JSON.stringify(summary, null, 2), 'utf8');
+    console.log(`\n[EVAL] Running with replay fixtures. Results saved to: ${fixtureFilePath}`);
+    console.log(`[EVAL] Note: Per project policy, fixture runs are NEVER published to latest.json as model results.`);
+  } else {
+    const liveFilePath = join(resultsDir, 'latest.json');
+    writeFileSync(liveFilePath, JSON.stringify(summary, null, 2), 'utf8');
+    console.log(`\n[EVAL] Live model benchmark results written to: ${liveFilePath}`);
+  }
 
   return summary;
 }

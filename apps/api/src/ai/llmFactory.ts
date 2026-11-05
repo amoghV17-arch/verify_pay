@@ -15,14 +15,26 @@ export function createLlmPort(config: Partial<AppConfig> = {}): LlmPort {
     return customAdapter;
   }
 
-  const provider = config.LLM_PROVIDER || process.env.LLM_PROVIDER || 'fixture';
+  const provider = config.LLM_PROVIDER || process.env.LLM_PROVIDER;
   const apiKey = config.LLM_API_KEY || process.env.LLM_API_KEY || '';
   const model = config.LLM_MODEL || process.env.LLM_MODEL || '';
   const baseUrl = config.LLM_BASE_URL || process.env.LLM_BASE_URL || '';
 
-  // If no API key or provider is 'fixture', use FixtureAdapter
-  if (provider === 'fixture' || !apiKey) {
+  // Use fixtures only when LLM_PROVIDER=fixture is set explicitly
+  if (provider === 'fixture') {
     return new FixtureAdapter();
+  }
+
+  if (!provider) {
+    throw new Error(
+      '[LLM Configuration Error] No LLM_PROVIDER configured. Set LLM_PROVIDER=fixture explicitly to use test fixtures, or configure a real provider (anthropic, gemini, openai-compatible) with LLM_API_KEY.',
+    );
+  }
+
+  if (!apiKey) {
+    throw new Error(
+      `[LLM Configuration Error] LLM_API_KEY is required for provider "${provider}". Fixtures are only used when LLM_PROVIDER=fixture is set explicitly.`,
+    );
   }
 
   switch (provider) {
@@ -33,7 +45,7 @@ export function createLlmPort(config: Partial<AppConfig> = {}): LlmPort {
     case 'openai-compatible':
       return new OpenAiAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
     default:
-      return new FixtureAdapter();
+      throw new Error(`[LLM Configuration Error] Unsupported LLM_PROVIDER "${provider}".`);
   }
 }
 

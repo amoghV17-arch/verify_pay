@@ -29,7 +29,7 @@ export const EnvSchema = z
     DEMO_FREELANCER_PAYPAL_EMAIL: z.string().optional().default(''),
 
     // LLM provider
-    LLM_PROVIDER: z.enum(['anthropic', 'gemini', 'openai-compatible', 'fixture']).default('fixture'),
+    LLM_PROVIDER: z.enum(['anthropic', 'gemini', 'openai-compatible', 'fixture']).optional(),
     LLM_API_KEY: z.string().optional().default(''),
     LLM_MODEL: z.string().optional().default(''),
     LLM_BASE_URL: z.string().optional().default(''),
@@ -43,6 +43,32 @@ export const EnvSchema = z
   })
   .superRefine((data, ctx) => {
     // Unsafe combination guards
+    if (data.NODE_ENV === 'production') {
+      if (data.LLM_PROVIDER === 'fixture') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'CRITICAL SECURITY GUARD: LLM_PROVIDER cannot be "fixture" in production. Fixtures are strictly prohibited in production.',
+          path: ['LLM_PROVIDER'],
+        });
+      }
+      if (!data.LLM_PROVIDER) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'LLM_PROVIDER must be configured in production.',
+          path: ['LLM_PROVIDER'],
+        });
+      }
+    }
+
+    if (data.LLM_PROVIDER && data.LLM_PROVIDER !== 'fixture' && !data.LLM_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `LLM_API_KEY must be provided when LLM_PROVIDER is "${data.LLM_PROVIDER}".`,
+        path: ['LLM_API_KEY'],
+      });
+    }
+
     if (data.PAYPAL_ENV === 'sandbox' && data.NODE_ENV === 'production') {
       if (!data.PAYPAL_CLIENT_ID || !data.PAYPAL_CLIENT_SECRET) {
         ctx.addIssue({

@@ -297,6 +297,8 @@ ${input.brief.trim()}
         tasks: scheduledTasks,
         milestones: scheduledMilestones,
         promptVersion: this.promptVersion,
+        provider: response.provider,
+        isFixture: response.provider === 'fixture',
       };
 
       return {
