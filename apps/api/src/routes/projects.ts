@@ -10,7 +10,7 @@ import { sseHub } from '../services/sse.js';
 import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
-  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity } = schema;
+  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews } = schema;
 
   // List all projects accessible to current user
   server.get('/api/projects', async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -151,6 +151,69 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         tasks: taskRows,
         dependencies: depRows,
         milestones: milestoneRows,
+      });
+    }
+  );
+
+  // List activity trail for a project
+  server.get<{ Params: { id: string } }>(
+    '/api/projects/:id/activity',
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+      const activityRows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.projectId, id))
+        .orderBy(desc(activity.ts));
+      return reply.send({ success: true, activity: activityRows });
+    }
+  );
+
+  // Comprehensive audit export (JSON)
+  server.get<{ Params: { id: string } }>(
+    '/api/projects/:id/audit',
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+
+      const [proj] = await db.select().from(projects).where(eq(projects.id, id));
+      if (!proj) {
+        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
+      }
+
+      const projMilestones = await db.select().from(milestones).where(eq(milestones.projectId, id));
+      const projTasks = await db.select().from(tasks).where(eq(tasks.projectId, id));
+      const projLedger = await db
+        .select()
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.projectId, id))
+        .orderBy(desc(ledgerEntries.createdAt));
+      const projActivity = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.projectId, id))
+        .orderBy(desc(activity.ts));
+      const projDeliverables = await db
+        .select()
+        .from(deliverables)
+        .innerJoin(milestones, eq(deliverables.milestoneId, milestones.id))
+        .where(eq(milestones.projectId, id));
+      const projReviews = await db
+        .select()
+        .from(reviews)
+        .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
+        .where(eq(milestones.projectId, id));
+
+      return reply.send({
+        exportTimestamp: new Date().toISOString(),
+        project: proj,
+        milestones: projMilestones,
+        tasks: projTasks,
+        ledger: projLedger,
+        activity: projActivity,
+        deliverables: projDeliverables.map((d) => d.deliverables),
+        reviews: projReviews.map((r) => r.reviews),
       });
     }
   );

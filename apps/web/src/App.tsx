@@ -8,6 +8,11 @@ import { StartScreen } from './components/StartScreen.js';
 import { PlanReviewScreen } from './components/PlanReviewScreen.js';
 import { SubmitDeliverableModal, type DeliverableKind } from './components/SubmitDeliverableModal.js';
 import { AppealModal } from './components/AppealModal.js';
+import { LeftRail, type ProjectListItem } from './components/LeftRail.js';
+import { FundsMeter } from './components/FundsMeter.js';
+import { TrustPanel, type LedgerEntryItem } from './components/TrustPanel.js';
+import { FundModal } from './components/FundModal.js';
+import { CloseoutReceiptModal } from './components/CloseoutReceiptModal.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -16,19 +21,44 @@ interface LedgerSummary {
   holdingBalanceCents: number;
 }
 
+const DEMO_PROJECTS: ProjectListItem[] = [
+  {
+    id: 'proj_brand_launch',
+    title: 'Brand-site Redesign & Launch',
+    status: 'active',
+    totalCents: 600000,
+  },
+  {
+    id: 'proj_analytics',
+    title: 'Customer Retention Analytics',
+    status: 'planned',
+    totalCents: 300000,
+  },
+  {
+    id: 'proj_docs',
+    title: 'API Integration Docs',
+    status: 'draft',
+    totalCents: 150000,
+  },
+];
+
 export function App(): React.ReactElement {
-  const projectId = 'proj_brand_launch';
+  const [projectId, setProjectId] = useState('proj_brand_launch');
   const [viewMode, setViewMode] = useState<'workspace' | 'start' | 'review_plan'>('workspace');
   const [currentPlan, setCurrentPlan] = useState<ComputedPlan | null>(null);
   const [selectedTask, setSelectedTask] = useState<MilestoneTaskModel | null>(null);
   const [persona, setPersona] = useState<'client' | 'freelancer'>('client');
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary | null>(null);
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntryItem[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFunding, setIsFunding] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
   const [isObjecting, setIsObjecting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showAppealModal, setShowAppealModal] = useState(false);
+  const [showFundModal, setShowFundModal] = useState(false);
+  const [showCloseoutModal, setShowCloseoutModal] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [autonomyMode, setAutonomyMode] = useState<'manual' | 'assisted' | 'auto'>('assisted');
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -52,6 +82,7 @@ export function App(): React.ReactElement {
       if (res.ok) {
         const data = await res.json();
         setLedgerSummary(data.summary);
+        setLedgerEntries(data.entries || []);
       }
     } catch {
       // offline dev fallback
@@ -83,7 +114,7 @@ export function App(): React.ReactElement {
       es.addEventListener('milestone.paid', (event: MessageEvent) => {
         try {
           const payload = JSON.parse(event.data);
-          setNotification(`Milestone payout completed: ${formatCents(payload.amountCents ?? 0)} released to freelancer.`);
+          setNotification(`Milestone payout completed: ${formatCents(payload.amountCents ?? 0)} released to Arjun.`);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'paid' } as any) : prev));
           fetchLedger();
@@ -167,6 +198,7 @@ export function App(): React.ReactElement {
 
       const capData = await capRes.json();
       setNotification(`Project funded! Captured ${capData.captureId}. Holding balance: ${formatCents(capData.holdingBalanceCents)}`);
+      setShowFundModal(false);
       await fetchLedger();
       setRefreshKey((k) => k + 1);
     } catch (err: unknown) {
@@ -254,6 +286,27 @@ export function App(): React.ReactElement {
     }
   };
 
+  const handleExportAuditJson = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/audit`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch audit trail');
+      const data = await res.json();
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `milestone-audit-${projectId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setNotification('Audit trail JSON downloaded successfully.');
+    } catch {
+      setNotification('Error downloading audit export');
+    }
+  };
+
   // Compute summary metrics from sample tasks or live ledger
   const milestones = sampleTasks.filter((t) => t.milestone);
   const sampleBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
@@ -302,579 +355,357 @@ export function App(): React.ReactElement {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--chalk)', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Application Bar */}
-      <header
-        style={{
-          backgroundColor: 'var(--paper)',
-          borderBottom: '1px solid var(--line)',
-          padding: '0.75rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: 'var(--chalk)',
+        display: 'flex',
+        flexDirection: 'row',
+        fontFamily: 'Instrument Sans, sans-serif',
+      }}
+    >
+      {/* 1. Left Rail (Collapsible Projects Navigation) */}
+      <LeftRail
+        currentProjectId={projectId}
+        projects={DEMO_PROJECTS}
+        isCollapsed={isRailCollapsed}
+        onToggleCollapse={() => setIsRailCollapsed(!isRailCollapsed)}
+        onSelectProject={(id) => {
+          setProjectId(id);
+          setNotification(`Switched to project ${id}`);
         }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span
-              style={{
-                fontFamily: 'Bricolage Grotesque, sans-serif',
-                fontWeight: 700,
-                fontSize: '1.25rem',
-                color: 'var(--ink)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Milestone
-            </span>
-            <span
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                backgroundColor: 'rgba(31, 122, 140, 0.1)',
-                color: 'var(--tide)',
-                padding: '0.2rem 0.45rem',
-                borderRadius: '4px',
-              }}
-            >
-              PayPal Sandbox Active
-            </span>
-          </div>
-          <span style={{ color: 'var(--slate)', fontSize: '0.875rem' }}>/</span>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>
-            Brand-site Redesign & Launch
-          </span>
-        </div>
+        onNewPlan={() => setViewMode('start')}
+        onOpenCloseout={() => setShowCloseoutModal(true)}
+        onExportAudit={handleExportAuditJson}
+      />
 
-        {/* Persona Switcher & Balance Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          {/* Autonomy Mode Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
-            <span style={{ color: 'var(--slate)', fontWeight: 500 }}>Mode:</span>
-            <select
-              id="autonomy-mode-select"
-              value={autonomyMode}
-              disabled={persona !== 'client'}
-              onChange={(e) => handleAutonomyModeChange(e.target.value as 'manual' | 'assisted' | 'auto')}
-              style={{
-                padding: '0.3rem 0.5rem',
-                borderRadius: '4px',
-                border: '1px solid var(--line)',
-                backgroundColor: 'var(--paper)',
-                color: 'var(--ink)',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                cursor: persona === 'client' ? 'pointer' : 'default',
-              }}
-            >
-              <option value="manual">Manual (Client releases)</option>
-              <option value="assisted">Assisted (20s Window)</option>
-              <option value="auto">Auto (Immediate)</option>
-            </select>
-          </div>
-
-          {persona === 'client' && (
-            <button
-              id="new-plan-btn"
-              type="button"
-              onClick={() => setViewMode('start')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.35rem 0.75rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                backgroundColor: 'var(--tide)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              <span>✨</span>
-              <span>New Plan</span>
-            </button>
-          )}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'var(--chalk)',
-              padding: '0.25rem',
-              borderRadius: '6px',
-              border: '1px solid var(--line)',
-              gap: '0.25rem',
-            }}
-          >
-            <button
-              id="persona-client-btn"
-              onClick={() => handlePersonaChange('client')}
-              style={{
-                background: persona === 'client' ? 'var(--paper)' : 'transparent',
-                border: persona === 'client' ? '1px solid var(--line)' : 'none',
-                boxShadow: persona === 'client' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
-                color: persona === 'client' ? 'var(--ink)' : 'var(--slate)',
-                fontWeight: persona === 'client' ? 600 : 500,
-                padding: '0.35rem 0.65rem',
-                borderRadius: '4px',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <span>🏛️</span>
-              <span>Client (Acme Corp)</span>
-            </button>
-            <button
-              id="persona-freelancer-btn"
-              onClick={() => handlePersonaChange('freelancer')}
-              style={{
-                background: persona === 'freelancer' ? 'var(--paper)' : 'transparent',
-                border: persona === 'freelancer' ? '1px solid var(--line)' : 'none',
-                boxShadow: persona === 'freelancer' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
-                color: persona === 'freelancer' ? 'var(--ink)' : 'var(--slate)',
-                fontWeight: persona === 'freelancer' ? 600 : 500,
-                padding: '0.35rem 0.65rem',
-                borderRadius: '4px',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <span>⚡</span>
-              <span>Freelancer (Arjun)</span>
-            </button>
-          </div>
-
-          {/* Real-time PayPal Balance Chip */}
-          <div
-            id="balance-chip"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              backgroundColor: 'rgba(38, 107, 74, 0.08)',
-              border: '1px solid rgba(38, 107, 74, 0.25)',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--settled)' }} />
-            <span style={{ fontSize: '0.8125rem', color: 'var(--slate)', fontWeight: 500 }}>
-              Paid to date:
-            </span>
-            <strong style={{ fontSize: '0.875rem', color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
-              {formatCents(paidTotal)}
-            </strong>
-          </div>
-
-          {/* Fund Project Button for Client */}
-          {persona === 'client' && (
-            <button
-              id="fund-project-btn"
-              onClick={handleFundProject}
-              disabled={isFunding}
-              style={{
-                backgroundColor: 'var(--tide)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.45rem 0.85rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                cursor: isFunding ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                opacity: isFunding ? 0.7 : 1,
-              }}
-            >
-              <span>💳</span>
-              <span>{isFunding ? 'Funding...' : 'Fund with PayPal'}</span>
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* Funds Status Meter (Financial Summary Bar) */}
-      <section
-        aria-label="Funds status meter"
-        style={{
-          backgroundColor: 'var(--paper)',
-          borderBottom: '1px solid var(--line)',
-          padding: '0.75rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2.5rem',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--slate)' }}>
-            Total Budget
-          </span>
-          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-            {formatCents(totalBudget)}
-          </span>
-        </div>
-
-        <div style={{ height: '28px', width: '1px', backgroundColor: 'var(--line)' }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--settled)' }}>
-            Paid (Settled)
-          </span>
-          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
-            {formatCents(paidTotal)}
-          </span>
-        </div>
-
-        <div style={{ height: '28px', width: '1px', backgroundColor: 'var(--line)' }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--brass)' }}>
-            Holding Balance (Escrow)
-          </span>
-          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-            {formatCents(heldTotal)}
-          </span>
-        </div>
-
-        {/* Progress Fill Meter */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--slate)' }}>
-            <span>Project Settlement Progress</span>
-            <span>{totalBudget > 0 ? Math.round((paidTotal / totalBudget) * 100) : 0}%</span>
-          </div>
-          <div
-            style={{
-              height: '8px',
-              backgroundColor: 'var(--chalk)',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              display: 'flex',
-            }}
-          >
-            <div
-              style={{
-                width: `${totalBudget > 0 ? (paidTotal / totalBudget) * 100 : 0}%`,
-                backgroundColor: 'var(--settled)',
-                transition: 'width 0.4s ease',
-              }}
-            />
-            <div
-              style={{
-                width: `${totalBudget > 0 ? (heldTotal / totalBudget) * 100 : 0}%`,
-                backgroundColor: 'var(--brass)',
-                transition: 'width 0.4s ease',
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Notification Banner */}
-      {notification && (
-        <div
-          role="status"
-          aria-live="polite"
+      {/* Main App Container */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        {/* 2. Top Application Bar per DESIGN.md */}
+        <header
           style={{
-            backgroundColor: notification.startsWith('Error') ? 'rgba(200, 64, 47, 0.1)' : 'rgba(31, 122, 140, 0.1)',
+            backgroundColor: 'var(--paper)',
             borderBottom: '1px solid var(--line)',
-            padding: '0.625rem 1.5rem',
-            fontSize: '0.875rem',
-            color: notification.startsWith('Error') ? 'var(--flag)' : 'var(--tide)',
+            padding: '0.75rem 1.5rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
-          <span>{notification}</span>
-          <button
-            onClick={() => setNotification(null)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--tide)',
-              cursor: 'pointer',
-              fontWeight: 700,
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Main Workspace: Central Gantt + Side Trust Panel Preview */}
-      <main
-        style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '1fr 340px',
-          gap: '1rem',
-          padding: '1rem 1.5rem',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* Gantt Container */}
-        <div style={{ minWidth: 0, height: '100%' }}>
-          <MilestoneGantt projectId={projectId} refreshKey={refreshKey} onTaskSelect={setSelectedTask} />
-        </div>
-
-        {/* Side Trust Panel Drawer Preview */}
-        <aside
-          aria-label="Milestone Trust Panel"
-          style={{
-            backgroundColor: 'var(--paper)',
-            border: '1px solid var(--line)',
-            borderRadius: '8px',
-            padding: '1.25rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-            height: 'fit-content',
-            boxShadow: '0 1px 3px rgba(22, 32, 43, 0.05)',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--slate)', fontWeight: 600 }}>
-                Trust Panel
+          {/* Project Title and Sandbox Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span
+                style={{
+                  fontFamily: 'Bricolage Grotesque, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  color: 'var(--ink)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                Milestone
               </span>
               <span
-                className={`status-pill ${activeMilestone?.paymentStatus ?? 'paid'}`}
-                style={{ fontSize: '0.75rem' }}
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  backgroundColor: 'rgba(31, 122, 140, 0.1)',
+                  color: 'var(--tide)',
+                  padding: '0.2rem 0.45rem',
+                  borderRadius: '4px',
+                }}
               >
-                {activeMilestone?.paymentStatus?.replace(/_/g, ' ') ?? 'Paid'}
+                PayPal Sandbox Active
               </span>
             </div>
-            <h3
-              style={{
-                fontFamily: 'Bricolage Grotesque, sans-serif',
-                margin: '0.5rem 0 0 0',
-                fontSize: '1.05rem',
-                color: 'var(--ink)',
-              }}
-            >
-              {activeMilestone?.name ?? 'Milestone 1: Brand Strategy'}
-            </h3>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--slate)' }}>
-              Amount attached:{' '}
-              <strong style={{ color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatCents(activeMilestone?.amountCents ?? 120000)}
-              </strong>
-            </p>
+            <span style={{ color: 'var(--slate)', fontSize: '0.875rem' }}>/</span>
+            <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>
+              Brand-site Redesign & Launch
+            </span>
           </div>
 
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: '0.75rem' }}>
-            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)' }}>
-              Acceptance Criteria
-            </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {(activeMilestone?.acceptanceCriteria ?? [
-                { id: '1', description: 'At least 5 customer interview summaries documented', passed: true },
-                { id: '2', description: 'Positioning matrix compares 4 primary competitors', passed: true },
-              ]).map((c) => (
-                <li
-                  key={c.id}
-                  style={{
-                    fontSize: '0.8125rem',
-                    color: 'var(--ink)',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: c.passed ? 'var(--settled)' : 'var(--slate)',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {c.passed ? '✓' : '○'}
-                  </span>
-                  <span>{c.description}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: '0.75rem' }}>
-            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)' }}>
-              Money & Sandbox Settlement
-            </h4>
-            <div
-              style={{
-                fontSize: '0.8125rem',
-                backgroundColor: 'var(--chalk)',
-                padding: '0.75rem',
-                borderRadius: '6px',
-                border: '1px solid var(--line)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.35rem',
-              }}
-            >
-              <div>
-                <span style={{ color: 'var(--slate)' }}>Deliverable Type: </span>
-                <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                  {activeMilestone?.deliverableType ?? 'document'}
-                </span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--slate)' }}>Ledger Invariant: </span>
-                <span style={{ fontWeight: 600, color: 'var(--settled)' }}>Funded before start</span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--slate)' }}>PayPal Mode: </span>
-                <span style={{ fontWeight: 600 }}>Sandbox / Mock Safe</span>
-              </div>
+          {/* Controls: Autonomy Mode, Persona Switch ("Viewing as"), Freelancer Balance Chip */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', flexWrap: 'wrap' }}>
+            {/* Autonomy Mode Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+              <span style={{ color: 'var(--slate)', fontWeight: 500 }}>Mode:</span>
+              <select
+                id="autonomy-mode-select"
+                value={autonomyMode}
+                disabled={persona !== 'client'}
+                onChange={(e) => handleAutonomyModeChange(e.target.value as 'manual' | 'assisted' | 'auto')}
+                style={{
+                  padding: '0.3rem 0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid var(--line)',
+                  backgroundColor: 'var(--paper)',
+                  color: 'var(--ink)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  cursor: persona === 'client' ? 'pointer' : 'default',
+                }}
+              >
+                <option value="manual">Manual (Client releases)</option>
+                <option value="assisted">Assisted (20s Window)</option>
+                <option value="auto">Auto (Immediate)</option>
+              </select>
             </div>
 
-            {/* Release and Objection for Client Persona when Milestone is Approved */}
-            {activeMilestone?.paymentStatus === 'approved' && persona === 'client' && (
-              <>
-                <button
-                  id="release-milestone-btn"
-                  onClick={() =>
-                    handleReleasePayment(
-                      String(
-                        activeMilestone.id ||
-                          (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
-                          'ms-02'
-                      )
-                    )
-                  }
-                  disabled={isReleasing}
-                  style={{
-                    marginTop: '0.75rem',
-                    width: '100%',
-                    padding: '0.625rem 1rem',
-                    backgroundColor: 'var(--settled)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    cursor: isReleasing ? 'not-allowed' : 'pointer',
-                    opacity: isReleasing ? 0.7 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
-                  }}
-                >
-                  <span>🚀</span>
-                  <span>
-                    {isReleasing
-                      ? 'Releasing Payout...'
-                      : `Release Payment (${formatCents(activeMilestone.amountCents ?? 0)})`}
-                  </span>
-                </button>
-
-                <button
-                  id="object-milestone-btn"
-                  onClick={() =>
-                    handleObjectToRelease(
-                      String(
-                        activeMilestone.id ||
-                          (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
-                          'ms-02'
-                      )
-                    )
-                  }
-                  disabled={isObjecting}
-                  style={{
-                    marginTop: '0.5rem',
-                    width: '100%',
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#fff',
-                    color: '#dc2626',
-                    border: '1px solid #dc2626',
-                    borderRadius: '6px',
-                    fontWeight: 600,
-                    fontSize: '0.8125rem',
-                    cursor: isObjecting ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.35rem',
-                  }}
-                >
-                  <span>🛑</span>
-                  <span>{isObjecting ? 'Objecting…' : 'Object to Release (Request Changes)'}</span>
-                </button>
-              </>
+            {persona === 'client' && (
+              <button
+                id="new-plan-btn"
+                type="button"
+                onClick={() => setViewMode('start')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.35rem 0.75rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  backgroundColor: 'var(--paper)',
+                  color: 'var(--tide)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                <span>✨</span>
+                <span>New Plan</span>
+              </button>
             )}
 
-            {/* Submit Deliverable & Appeal for Freelancer Persona */}
-            {(activeMilestone?.paymentStatus === 'funded' || activeMilestone?.paymentStatus === 'changes_requested') && persona === 'freelancer' && (
-              <>
-                <button
-                  id="submit-deliverable-btn"
-                  onClick={() => setShowSubmitModal(true)}
-                  style={{
-                    marginTop: '0.75rem',
-                    width: '100%',
-                    padding: '0.625rem 1rem',
-                    backgroundColor: 'var(--tide)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
-                  }}
-                >
-                  <span>📤</span>
-                  <span>{activeMilestone?.paymentStatus === 'changes_requested' ? 'Submit Revision' : 'Submit Deliverable'}</span>
-                </button>
+            {/* Persona Switcher per DESIGN.md: Labeled "Viewing as" */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'var(--chalk)',
+                padding: '0.2rem',
+                borderRadius: '6px',
+                border: '1px solid var(--line)',
+                gap: '0.25rem',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--slate)',
+                  fontWeight: 500,
+                  padding: '0 0.4rem',
+                }}
+              >
+                Viewing as:
+              </span>
+              <button
+                id="persona-client-btn"
+                type="button"
+                onClick={() => handlePersonaChange('client')}
+                style={{
+                  background: persona === 'client' ? 'var(--paper)' : 'transparent',
+                  border: persona === 'client' ? '1px solid var(--line)' : 'none',
+                  boxShadow: persona === 'client' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
+                  color: persona === 'client' ? 'var(--ink)' : 'var(--slate)',
+                  fontWeight: persona === 'client' ? 600 : 500,
+                  padding: '0.3rem 0.6rem',
+                  borderRadius: '4px',
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span>🏛️</span>
+                <span>Client (Acme Corp)</span>
+              </button>
+              <button
+                id="persona-freelancer-btn"
+                type="button"
+                onClick={() => handlePersonaChange('freelancer')}
+                style={{
+                  background: persona === 'freelancer' ? 'var(--paper)' : 'transparent',
+                  border: persona === 'freelancer' ? '1px solid var(--line)' : 'none',
+                  boxShadow: persona === 'freelancer' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
+                  color: persona === 'freelancer' ? 'var(--ink)' : 'var(--slate)',
+                  fontWeight: persona === 'freelancer' ? 600 : 500,
+                  padding: '0.3rem 0.6rem',
+                  borderRadius: '4px',
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span>⚡</span>
+                <span>Freelancer (Arjun)</span>
+              </button>
+            </div>
 
-                {activeMilestone?.paymentStatus === 'changes_requested' && (
-                  <button
-                    id="appeal-decision-btn"
-                    onClick={() => setShowAppealModal(true)}
-                    style={{
-                      marginTop: '0.5rem',
-                      width: '100%',
-                      padding: '0.5rem 1rem',
-                      backgroundColor: '#d97706',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontWeight: 600,
-                      fontSize: '0.8125rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.35rem',
-                      boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
-                    }}
-                  >
-                    <span>⚖️</span>
-                    <span>Appeal Decision (Second Review)</span>
-                  </button>
-                )}
-              </>
+            {/* Freelancer Balance Chip (Target of settle moment per DESIGN.md) */}
+            <div
+              id="balance-chip"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                backgroundColor: 'rgba(29, 143, 90, 0.08)',
+                border: '1px solid rgba(29, 143, 90, 0.25)',
+                padding: '0.3rem 0.65rem',
+                borderRadius: '6px',
+              }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--settled)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--slate)', fontWeight: 500 }}>
+                Arjun:
+              </span>
+              <strong style={{ fontSize: '0.875rem', color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
+                {formatCents(paidTotal)}
+              </strong>
+            </div>
+
+            {/* Fund Project CTA for Client Persona */}
+            {persona === 'client' && (
+              <button
+                id="fund-project-btn"
+                type="button"
+                onClick={handleFundProject}
+                disabled={isFunding}
+                style={{
+                  backgroundColor: 'var(--tide)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  cursor: isFunding ? 'not-allowed' : 'pointer',
+                  opacity: isFunding ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+              >
+                <span>💳</span>
+                <span>{isFunding ? 'Funding...' : 'Fund with PayPal'}</span>
+              </button>
             )}
           </div>
-        </aside>
-      </main>
+        </header>
 
-      {/* Submit Deliverable Modal */}
+        {/* 3. Horizontal Funds Status Meter per DESIGN.md */}
+        <FundsMeter
+          totalBudget={totalBudget}
+          paidTotal={paidTotal}
+          heldTotal={heldTotal}
+          showFundAction={persona === 'client'}
+          onFundClick={() => setShowFundModal(true)}
+        />
+
+        {/* Notification Banner / aria-live polite */}
+        {notification && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              backgroundColor: notification.startsWith('Error')
+                ? 'rgba(200, 64, 47, 0.1)'
+                : 'rgba(31, 122, 140, 0.1)',
+              borderBottom: '1px solid var(--line)',
+              padding: '0.5rem 1.5rem',
+              fontSize: '0.8125rem',
+              color: notification.startsWith('Error') ? 'var(--flag)' : 'var(--tide)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{notification}</span>
+            <button
+              type="button"
+              onClick={() => setNotification(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--tide)',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* 4. Central Workspace: Bryntum Gantt + Trust Panel Drawer */}
+        <main
+          style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) 360px',
+            gap: '1rem',
+            padding: '1rem 1.5rem',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Bryntum Gantt View */}
+          <div style={{ minWidth: 0, height: '100%', overflow: 'hidden' }}>
+            <MilestoneGantt projectId={projectId} refreshKey={refreshKey} onTaskSelect={setSelectedTask} />
+          </div>
+
+          {/* Trust Panel Drawer */}
+          <TrustPanel
+            milestone={
+              activeMilestone
+                ? {
+                    id: String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'ms-01'),
+                    name: activeMilestone.name ?? 'Milestone',
+                    amountCents: activeMilestone.amountCents ?? 0,
+                    paymentStatus: activeMilestone.paymentStatus ?? 'funded',
+                    acceptanceCriteria: activeMilestone.acceptanceCriteria,
+                    deliverableType: activeMilestone.deliverableType,
+                  }
+                : null
+            }
+            projectId={projectId}
+            persona={persona}
+            ledgerEntries={ledgerEntries}
+            refreshKey={refreshKey}
+            isReleasing={isReleasing}
+            isObjecting={isObjecting}
+            onReleasePayment={handleReleasePayment}
+            onObjectToRelease={handleObjectToRelease}
+            onSubmitDeliverableClick={() => setShowSubmitModal(true)}
+            onAppealClick={() => setShowAppealModal(true)}
+            onOpenCloseout={() => setShowCloseoutModal(true)}
+          />
+        </main>
+      </div>
+
+      {/* 5. Modals & Dialogs */}
+      {showFundModal && (
+        <FundModal
+          projectId={projectId}
+          projectTitle="Brand-site Redesign & Launch"
+          milestones={milestones.map((m) => ({
+            id: String(m.id || m.name),
+            name: m.name ?? 'Milestone',
+            amountCents: m.amountCents ?? 0,
+          }))}
+          totalBudget={totalBudget}
+          isFunding={isFunding}
+          onConfirmFund={handleFundProject}
+          onClose={() => setShowFundModal(false)}
+        />
+      )}
+
       {showSubmitModal && activeMilestone && (
         <SubmitDeliverableModal
           milestoneId={String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'm1')}
@@ -889,7 +720,6 @@ export function App(): React.ReactElement {
         />
       )}
 
-      {/* Appeal Modal */}
       {showAppealModal && activeMilestone && (
         <AppealModal
           milestoneId={String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'm1')}
@@ -900,6 +730,25 @@ export function App(): React.ReactElement {
             fetchLedger();
             setRefreshKey((k) => k + 1);
           }}
+        />
+      )}
+
+      {showCloseoutModal && (
+        <CloseoutReceiptModal
+          projectId={projectId}
+          projectTitle="Brand-site Redesign & Launch"
+          clientName="Acme Corp"
+          freelancerName="Arjun"
+          totalBudget={totalBudget}
+          paidTotal={paidTotal}
+          heldTotal={heldTotal}
+          milestones={milestones.map((m) => ({
+            id: String(m.id || m.name),
+            name: m.name ?? 'Milestone',
+            amountCents: m.amountCents ?? 0,
+            paymentStatus: m.paymentStatus ?? 'funded',
+          }))}
+          onClose={() => setShowCloseoutModal(false)}
         />
       )}
     </div>

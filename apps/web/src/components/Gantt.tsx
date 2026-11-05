@@ -113,6 +113,11 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
       startDate: new Date('2026-11-08'),
       endDate: new Date('2026-12-28'),
       viewPreset: 'weekAndDayLetter',
+      subGridConfigs: {
+        locked: {
+          width: 440,
+        },
+      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       taskRenderer: ({ taskRecord, renderData }: { taskRecord: TaskModel; renderData: any }) => {
         const model = taskRecord as MilestoneTaskModel;

@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T17:19:32.420Z
+Generated: 2026-11-05T18:03:31.158Z
 
-Overall (hours-weighted): [############........]  59%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M8 Trust Panel and product UI
+Overall (hours-weighted): [##############......]  69%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M9 The settle moment and polish (feature freeze)
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -22,7 +22,7 @@ Current milestone: M8 Trust Panel and product UI
 | M5 AI layer and Planner | 5 | 8/8 | [####################] 100% |
 | M6 Milestone lifecycle and Reviewer agent | 7 | 8/8 | [####################] 100% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
-| M8 Trust Panel and product UI | 6 | 0/7 | [....................]   0% |
+| M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 0/5 | [....................]   0% |
 | M10 Hardening, evals, failure drills | 5 | 0/12 | [....................]   0% |
 | M11 Deploy | 3 | 0/7 | [....................]   0% |
@@ -67,3 +67,8 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - Built: Autonomy modes (manual, assisted, auto); AutonomySchedulerService for background assisted release window processing; client objection (approved -> changes_requested) halting auto-release; freelancer appeal flow with independent second review (appeal.v1.md, max 1 appeal); AppealModal and UI controls; 13 unit tests; 4 Playwright E2E tests.
   - Deliberately unfinished: M8 Trust Panel and product UI (full layout, funds meter, audit export, detailed review traces).
   - Next session note: Autonomy mode is selectable per project via PATCH /api/projects/:id or the header selector. AutonomySchedulerService runs automatically on API startup.
+- 2026-11-05 18:03 | M9 | overall 69% | GREEN | M8 complete: Trust Panel with 5 sections, FundsMeter, LeftRail, FundModal, CloseoutReceiptModal with audit trail JSON export, and responsive verification (1440/1024/390 px). pnpm verify passing (176 unit tests, 14 E2E tests).
+- Handoff (M8 -> M9):
+  - Built: Trust Panel with 5 designated sections (status & next step, acceptance criteria with expandable evidence, AI review trace with duration-tracked tool steps and injection warnings, money & sandbox settlement with ledger references, and activity trail with actor glyphs); FundsMeter with 3-segment visual financial progress bar and Project Protection Guarantee trigger; LeftRail collapsible project navigation; CloseoutReceiptModal with audit trail JSON export (`/api/projects/:id/audit`); responsive screenshot review at 1440, 1024, and 390 px; 3 unit tests (`trustPanel.test.ts`) and full Playwright E2E suite (`trustPanel.spec.ts`).
+  - Deliberately unfinished: M9 Settle animation (700ms sweep + 900ms coin travel to Arjun's balance chip), count-up counter, and feature freeze cleanup.
+  - Next session note: M9 focuses on the memorable settle moment when milestone moves to paid status. All core product screens, modals, and audit trails are complete and verified.

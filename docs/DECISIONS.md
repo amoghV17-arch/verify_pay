@@ -174,5 +174,23 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Implemented an appeal flow capped at 1 appeal per milestone (`changes_requested -> appealed`). A dedicated prompt (`appeal.v1.md`) performs a second independent review with access to the original deliverable, previous review results, and the freelancer's appeal explanation (enclosed in untrusted delimiters). If the appeal review upholds the work (`release`), it transitions to `approved`; if it disagrees or remains unclear, it transitions to `awaiting_client` for human client resolution.
 - **Why:** Provides procedural justice for freelancers while preventing endless appeal loops and ensuring all disputes escalate to human decision-makers when independent AI reviews disagree.
 
+## M8 Trust Panel and Product UI Decisions
+
+### Five-Section Trust Panel Drawer with Collapsible Evidence and Raw Trace
+- **Context:** `docs/DESIGN.md` requires making it instantly obvious "what is done, what is paid, and what is waiting on whom", without overwhelming non-financial users or hiding technical audit data.
+- **Decision:** Structured the Trust Panel into 5 distinct, predictable sections: (1) Status & Next Step summary sentence; (2) Acceptance Criteria checklist with status glyphs and collapsible evidence drawers; (3) AI Review with model tag, confidence meter, injection warnings, and duration-tracked tool steps; (4) Money & Sandbox Settlement with deliverable types, ledger invariants, and PayPal transaction references; and (5) Chronological Activity Trail with actor badges.
+- **Why:** Delivers radical transparency and trust for both client and freelancer personas, allowing high-level overview while maintaining deep inspectability into AI reasoning and payment ledger entries.
+
+### Comprehensive Audit Trail Export and Closeout Receipt
+- **Context:** Projects concluding or preparing for compliance review need an immutable record of briefs, planned milestones, deliverables, AI evaluations, and PayPal ledger entries.
+- **Decision:** Built `GET /api/projects/:id/audit` emitting complete JSON representations of the project, milestones, tasks, deliverables, reviews, ledger entries, and activity logs. Exposed this via a dedicated Closeout Receipt modal with single-click download.
+- **Why:** Provides a permanent, portable compliance artifact verifying that payouts were released strictly in accordance with verifiable criteria and PayPal transactions.
+
+### Bryntum Locked SubGrid Constraints for Viewport Balance
+- **Context:** Adding a collapsible left rail and right Trust Panel reduced the desktop viewport width available to Bryntum Gantt. By default, Bryntum locked columns expanded to 739px, starving the normal timeline subgrid and pushing milestone dependency SVG lines off-screen.
+- **Decision:** Configured `subGridConfigs: { locked: { width: 440 } }` in Bryntum Gantt, establishing a balanced division between task table data and the interactive timeline canvas.
+- **Why:** Ensures dependency lines, timeline badges, and milestone diamonds remain prominently visible and interactive across 1440px desktop and 1024px tablet viewports.
+
+
 
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, or, and } from 'drizzle-orm';
+import { eq, or, and, desc } from 'drizzle-orm';
 import { requireRole } from '../auth/index.js';
 import { ReleaseService } from '../services/release.js';
 import { ReconcilerService } from '../services/reconciler.js';
@@ -116,6 +116,44 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
       });
 
       return reply.status(202).send({ deliverableId, status: 'in_review' });
+    }
+  );
+
+  // GET /api/milestones/:id/reviews (Fetch AI review results & deliverable trace)
+  server.get<{ Params: { id: string } }>(
+    '/api/milestones/:id/reviews',
+    async (request, reply) => {
+      const { id: milestoneIdParam } = request.params;
+      const db = getDb();
+
+      const [milestone] = await db
+        .select()
+        .from(milestones)
+        .where(or(eq(milestones.id, milestoneIdParam), eq(milestones.taskId, milestoneIdParam)))
+        .limit(1);
+
+      if (!milestone) {
+        return reply.status(404).send({ error: 'Milestone not found' });
+      }
+
+      const milestoneReviews = await db
+        .select()
+        .from(reviews)
+        .where(eq(reviews.milestoneId, milestone.id))
+        .orderBy(desc(reviews.createdAt));
+
+      const milestoneDeliverables = await db
+        .select()
+        .from(deliverables)
+        .where(eq(deliverables.milestoneId, milestone.id))
+        .orderBy(desc(deliverables.submittedAt));
+
+      return reply.send({
+        success: true,
+        milestoneId: milestone.id,
+        reviews: milestoneReviews,
+        deliverables: milestoneDeliverables,
+      });
     }
   );
 

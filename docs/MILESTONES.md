@@ -142,13 +142,13 @@ Learning checkpoint: no
 ## M8 Trust Panel and product UI
 Estimate: 6 h
 Goal: one coherent product experience.
-- [ ] Layout per `DESIGN.md`: left rail, funds meter, Gantt, Trust Panel
-- [ ] Trust Panel sections: status, criteria, AI review with trace, money, history
-- [ ] Persona switch ("Viewing as"), freelancer balance chip
-- [ ] Fund screen, Submit modal, Closeout receipt, audit export (JSON)
-- [ ] Empty states, error states, loading skeletons, copy per guidelines
-- [ ] Keyboard and focus pass, `aria-live` announcements
-- [ ] Screenshot review at 1440, 1024, and 390 px; fix issues
+- [x] Layout per `DESIGN.md`: left rail, funds meter, Gantt, Trust Panel
+- [x] Trust Panel sections: status, criteria, AI review with trace, money, history
+- [x] Persona switch ("Viewing as"), freelancer balance chip
+- [x] Fund screen, Submit modal, Closeout receipt, audit export (JSON)
+- [x] Empty states, error states, loading skeletons, copy per guidelines
+- [x] Keyboard and focus pass, `aria-live` announcements
+- [x] Screenshot review at 1440, 1024, and 390 px; fix issues
 Acceptance: a new person can complete the flow without instructions.
 Learning checkpoint: no
 
