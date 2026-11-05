@@ -102,3 +102,21 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** Computing project holding balances inside an open transaction caused lock contention and timeouts in single-connection/in-memory PostgreSQL runtimes (PGlite WASM).
 - **Decision:** Extended `LedgerService.getProjectLedgerSummary` to accept an optional transaction executor parameter `tx`.
 - **Why:** Eliminates transaction deadlocks and ensures holding balance checks see uncommitted transaction state when needed.
+
+## M5 AI Layer and Planner decisions
+
+### Multi-Adapter LlmPort Architecture and Hermetic Testing
+- **Context:** Project requires AI planning and review capabilities that can run against Anthropic, Google Gemini, OpenAI-compatible APIs, or offline in CI/eval without real tokens.
+- **Decision:** Built `LlmPort` interface and `createLlmPort` factory with 4 adapters (`AnthropicAdapter`, `GeminiAdapter`, `OpenAiAdapter`, `FixtureAdapter`). `FixtureAdapter` is default when `LLM_PROVIDER=fixture` or `LLM_API_KEY` is omitted.
+- **Why:** Ensures 100% hermetic CI test execution, zero test flakiness, and zero dependency on live LLM network availability for build verification, while enabling seamless switching to frontier models for live demos.
+
+### Two-Stage Validation and Self-Repair Loop
+- **Context:** LLMs may occasionally produce invalid JSON, violate topological constraints, include subjective adjectives in acceptance criteria, or propose payment splits that don't sum to 100%.
+- **Decision:** Implemented a two-stage validation pipeline: Stage 1 (Zod schema) + Stage 2 (DAG cycle detection, reachability, milestone percentage bounds, and vague-word regex). On any failure, the exact validation issues are fed back to the LLM in a structured repair prompt, supporting up to 2 repair attempts (3 attempts total).
+- **Why:** Catches subtle edge cases automatically before user review, guaranteeing clean DAG graphs and objective observable criteria.
+
+### Topological Working-Day Scheduler and Hamilton Allocation
+- **Context:** Plans generated from briefs specify task durations (in 0.5-day steps) and finish-to-start dependencies, but need exact calendar dates for Bryntum Gantt without scheduling work on weekends.
+- **Decision:** Computed earliest task start dates by topologically traversing the DAG, skipping weekends via `addWorkingDays`, and allocated integer cents across milestones using Hamilton's largest-remainder method.
+- **Why:** Eliminates rounding drift, preserves invariant `sum(milestones.amount_cents) === project.total_cents`, and creates realistic business-day Gantt schedules.
+

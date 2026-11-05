@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import type { ComputedPlan } from '@milestone/shared';
 import { formatCents } from '@milestone/shared';
 import { MilestoneGantt } from './components/Gantt.js';
 import { MilestoneTaskModel } from './models/MilestoneTaskModel.js';
 import { sampleTasks } from './data/sampleProject.js';
+import { StartScreen } from './components/StartScreen.js';
+import { PlanReviewScreen } from './components/PlanReviewScreen.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -13,6 +16,8 @@ interface LedgerSummary {
 
 export function App(): React.ReactElement {
   const projectId = 'proj_brand_launch';
+  const [viewMode, setViewMode] = useState<'workspace' | 'start' | 'review_plan'>('workspace');
+  const [currentPlan, setCurrentPlan] = useState<ComputedPlan | null>(null);
   const [selectedTask, setSelectedTask] = useState<MilestoneTaskModel | null>(null);
   const [persona, setPersona] = useState<'client' | 'freelancer'>('client');
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary | null>(null);
@@ -201,6 +206,34 @@ export function App(): React.ReactElement {
       ? selectedTask
       : (milestones[0] as unknown as MilestoneTaskModel);
 
+  if (viewMode === 'start') {
+    return (
+      <StartScreen
+        onPlanGenerated={(plan) => {
+          setCurrentPlan(plan);
+          setViewMode('review_plan');
+        }}
+        onCancel={() => setViewMode('workspace')}
+      />
+    );
+  }
+
+  if (viewMode === 'review_plan' && currentPlan) {
+    return (
+      <PlanReviewScreen
+        initialPlan={currentPlan}
+        projectId={projectId}
+        onPlanApproved={(_applied) => {
+          setNotification('Plan approved! Milestones and tasks saved to project.');
+          setViewMode('workspace');
+          setRefreshKey((k) => k + 1);
+          fetchLedger();
+        }}
+        onBack={() => setViewMode('start')}
+      />
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--chalk)', display: 'flex', flexDirection: 'column' }}>
       {/* Top Application Bar */}
@@ -250,6 +283,29 @@ export function App(): React.ReactElement {
 
         {/* Persona Switcher & Balance Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {persona === 'client' && (
+            <button
+              id="new-plan-btn"
+              type="button"
+              onClick={() => setViewMode('start')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                backgroundColor: 'var(--tide)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              <span>✨</span>
+              <span>New Plan</span>
+            </button>
+          )}
           <div
             style={{
               display: 'flex',
