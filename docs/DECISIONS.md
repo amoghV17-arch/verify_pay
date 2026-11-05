@@ -120,3 +120,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Computed earliest task start dates by topologically traversing the DAG, skipping weekends via `addWorkingDays`, and allocated integer cents across milestones using Hamilton's largest-remainder method.
 - **Why:** Eliminates rounding drift, preserves invariant `sum(milestones.amount_cents) === project.total_cents`, and creates realistic business-day Gantt schedules.
 
+## Pre-M6 Hardening and Security Guards
+
+### LLM Fixture Default and Fail-Fast Configuration Guard
+- **Context:** Tests and offline development use recorded fixtures, but silent fallbacks could hide missing API keys or mistakenly run test fixtures in production or benchmarks.
+- **Decision:** `FixtureAdapter` is strictly gated on explicit `LLM_PROVIDER=fixture`; real providers (`anthropic`, `gemini`, `openai-compatible`) fail fast with a descriptive error when `LLM_API_KEY` is missing. Production environment refuses `LLM_PROVIDER=fixture` via Zod schema guard. Plan review UI displays a prominent "Fixture Replay" badge, and eval benchmark outputs are partitioned to `latest-fixture.json` so model benchmark files (`latest.json`) never publish fixture data.
+- **Why:** Eliminates silent fallback vulnerabilities, prevents deploying mock AI to production, and guarantees evaluation integrity.
+
+### Gantt Sync Tamper Guards, Milestone Task Locking, and Role Enforcement
+- **Context:** Bryntum Gantt allows client-side drag-and-drop, task creation, and deletion, which malicious or erroneous client payloads could use to add/delete milestone markers or alter acceptance criteria on funded projects.
+- **Decision:** Enforced strict role checking (`client` or `freelancer`) on all sync mutations, blocked creating milestone-linked or zero-duration tasks via sync, blocked deleting milestone-linked tasks, stripped/ignored `milestoneId` on all updates, and locked acceptance criteria modifications once the project is in `funded`, `active`, or `closed` status.
+- **Why:** Ensures financial milestones and verifiable criteria can only be generated and agreed through the authenticated planning and funding lifecycle, preserving core integrity against client-side tampering.
+
+### Attempt-Numbered Idempotency Keys and Batch IDs for Payout Retries
+- **Context:** When a milestone payout release fails (e.g. transient PayPal outage or insufficient account balance), the milestone is returned to `approved` to allow retries. Re-executing with identical `sender_batch_id` or `idempotencyKey` triggers PayPal duplicate batch errors and PostgreSQL unique constraint conflicts.
+- **Decision:** Computed release attempt numbers dynamically from recorded `release_failed` ledger entries (`attempt = failedEntries.length + 1`), appending `:att<N>` to `idempotencyKey` and `_att<N>` to `sender_batch_id` on retries (`release:<id>:att<N>` and `ms_<id>_att<N>`). Webhook handlers and reconciler strip the retry suffix to accurately map back to the parent milestone.
+- **Why:** Allows failed payouts to be retried safely and cleanly without violating PayPal duplicate batch restrictions or database unique constraints, while the database-level partial unique index (`one_released_per_milestone`) guarantees at most one payout can ever succeed.
+

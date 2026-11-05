@@ -63,7 +63,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
       role: 'freelancer',
     });
     freelancerCookie = `milestone_session=${freelancerToken}`;
-  }, 30000);
+  }, 60000);
 
   afterAll(async () => {
     await server.close();

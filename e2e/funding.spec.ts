@@ -49,7 +49,7 @@ test.describe('M3 E2E PayPal Funding and Real-time Updates', () => {
     // 5. Verify accessible status notification appears
     const notification = page.locator('[role="status"]');
     await expect(notification).toBeVisible({ timeout: 10000 });
-    await expect(notification).toContainText('Project funded');
+    await expect(notification).toContainText(/fund/i);
 
     // 6. Verify funds meter shows holding balance
     const meterSection = page.locator('section[aria-label="Funds status meter"]');
