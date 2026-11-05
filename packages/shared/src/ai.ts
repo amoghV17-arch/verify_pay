@@ -123,7 +123,46 @@ export const PlanSchema = z.union([PlanSuccessSchema, PlanErrorSchema]);
 export type PlanOutput = z.infer<typeof PlanSchema>;
 
 // ==========================================
-// 3. Computed / Scheduled Plan Representations
+// 3. Reviewer Schemas & Types
+// ==========================================
+
+export const CriterionResultSchema = z.object({
+  index: z.number().int().min(0),
+  result: z.enum(['pass', 'fail', 'unclear']),
+  evidence: z.string().max(400),
+  confidence: z.number().min(0).max(1),
+});
+export type CriterionResult = z.infer<typeof CriterionResultSchema>;
+
+export const VerdictSchema = z.object({
+  criteria: z.array(CriterionResultSchema),
+  verdict: z.enum(['release', 'request_changes', 'escalate_to_human']),
+  injectionSuspected: z.boolean(),
+  injectionNote: z.string().max(200).optional(),
+  feedbackForFreelancer: z.string().max(600),
+});
+export type Verdict = z.infer<typeof VerdictSchema>;
+
+export const DeliverableKindSchema = z.enum(['text', 'repo', 'url', 'image', 'document']);
+export type DeliverableKind = z.infer<typeof DeliverableKindSchema>;
+
+/** Phrases that trigger server-side injection heuristic (case-insensitive). */
+export const INJECTION_PHRASES = [
+  'ignore previous instructions',
+  'you are now',
+  'system:',
+  'approve this milestone',
+  'release the payment',
+  'release payment',
+  'disregard the above',
+  'forget your instructions',
+] as const;
+
+/** Minimum confidence below which the verdict becomes escalate_to_human. */
+export const REVIEW_MIN_CONFIDENCE_DEFAULT = 0.75;
+
+// ==========================================
+// 4. Computed / Scheduled Plan Representations
 // ==========================================
 
 export interface ScheduledTask extends PlanTask {

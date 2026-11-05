@@ -6,6 +6,7 @@ import { MilestoneTaskModel } from './models/MilestoneTaskModel.js';
 import { sampleTasks } from './data/sampleProject.js';
 import { StartScreen } from './components/StartScreen.js';
 import { PlanReviewScreen } from './components/PlanReviewScreen.js';
+import { SubmitDeliverableModal, type DeliverableKind } from './components/SubmitDeliverableModal.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -24,6 +25,7 @@ export function App(): React.ReactElement {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFunding, setIsFunding] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   const fetchLedger = useCallback(async () => {
@@ -318,6 +320,7 @@ export function App(): React.ReactElement {
             }}
           >
             <button
+              id="persona-client-btn"
               onClick={() => handlePersonaChange('client')}
               style={{
                 background: persona === 'client' ? 'var(--paper)' : 'transparent',
@@ -338,6 +341,7 @@ export function App(): React.ReactElement {
               <span>Client (Acme Corp)</span>
             </button>
             <button
+              id="persona-freelancer-btn"
               onClick={() => handlePersonaChange('freelancer')}
               style={{
                 background: persona === 'freelancer' ? 'var(--paper)' : 'transparent',
@@ -684,9 +688,52 @@ export function App(): React.ReactElement {
                 </span>
               </button>
             )}
+
+            {/* Submit Deliverable Button for Freelancer Persona */}
+            {(activeMilestone?.paymentStatus === 'funded' || activeMilestone?.paymentStatus === 'changes_requested') && persona === 'freelancer' && (
+              <button
+                id="submit-deliverable-btn"
+                onClick={() => setShowSubmitModal(true)}
+                style={{
+                  marginTop: '0.75rem',
+                  width: '100%',
+                  padding: '0.625rem 1rem',
+                  backgroundColor: 'var(--tide)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
+                }}
+              >
+                <span>📤</span>
+                <span>Submit Deliverable</span>
+              </button>
+            )}
           </div>
         </aside>
       </main>
+
+      {/* Submit Deliverable Modal */}
+      {showSubmitModal && activeMilestone && (
+        <SubmitDeliverableModal
+          milestoneId={String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'm1')}
+          milestoneName={activeMilestone.name ?? 'Milestone'}
+          projectId={projectId}
+          deliverableType={activeMilestone.deliverableType as DeliverableKind}
+          onClose={() => setShowSubmitModal(false)}
+          onSubmitted={() => {
+            fetchLedger();
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
