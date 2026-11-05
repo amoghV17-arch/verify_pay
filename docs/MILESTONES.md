@@ -172,6 +172,12 @@ Goal: it works every time, and we can prove it.
 - [ ] Performance check: review under 40 seconds in normal cases; plan under 20 seconds
 - [ ] `pnpm demo:reset` restores a clean demo project and personas in under 10 seconds
 - [ ] Accessibility audit (axe or similar) with no serious issues
+- [ ] Run ledger and concurrency tests against real Postgres in CI and via DATABASE_URL_TEST
+- [ ] Project-row lock in the release transaction and count release_pending as reserved
+- [ ] Verify the webhook signature request does not re-serialize the event body
+- [ ] Dependency audit and upgrade decision
+- [ ] Persist PGlite data locally
+- [ ] Add missing decision records (auth and CSRF, SSE, mock adapter fidelity, secret scanner)
 Acceptance: three consecutive clean runs of the full demo path.
 Learning checkpoint: yes (failure drills)
 

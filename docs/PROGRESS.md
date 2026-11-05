@@ -7,7 +7,7 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T11:49:35.731Z
+Generated: 2026-11-05T15:55:44.721Z
 
 Overall (hours-weighted): [#########...........]  43%   Day 2/5, 4 day(s) left   Schedule: GREEN
 Current milestone: M6 Milestone lifecycle and Reviewer agent
@@ -24,7 +24,7 @@ Current milestone: M6 Milestone lifecycle and Reviewer agent
 | M7 Autonomy modes, scheduler, appeal | 3 | 0/5 | [....................]   0% |
 | M8 Trust Panel and product UI | 6 | 0/7 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 0/5 | [....................]   0% |
-| M10 Hardening, evals, failure drills | 5 | 0/6 | [....................]   0% |
+| M10 Hardening, evals, failure drills | 5 | 0/12 | [....................]   0% |
 | M11 Deploy | 3 | 0/7 | [....................]   0% |
 | M12 Documentation and submission assets | 4 | 0/6 | [....................]   0% |
 | M13 Video and submission | 4 | 0/5 | [....................]   0% |
@@ -59,3 +59,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-05 11:49 | M6 | overall 43% | GREEN | M5 complete: AI layer, Planner service, validation repair loop, Start & Plan Review screens, evals runner passed 100%
 - 2026-11-05 17:21 | M5 | Handoff: Built AI layer and Planner service (LlmPort with Anthropic, Gemini, OpenAI, Fixture adapters; planner.v1.md prompt, Zod schemas, 2-attempt repair loop, DAG topological sorting, vague-criteria filter, and Hamilton largest-remainder cents allocation). Added Start and Plan Review screens in web app with live percentage meter, editable criteria, and Bryntum Gantt preview. Evals benchmark passed 100% across 6 briefs (evals/results/latest.json). Not done: Reviewer agent, deliverable submission modal, and evidence verification (scheduled for M6). Next session must know: M6 implements stateMachine transitions in packages/shared, deliverable submission with SSRF guard, and Reviewer agent loop with evidence gathering.
 
+- 2026-11-05 15:55 | M6 | overall 43% | GREEN | Completed pre-M6 hardening (LLM fixture default, Gantt sync tamper guard, payout retries) and deferred hardening items under M10.
