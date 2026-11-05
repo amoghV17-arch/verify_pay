@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
+export { eq, and, or, sql, lte, isNotNull } from 'drizzle-orm';
 
 const { Pool } = pg;
 

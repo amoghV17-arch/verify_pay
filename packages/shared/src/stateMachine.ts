@@ -25,7 +25,7 @@ export const VALID_TRANSITIONS: Record<MilestoneStatus, readonly MilestoneStatus
   in_review: ['changes_requested', 'awaiting_client', 'approved'],
   changes_requested: ['submitted', 'appealed'],
   awaiting_client: ['approved', 'changes_requested'],
-  approved: ['releasing'],
+  approved: ['releasing', 'changes_requested'], // changes_requested on client objection during release window
   releasing: ['paid', 'approved'], // approved on payout failure/retry
   paid: [],
   appealed: ['approved', 'awaiting_client'],

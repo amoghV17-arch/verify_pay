@@ -151,7 +151,28 @@ Format for judgment calls: Context, Decision, Why.
 
 ### State Machine as Single Transition Authority
 - **Context:** Milestone status changes across multiple asynchronous boundaries: deliverable submission, reviewer execution, client approval, payout release, and webhook reconciliation.
-- **Decision:** Centralized all transition validation in `packages/shared/src/stateMachine.ts` using `canTransition` and `assertTransition`, covered by 36 unit tests. Every route and service verifies transition validity before updating status.
+- **Decision:** Centralized all transition validation in `packages/shared/src/stateMachine.ts` using `canTransition` and `assertTransition`, covered by 37 unit tests. Every route and service verifies transition validity before updating status.
 - **Why:** Prevents state bypassing (e.g. submitting un-funded milestones, releasing non-approved milestones), ensuring invariant consistency across the entire system.
+
+## M7 Autonomy Modes, Scheduler, and Appeal Decisions
+
+### Project Autonomy Modes and Automated Payout Guardrails
+- **Context:** Different projects require different levels of client involvement: from strict manual approval, to assisted time-window reviews with objection windows, to full autonomous release.
+- **Decision:** Implemented three project-level autonomy modes (`manual`, `assisted`, `auto`):
+  1. `manual`: passing AI review moves milestone to `awaiting_client`, requiring human client confirmation to release payment.
+  2. `assisted`: passing AI review moves milestone to `approved` with `release_at = now + releaseWindowSeconds` (default 20s). Background worker (`AutonomySchedulerService`) automatically executes payout release upon expiration unless the client objects. Client can also click "Release Now" to override early.
+  3. `auto`: passing AI review triggers immediate payout, but is strictly gated by safety policy (`minConfidence >= 0.75`, `!injectionSuspected`, funded holding balance). If any safety check fails, it safely falls back to `awaiting_client`.
+- **Why:** Delivers real human guardrails, balances automation with client control, and prevents unauthorized or premature payouts through rigorous server-side policy enforcement.
+
+### Client Objection State Machine Transition (`approved -> changes_requested`)
+- **Context:** In assisted mode, a client must be able to halt an impending auto-release if they notice issues before the window expires.
+- **Decision:** Added `changes_requested` as an allowed transition from `approved` in `packages/shared/src/stateMachine.ts`. Client objection clears `release_at`, sets status to `changes_requested`, records an activity event with the objection reason, and broadcasts an SSE event.
+- **Why:** Halts background scheduler execution immediately and cleanly routes the deliverable back to the freelancer for revisions or appeal.
+
+### Second Independent Review for Appeals (`appeal.v1.md`)
+- **Context:** Freelancers receiving a rejection or changes-requested decision require an impartial mechanism to challenge unfair or erroneous AI reviewer judgments.
+- **Decision:** Implemented an appeal flow capped at 1 appeal per milestone (`changes_requested -> appealed`). A dedicated prompt (`appeal.v1.md`) performs a second independent review with access to the original deliverable, previous review results, and the freelancer's appeal explanation (enclosed in untrusted delimiters). If the appeal review upholds the work (`release`), it transitions to `approved`; if it disagrees or remains unclear, it transitions to `awaiting_client` for human client resolution.
+- **Why:** Provides procedural justice for freelancers while preventing endless appeal loops and ensuring all disputes escalate to human decision-makers when independent AI reviews disagree.
+
 
 

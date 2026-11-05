@@ -7,6 +7,7 @@ import { sampleTasks } from './data/sampleProject.js';
 import { StartScreen } from './components/StartScreen.js';
 import { PlanReviewScreen } from './components/PlanReviewScreen.js';
 import { SubmitDeliverableModal, type DeliverableKind } from './components/SubmitDeliverableModal.js';
+import { AppealModal } from './components/AppealModal.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -25,8 +26,25 @@ export function App(): React.ReactElement {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFunding, setIsFunding] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [isObjecting, setIsObjecting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showAppealModal, setShowAppealModal] = useState(false);
+  const [autonomyMode, setAutonomyMode] = useState<'manual' | 'assisted' | 'auto'>('assisted');
   const [notification, setNotification] = useState<string | null>(null);
+
+  const fetchProject = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.project?.autonomyMode) {
+          setAutonomyMode(data.project.autonomyMode);
+        }
+      }
+    } catch {
+      // offline dev fallback
+    }
+  }, [projectId]);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -44,6 +62,7 @@ export function App(): React.ReactElement {
     // Initialize default client persona cookie
     handlePersonaChange('client');
     fetchLedger();
+    fetchProject();
 
     // Setup Server-Sent Events (SSE) listener
     let es: EventSource | null = null;
@@ -189,6 +208,52 @@ export function App(): React.ReactElement {
     }
   };
 
+  const handleAutonomyModeChange = async (newMode: 'manual' | 'assisted' | 'auto') => {
+    setAutonomyMode(newMode);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ autonomyMode: newMode }),
+      });
+      if (res.ok) {
+        setNotification(`Autonomy mode changed to ${newMode.toUpperCase()}`);
+      }
+    } catch {
+      // offline dev fallback
+    }
+  };
+
+  const handleObjectToRelease = async (targetMilestoneId: string) => {
+    setIsObjecting(true);
+    setNotification(null);
+    try {
+      const res = await fetch(`/api/milestones/${targetMilestoneId}/object`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ reason: 'Client requested revisions before payout release.' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to object to release');
+      }
+
+      setNotification('Auto-release stopped. Changes requested from freelancer.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'changes_requested' } as any) : prev));
+      await fetchLedger();
+      setRefreshKey((k) => k + 1);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Objection failed';
+      setNotification(`Error: ${msg}`);
+    } finally {
+      setIsObjecting(false);
+    }
+  };
+
   // Compute summary metrics from sample tasks or live ledger
   const milestones = sampleTasks.filter((t) => t.milestone);
   const sampleBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
@@ -284,7 +349,32 @@ export function App(): React.ReactElement {
         </div>
 
         {/* Persona Switcher & Balance Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          {/* Autonomy Mode Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+            <span style={{ color: 'var(--slate)', fontWeight: 500 }}>Mode:</span>
+            <select
+              id="autonomy-mode-select"
+              value={autonomyMode}
+              disabled={persona !== 'client'}
+              onChange={(e) => handleAutonomyModeChange(e.target.value as 'manual' | 'assisted' | 'auto')}
+              style={{
+                padding: '0.3rem 0.5rem',
+                borderRadius: '4px',
+                border: '1px solid var(--line)',
+                backgroundColor: 'var(--paper)',
+                color: 'var(--ink)',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                cursor: persona === 'client' ? 'pointer' : 'default',
+              }}
+            >
+              <option value="manual">Manual (Client releases)</option>
+              <option value="assisted">Assisted (20s Window)</option>
+              <option value="auto">Auto (Immediate)</option>
+            </select>
+          </div>
+
           {persona === 'client' && (
             <button
               id="new-plan-btn"
@@ -647,74 +737,138 @@ export function App(): React.ReactElement {
               </div>
             </div>
 
-            {/* Manual Release Payment Button for Client Persona when Milestone is Approved */}
+            {/* Release and Objection for Client Persona when Milestone is Approved */}
             {activeMilestone?.paymentStatus === 'approved' && persona === 'client' && (
-              <button
-                id="release-milestone-btn"
-                onClick={() =>
-                  handleReleasePayment(
-                    String(
-                      activeMilestone.id ||
-                        (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
-                        'ms-02'
+              <>
+                <button
+                  id="release-milestone-btn"
+                  onClick={() =>
+                    handleReleasePayment(
+                      String(
+                        activeMilestone.id ||
+                          (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
+                          'ms-02'
+                      )
                     )
-                  )
-                }
-                disabled={isReleasing}
-                style={{
-                  marginTop: '0.75rem',
-                  width: '100%',
-                  padding: '0.625rem 1rem',
-                  backgroundColor: 'var(--settled)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  cursor: isReleasing ? 'not-allowed' : 'pointer',
-                  opacity: isReleasing ? 0.7 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
-                }}
-              >
-                <span>🚀</span>
-                <span>
-                  {isReleasing
-                    ? 'Releasing Payout...'
-                    : `Release Payment (${formatCents(activeMilestone.amountCents ?? 0)})`}
-                </span>
-              </button>
+                  }
+                  disabled={isReleasing}
+                  style={{
+                    marginTop: '0.75rem',
+                    width: '100%',
+                    padding: '0.625rem 1rem',
+                    backgroundColor: 'var(--settled)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: isReleasing ? 'not-allowed' : 'pointer',
+                    opacity: isReleasing ? 0.7 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
+                  }}
+                >
+                  <span>🚀</span>
+                  <span>
+                    {isReleasing
+                      ? 'Releasing Payout...'
+                      : `Release Payment (${formatCents(activeMilestone.amountCents ?? 0)})`}
+                  </span>
+                </button>
+
+                <button
+                  id="object-milestone-btn"
+                  onClick={() =>
+                    handleObjectToRelease(
+                      String(
+                        activeMilestone.id ||
+                          (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
+                          'ms-02'
+                      )
+                    )
+                  }
+                  disabled={isObjecting}
+                  style={{
+                    marginTop: '0.5rem',
+                    width: '100%',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#fff',
+                    color: '#dc2626',
+                    border: '1px solid #dc2626',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    cursor: isObjecting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <span>🛑</span>
+                  <span>{isObjecting ? 'Objecting…' : 'Object to Release (Request Changes)'}</span>
+                </button>
+              </>
             )}
 
-            {/* Submit Deliverable Button for Freelancer Persona */}
+            {/* Submit Deliverable & Appeal for Freelancer Persona */}
             {(activeMilestone?.paymentStatus === 'funded' || activeMilestone?.paymentStatus === 'changes_requested') && persona === 'freelancer' && (
-              <button
-                id="submit-deliverable-btn"
-                onClick={() => setShowSubmitModal(true)}
-                style={{
-                  marginTop: '0.75rem',
-                  width: '100%',
-                  padding: '0.625rem 1rem',
-                  backgroundColor: 'var(--tide)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
-                }}
-              >
-                <span>📤</span>
-                <span>Submit Deliverable</span>
-              </button>
+              <>
+                <button
+                  id="submit-deliverable-btn"
+                  onClick={() => setShowSubmitModal(true)}
+                  style={{
+                    marginTop: '0.75rem',
+                    width: '100%',
+                    padding: '0.625rem 1rem',
+                    backgroundColor: 'var(--tide)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
+                  }}
+                >
+                  <span>📤</span>
+                  <span>{activeMilestone?.paymentStatus === 'changes_requested' ? 'Submit Revision' : 'Submit Deliverable'}</span>
+                </button>
+
+                {activeMilestone?.paymentStatus === 'changes_requested' && (
+                  <button
+                    id="appeal-decision-btn"
+                    onClick={() => setShowAppealModal(true)}
+                    style={{
+                      marginTop: '0.5rem',
+                      width: '100%',
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#d97706',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      fontSize: '0.8125rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
+                    }}
+                  >
+                    <span>⚖️</span>
+                    <span>Appeal Decision (Second Review)</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </aside>
@@ -728,6 +882,20 @@ export function App(): React.ReactElement {
           projectId={projectId}
           deliverableType={activeMilestone.deliverableType as DeliverableKind}
           onClose={() => setShowSubmitModal(false)}
+          onSubmitted={() => {
+            fetchLedger();
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+
+      {/* Appeal Modal */}
+      {showAppealModal && activeMilestone && (
+        <AppealModal
+          milestoneId={String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'm1')}
+          milestoneName={activeMilestone.name ?? 'Milestone'}
+          projectId={projectId}
+          onClose={() => setShowAppealModal(false)}
           onSubmitted={() => {
             fetchLedger();
             setRefreshKey((k) => k + 1);
