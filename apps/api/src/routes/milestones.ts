@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, or } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 import { requireRole } from '../auth/index.js';
 import { ReleaseService } from '../services/release.js';
 import { ReconcilerService } from '../services/reconciler.js';
 import { ReviewerService } from '../services/reviewer.js';
+import { AutonomySchedulerService } from '../services/autonomyScheduler.js';
+import { sseHub } from '../services/sse.js';
 import { getDb } from '../db/index.js';
-import { milestones, deliverables } from '../db/schema.js';
+import { milestones, deliverables, activity, reviews } from '../db/schema.js';
 import { createLlmPort } from '../ai/llmFactory.js';
 import { DeliverableKindSchema, assertTransition, type PayPalPort, type MilestoneStatus } from '@milestone/shared';
 import { z } from 'zod';
@@ -20,12 +22,21 @@ const SubmitBodySchema = z.object({
   payload: z.unknown(),
 });
 
+const ObjectBodySchema = z.object({
+  reason: z.string().max(400).optional(),
+});
+
+const AppealBodySchema = z.object({
+  explanation: z.string().min(10, 'Appeal explanation must be at least 10 characters').max(600),
+});
+
 export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions> = async (
   server,
   options
 ) => {
   const releaseService = new ReleaseService();
   const reconcilerService = new ReconcilerService();
+  const autonomyScheduler = new AutonomySchedulerService();
 
   // POST /api/milestones/:id/submit (Freelancer submits a deliverable)
   server.post<{ Params: { id: string } }>(
@@ -131,6 +142,177 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Release failed';
         return reply.status(400).send({ error: msg });
+      }
+    }
+  );
+
+  // POST /api/milestones/:id/object (Client objects to release during assisted window)
+  server.post<{ Params: { id: string } }>(
+    '/api/milestones/:id/object',
+    { preHandler: [requireRole(['client'])] },
+    async (request, reply) => {
+      const { id: milestoneIdParam } = request.params;
+      const parsedBody = ObjectBodySchema.safeParse(request.body ?? {});
+      const reason = parsedBody.success ? parsedBody.data.reason : undefined;
+
+      const db = getDb();
+      const [milestone] = await db
+        .select()
+        .from(milestones)
+        .where(or(eq(milestones.id, milestoneIdParam), eq(milestones.taskId, milestoneIdParam)))
+        .limit(1);
+
+      if (!milestone) {
+        return reply.status(404).send({ error: 'Milestone not found' });
+      }
+
+      if (milestone.status !== 'approved') {
+        return reply.status(409).send({
+          error: `Cannot object to milestone with status "${milestone.status}". Objections are only valid for approved milestones during the release window.`,
+        });
+      }
+
+      try {
+        assertTransition('approved', 'changes_requested');
+      } catch (err) {
+        return reply.status(409).send({ error: String(err) });
+      }
+
+      // Transition approved -> changes_requested and cancel releaseAt
+      await db
+        .update(milestones)
+        .set({ status: 'changes_requested', releaseAt: null, updatedAt: new Date() })
+        .where(eq(milestones.id, milestone.id));
+
+      // Record activity
+      await db.insert(activity).values({
+        id: randomUUID(),
+        projectId: milestone.projectId,
+        actor: 'client',
+        kind: 'client_objected',
+        text: `Client objected to automated release for "${milestone.name}": ${reason || 'Changes requested before release.'}`,
+        meta: { milestoneId: milestone.id, reason },
+        ts: new Date(),
+      });
+
+      // Broadcast SSE event
+      sseHub.broadcast(milestone.projectId, 'milestone.status', {
+        milestoneId: milestone.id,
+        status: 'changes_requested',
+        reason,
+        objectedBy: 'client',
+      });
+
+      return reply.send({ success: true, status: 'changes_requested', message: 'Release cancelled; changes requested.' });
+    }
+  );
+
+  // POST /api/milestones/:id/appeal (Freelancer appeals a changes_requested verdict)
+  server.post<{ Params: { id: string } }>(
+    '/api/milestones/:id/appeal',
+    { preHandler: [requireRole(['freelancer'])] },
+    async (request, reply) => {
+      const { id: milestoneIdParam } = request.params;
+      const parsedBody = AppealBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: 'ValidationError', details: parsedBody.error.flatten() });
+      }
+      const { explanation } = parsedBody.data;
+
+      const db = getDb();
+      const [milestone] = await db
+        .select()
+        .from(milestones)
+        .where(or(eq(milestones.id, milestoneIdParam), eq(milestones.taskId, milestoneIdParam)))
+        .limit(1);
+
+      if (!milestone) {
+        return reply.status(404).send({ error: 'Milestone not found' });
+      }
+
+      if (milestone.status !== 'changes_requested') {
+        return reply.status(409).send({
+          error: `Milestone must be in "changes_requested" status to appeal. Current status: "${milestone.status}".`,
+        });
+      }
+
+      // Check appeal limit: at most 1 appeal per milestone/deliverable
+      const existingAppeals = await db
+        .select()
+        .from(reviews)
+        .where(and(eq(reviews.milestoneId, milestone.id), eq(reviews.kind, 'appeal')));
+
+      if (existingAppeals.length >= 1) {
+        return reply.status(409).send({
+          error: 'Appeal limit reached for this milestone (max 1 appeal).',
+        });
+      }
+
+      try {
+        assertTransition('changes_requested', 'appealed');
+      } catch (err) {
+        return reply.status(409).send({ error: String(err) });
+      }
+
+      // Transition changes_requested -> appealed
+      await db
+        .update(milestones)
+        .set({ status: 'appealed', updatedAt: new Date() })
+        .where(eq(milestones.id, milestone.id));
+
+      await db.insert(activity).values({
+        id: randomUUID(),
+        projectId: milestone.projectId,
+        actor: 'freelancer',
+        kind: 'milestone_appealed',
+        text: `Freelancer appealed changes requested for "${milestone.name}": "${explanation.slice(0, 80)}..."`,
+        meta: { milestoneId: milestone.id, explanation },
+        ts: new Date(),
+      });
+
+      sseHub.broadcast(milestone.projectId, 'milestone.status', {
+        milestoneId: milestone.id,
+        status: 'appealed',
+      });
+
+      // Run second independent review in background
+      const paypal =
+        (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter ||
+        options.paypalAdapter;
+
+      setImmediate(async () => {
+        try {
+          const llm = createLlmPort();
+          const reviewer = new ReviewerService(db, paypal);
+          await reviewer.reviewAppeal(milestone.id, explanation, llm, milestone.projectId);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          server.log.error({ err, milestoneId: milestone.id }, `Appeal review failed: ${msg}`);
+        }
+      });
+
+      return reply.status(202).send({ success: true, status: 'appealed' });
+    }
+  );
+
+  // POST /api/projects/:id/scheduler/tick (Trigger assisted-mode auto-release scheduler tick)
+  server.post<{ Params: { id: string } }>(
+    '/api/projects/:id/scheduler/tick',
+    async (request, reply) => {
+      const paypal =
+        (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter ||
+        options.paypalAdapter;
+
+      if (!paypal) {
+        return reply.status(500).send({ error: 'PayPal adapter not initialized' });
+      }
+
+      try {
+        const tickResult = await autonomyScheduler.processDueAssistedReleases(paypal);
+        return reply.send({ success: true, ...tickResult });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Scheduler error';
+        return reply.status(500).send({ error: msg });
       }
     }
   );

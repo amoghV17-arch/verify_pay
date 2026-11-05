@@ -131,11 +131,11 @@ Learning checkpoint: yes (include a teach-back session)
 ## M7 Autonomy modes, scheduler, appeal
 Estimate: 3 h
 Goal: human guardrails made real.
-- [ ] Autonomy mode per project: manual, assisted, auto
-- [ ] Assisted release window with `release_at`, worker timer, and client objection or override
-- [ ] Auto mode only when policy passes
-- [ ] Appeal flow with a second independent review
-- [ ] Tests for each mode and for objection during the window
+- [x] Autonomy mode per project: manual, assisted, auto
+- [x] Assisted release window with `release_at`, worker timer, and client objection or override
+- [x] Auto mode only when policy passes
+- [x] Appeal flow with a second independent review
+- [x] Tests for each mode and for objection during the window
 Acceptance: in assisted mode the payout fires after the window unless the client objects, and an objection stops it.
 Learning checkpoint: no
 

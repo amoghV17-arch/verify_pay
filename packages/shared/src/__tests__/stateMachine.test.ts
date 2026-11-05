@@ -48,6 +48,7 @@ describe('canTransition — valid paths', () => {
     ['awaiting_client', 'approved'],
     ['awaiting_client', 'changes_requested'],
     ['approved', 'releasing'],
+    ['approved', 'changes_requested'], // client objection during assisted release window
     ['releasing', 'paid'],
     ['releasing', 'approved'], // payout failure rollback
     ['appealed', 'approved'],

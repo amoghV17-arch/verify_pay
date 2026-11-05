@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T16:34:23.588Z
+Generated: 2026-11-05T17:19:32.420Z
 
-Overall (hours-weighted): [###########.........]  54%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M7 Autonomy modes, scheduler, appeal
+Overall (hours-weighted): [############........]  59%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M8 Trust Panel and product UI
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -21,7 +21,7 @@ Current milestone: M7 Autonomy modes, scheduler, appeal
 | M4 Payout release | 4 | 7/7 | [####################] 100% |
 | M5 AI layer and Planner | 5 | 8/8 | [####################] 100% |
 | M6 Milestone lifecycle and Reviewer agent | 7 | 8/8 | [####################] 100% |
-| M7 Autonomy modes, scheduler, appeal | 3 | 0/5 | [....................]   0% |
+| M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
 | M8 Trust Panel and product UI | 6 | 0/7 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 0/5 | [....................]   0% |
 | M10 Hardening, evals, failure drills | 5 | 0/12 | [....................]   0% |
@@ -62,3 +62,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-05 15:55 | M6 | overall 43% | GREEN | Completed pre-M6 hardening (LLM fixture default, Gantt sync tamper guard, payout retries) and deferred hardening items under M10.
 - 2026-11-05 16:34 | M7 | overall 54% | GREEN | M6 done: milestone lifecycle state machine, reviewer agent, SSRF guard, injection heuristics, submit modal, and eval fixtures.
 - 2026-11-05 22:06 | M6 | Handoff: Milestone lifecycle and Reviewer agent complete. Built: stateMachine unit tests in packages/shared (36 tests), SSRF fetcher with pre-flight DNS and private/metadata CIDR blocking, Reviewer agent loop with 8 tool calls cap and 120s timeout, server-side verdict recomputation and injection heuristic, SubmitDeliverableModal in React web app, POST /api/milestones/:id/submit endpoint, eval fixtures meeting 100% pass rate and 100% injection accuracy, and Playwright E2E reviewer tests. All 8 E2E and 159 Vitest tests passing. Next session must know: M7 implements Autonomy modes (manual, assisted, auto), the assisted release window with release_at, and the appeal flow.
+- 2026-11-05 17:19 | M8 | overall 59% | GREEN | M7 complete: autonomy modes (manual/assisted/auto), assisted release window scheduler, client objection, and freelancer appeal flow.
