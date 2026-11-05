@@ -106,6 +106,22 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
       const { projectId } = request.params;
       const { requestId, tasks: taskChanges, dependencies: depChanges } = request.body || {};
 
+      // Role check on every mutation
+      const user = request.user;
+      if (!user) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Authentication session required to sync Gantt mutations.',
+        });
+      }
+
+      if (!['client', 'freelancer'].includes(user.role)) {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: `Role "${user.role}" is not authorized to modify Gantt schedule. Must be client or freelancer.`,
+        });
+      }
+
       const [proj] = await db.select().from(projects).where(eq(projects.id, projectId));
       if (!proj) {
         return reply.status(404).send({ success: false, message: `Project "${projectId}" not found.` });
@@ -114,15 +130,26 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
       const syncedTaskRows: Array<Record<string, unknown>> = [];
       const syncedDepRows: Array<Record<string, unknown>> = [];
 
-      // 1. Process Task Additions
+      // 1. Process Task Additions - Block creating milestone-linked tasks
       if (taskChanges?.added && taskChanges.added.length > 0) {
         for (const added of taskChanges.added) {
+          if (
+            added.milestoneId ||
+            added.milestone === true ||
+            (added.duration != null && Number(added.duration) === 0)
+          ) {
+            return reply.status(400).send({
+              error: 'MilestoneTamperError',
+              message:
+                'Cannot create milestone-linked tasks via Gantt sync. Milestones must be generated through the planning and funding lifecycle.',
+            });
+          }
+
           const phantomId = added.$PhantomId as string | undefined;
           const newId = (added.id as string) || `t_${randomUUID().slice(0, 8)}`;
 
-          const isMilestone = Boolean(added.milestone) || (added.duration as number) === 0;
           const newStartDate = (added.startDate as string) || new Date().toISOString().split('T')[0];
-          const newDuration = added.duration != null ? Number(added.duration) : (isMilestone ? 0 : 1);
+          const newDuration = added.duration != null ? Number(added.duration) : 1;
           const newPercent = added.percentDone != null ? Number(added.percentDone) : 0;
           const newName = (added.name as string) || 'New Task';
 
@@ -134,6 +161,7 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
             durationDays: newDuration,
             percentDone: newPercent,
             parentId: (added.parentId as string) || null,
+            milestoneId: null, // Strictly ignore milestoneId from client
             sortOrder: (added.sortOrder as number) || 99,
           });
 
@@ -144,16 +172,26 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
             startDate: newStartDate,
             duration: newDuration,
             percentDone: newPercent,
-            milestone: isMilestone,
+            milestone: false,
           });
         }
       }
 
-      // 2. Process Task Updates with STRICT MONEY PROTECTION
+      // 2. Process Task Updates with STRICT MONEY & CRITERIA PROTECTION
       if (taskChanges?.updated && taskChanges.updated.length > 0) {
+        // Lock acceptance criteria after funding
+        const isFunded = proj.status !== 'draft' && proj.status !== 'planned';
+
         for (const updated of taskChanges.updated) {
           const taskId = updated.id as string;
           if (!taskId) continue;
+
+          if (isFunded && (updated.acceptanceCriteria !== undefined || updated.criteria !== undefined)) {
+            return reply.status(400).send({
+              error: 'CriteriaLockedError',
+              message: `Acceptance criteria are locked after project funding for project "${projectId}".`,
+            });
+          }
 
           // Fetch current database record to preserve server-controlled fields
           const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
@@ -200,10 +238,25 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
         }
       }
 
-      // 3. Process Task Removals
+      // 3. Process Task Removals - Block deleting milestone-linked tasks
       if (taskChanges?.removed && taskChanges.removed.length > 0) {
         const removeIds = taskChanges.removed.map((t) => t.id).filter(Boolean);
         if (removeIds.length > 0) {
+          const existingToRemove = await db
+            .select()
+            .from(tasks)
+            .where(inArray(tasks.id, removeIds));
+
+          const milestoneTask = existingToRemove.find(
+            (t) => t.milestoneId !== null || t.durationDays === 0
+          );
+          if (milestoneTask) {
+            return reply.status(400).send({
+              error: 'MilestoneTamperError',
+              message: `Cannot delete milestone-linked task "${milestoneTask.id}". Milestone tasks cannot be removed via Gantt sync.`,
+            });
+          }
+
           await db.delete(tasks).where(inArray(tasks.id, removeIds));
         }
       }
