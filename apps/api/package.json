@@ -5,7 +5,8 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./ai": "./src/ai/index.ts"
+    "./ai": "./src/ai/index.ts",
+    "./services/reviewer": "./src/services/reviewer.ts"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

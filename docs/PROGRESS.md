@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T15:55:44.721Z
+Generated: 2026-11-05T16:34:23.588Z
 
-Overall (hours-weighted): [#########...........]  43%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M6 Milestone lifecycle and Reviewer agent
+Overall (hours-weighted): [###########.........]  54%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M7 Autonomy modes, scheduler, appeal
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -20,7 +20,7 @@ Current milestone: M6 Milestone lifecycle and Reviewer agent
 | M3 PayPal adapter, mock, and funding | 6 | 10/10 | [####################] 100% |
 | M4 Payout release | 4 | 7/7 | [####################] 100% |
 | M5 AI layer and Planner | 5 | 8/8 | [####################] 100% |
-| M6 Milestone lifecycle and Reviewer agent | 7 | 0/8 | [....................]   0% |
+| M6 Milestone lifecycle and Reviewer agent | 7 | 8/8 | [####################] 100% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 0/5 | [....................]   0% |
 | M8 Trust Panel and product UI | 6 | 0/7 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 0/5 | [....................]   0% |
@@ -60,3 +60,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-05 17:21 | M5 | Handoff: Built AI layer and Planner service (LlmPort with Anthropic, Gemini, OpenAI, Fixture adapters; planner.v1.md prompt, Zod schemas, 2-attempt repair loop, DAG topological sorting, vague-criteria filter, and Hamilton largest-remainder cents allocation). Added Start and Plan Review screens in web app with live percentage meter, editable criteria, and Bryntum Gantt preview. Evals benchmark passed 100% across 6 briefs (evals/results/latest.json). Not done: Reviewer agent, deliverable submission modal, and evidence verification (scheduled for M6). Next session must know: M6 implements stateMachine transitions in packages/shared, deliverable submission with SSRF guard, and Reviewer agent loop with evidence gathering.
 
 - 2026-11-05 15:55 | M6 | overall 43% | GREEN | Completed pre-M6 hardening (LLM fixture default, Gantt sync tamper guard, payout retries) and deferred hardening items under M10.
+- 2026-11-05 16:34 | M7 | overall 54% | GREEN | M6 done: milestone lifecycle state machine, reviewer agent, SSRF guard, injection heuristics, submit modal, and eval fixtures.
