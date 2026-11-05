@@ -23,8 +23,13 @@ export class LedgerService {
    * Computes the current ledger financial balances and verifies invariant:
    * holdingBalanceCents >= 0
    */
-  async getProjectLedgerSummary(projectId: string): Promise<ProjectLedgerSummary> {
-    const entries = await this.client
+  async getProjectLedgerSummary(
+    projectId: string,
+    executor?: AppDatabase | unknown
+  ): Promise<ProjectLedgerSummary> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = (executor as any) || this.client;
+    const entries = await client
       .select({
         type: ledgerEntries.type,
         amountCents: ledgerEntries.amountCents,

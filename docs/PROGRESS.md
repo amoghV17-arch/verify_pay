@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T06:35:15.318Z
+Generated: 2026-11-05T08:04:29.623Z
 
-Overall (hours-weighted): [######..............]  28%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M4 Payout release
+Overall (hours-weighted): [#######.............]  34%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M5 AI layer and Planner
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -18,7 +18,7 @@ Current milestone: M4 Payout release
 | M1 Bryntum Gantt spike | 4 | 7/7 | [####################] 100% |
 | M2 Data layer and Gantt sync | 4 | 7/7 | [####################] 100% |
 | M3 PayPal adapter, mock, and funding | 6 | 10/10 | [####################] 100% |
-| M4 Payout release | 4 | 0/7 | [....................]   0% |
+| M4 Payout release | 4 | 7/7 | [####################] 100% |
 | M5 AI layer and Planner | 5 | 0/8 | [....................]   0% |
 | M6 Milestone lifecycle and Reviewer agent | 7 | 0/8 | [....................]   0% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 0/5 | [....................]   0% |
@@ -54,3 +54,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-04 19:20 | M3 | overall 18% | GREEN | Handoff M2/M3: M2 verified, merged to main, tagged m02-done, and pushed. Switched to m03-paypal-funding branch and created M3 task checklist. Gates H2 & H3 (PayPal sandbox credentials) are in progress by the owner in .env; mock adapter is ready to run automatically.
 - 2026-11-05 06:33 | M4 | overall 28% | GREEN | M3 completed: PayPal adapter, mock, funding routes, atomic ledger, live sandbox verification, and pnpm verify passed
 - 2026-11-05 06:35 | M4 | overall 28% | GREEN | Handoff M3: PayPal adapter, mock, funding routes, atomic ledger, live sandbox verification, and pnpm verify passed. Next session is M4 Payout release.
+- 2026-11-05 08:04 | M5 | overall 34% | GREEN | M4 completed: Payout release service, row locks, idempotency, webhook handling, worker reconciler, and full verification passed

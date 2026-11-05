@@ -46,6 +46,7 @@ Create one order for the **whole project budget**.
 - Ledger entry `funded` uses idempotency key `fund:<projectId>:<captureId>`.
 
 ## 4. Release via Payouts
+*(Verified against PayPal Payouts REST API docs on 2026-11-05: `POST /v1/payments/payouts` and `GET /v1/payments/payouts/{batch_id}`)*
 
 ```json
 {

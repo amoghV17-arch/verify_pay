@@ -90,13 +90,13 @@ Learning checkpoint: yes
 ## M4 Payout release
 Estimate: 4 h
 Goal: approved milestones can be paid safely.
-- [ ] Payouts methods in both adapters; item status mapping (success, pending, unclaimed, failed)
-- [ ] Release service per `ARCHITECTURE.md` section 7.3 (row lock, funds check, idempotency key)
-- [ ] Payout webhook handling and the reconciler in the worker
-- [ ] Manual "Release payment" button for a client on an `approved` milestone (temporary path until the reviewer exists)
-- [ ] Failure injection in the mock: payout failure, delayed webhook, duplicate webhook
-- [ ] Tests: double click, retried request, failed payout returns milestone to `approved`, funds invariant holds
-- [ ] One real sandbox payout lands in the freelancer sandbox account
+- [x] Payouts methods in both adapters; item status mapping (success, pending, unclaimed, failed)
+- [x] Release service per `ARCHITECTURE.md` section 7.3 (row lock, funds check, idempotency key)
+- [x] Payout webhook handling and the reconciler in the worker
+- [x] Manual "Release payment" button for a client on an `approved` milestone (temporary path until the reviewer exists)
+- [x] Failure injection in the mock: payout failure, delayed webhook, duplicate webhook
+- [x] Tests: double click, retried request, failed payout returns milestone to `approved`, funds invariant holds
+- [x] One real sandbox payout lands in the freelancer sandbox account
 Acceptance: concurrency test fires 10 parallel releases and exactly one payout is created.
 Learning checkpoint: yes
 

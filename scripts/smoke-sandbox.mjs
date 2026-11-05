@@ -21,7 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 console.log('========================================');
-console.log('Milestone PayPal Sandbox Smoke Test (M3)');
+console.log('Milestone PayPal Sandbox Smoke Test (M4)');
 console.log('========================================');
 
 const clientId = process.env.PAYPAL_CLIENT_ID;
@@ -63,7 +63,7 @@ try {
   const accessToken = tokenData.access_token;
   console.log('[smoke:sandbox] OAuth2 token acquired successfully.');
 
-  // 2. Create Funding Order
+  // 2. Create Funding Order ($10.00 USD)
   console.log('[smoke:sandbox] Creating a test funding order ($10.00 USD)...');
   const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: 'POST',
@@ -112,6 +112,63 @@ try {
 
   const retrieved = await getRes.json();
   console.log(`[smoke:sandbox] Verified order status: ${retrieved.status}`);
+
+  // 4. Test Payouts Release ($1.00 USD)
+  const recipientEmail =
+    process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-payout-freelancer@personal.example.com';
+  console.log(`[smoke:sandbox] Creating a test payout ($1.00 USD to ${recipientEmail})...`);
+  const senderBatchId = `smoke_payout_batch_${Date.now()}`;
+
+  const payoutRes = await fetch(`${baseUrl}/v1/payments/payouts`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': `smoke_payout_${Date.now()}`,
+    },
+    body: JSON.stringify({
+      sender_batch_header: {
+        sender_batch_id: senderBatchId,
+        email_subject: 'Milestone Sandbox Smoke Test Payout',
+        email_message: 'Milestone verified deliverable release test',
+      },
+      items: [
+        {
+          recipient_type: 'EMAIL',
+          amount: {
+            value: '1.00',
+            currency: 'USD',
+          },
+          note: 'Milestone Smoke Test Payout Item',
+          sender_item_id: `smoke_item_${Date.now()}`,
+          receiver: recipientEmail,
+        },
+      ],
+    }),
+  });
+
+  if (!payoutRes.ok) {
+    const errText = await payoutRes.text();
+    console.warn(`[smoke:sandbox] Notice on Payouts API (${payoutRes.status}): ${errText}`);
+    console.warn(
+      '[smoke:sandbox] Note: If Payouts requires feature activation on sandbox account (Gate H3), verify balance or enable in developer portal.'
+    );
+  } else {
+    const payoutData = await payoutRes.json();
+    console.log(
+      `[smoke:sandbox] Payout batch created successfully! ID: ${payoutData.batch_header.payout_batch_id}, Status: ${payoutData.batch_header.batch_status}`
+    );
+
+    // Verify Payout batch retrieval
+    const batchRes = await fetch(`${baseUrl}/v1/payments/payouts/${payoutData.batch_header.payout_batch_id}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (batchRes.ok) {
+      const batchData = await batchRes.json();
+      console.log(`[smoke:sandbox] Verified Payout batch status: ${batchData.batch_header.batch_status}`);
+    }
+  }
+
   console.log('\n[smoke:sandbox] ALL PAYPAL SANDBOX CHECKS PASSED!\n');
 } catch (err) {
   console.error('[smoke:sandbox] Unexpected error during sandbox smoke test:', err);

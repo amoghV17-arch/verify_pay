@@ -85,3 +85,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** When a client funds a project, the ledger entry, project status update, and unfunded milestone status transitions must happen atomically and idempotently.
 - **Decision:** Wrapped all funding writes in a database transaction with idempotency key `fund:${projectId}:${captureId}`, recomputed `holdingBalanceCents = fundedCents - releasedCents - refundedCents`, and enforced invariant `holdingBalanceCents >= 0`.
 - **Why:** Guarantees money is never duplicated across retried capture requests or delayed webhooks, and upholds project financial invariants.
+
+## M4 Payout Release decisions
+
+### Dual Concurrency & Idempotency Guards for Payouts
+- **Context:** Payouts release real funds from the business account. Parallel requests (e.g. rapid double-clicks or concurrent automated triggers) could risk double payouts.
+- **Decision:** Combined database-level row locking (`SELECT ... FOR UPDATE`), transaction-level status check (`assert m.status === 'approved'`), unique idempotency keys (`release:${milestoneId}` and `release_complete:${milestoneId}`), and PostgreSQL partial unique index (`one_released_per_milestone`).
+- **Why:** Proven by the concurrency test (10 parallel release requests produce exactly 1 payout batch and 1 released ledger entry).
+
+### Safe Reversion of Failed Payout Batches to Approved
+- **Context:** If PayPal rejects a payout batch (due to insufficient sandbox balance or policy restriction), the milestone should not be left permanently stuck in `releasing` or marked `paid`.
+- **Decision:** Recorded `release_failed` in the append-only ledger and reverted the milestone status from `releasing` back to `approved`.
+- **Why:** Preserves auditability in the ledger while allowing the client or reconciler to retry after fixing account balance or permissions.
+
+### Transactional Executor Injection in Ledger Service
+- **Context:** Computing project holding balances inside an open transaction caused lock contention and timeouts in single-connection/in-memory PostgreSQL runtimes (PGlite WASM).
+- **Decision:** Extended `LedgerService.getProjectLedgerSummary` to accept an optional transaction executor parameter `tx`.
+- **Why:** Eliminates transaction deadlocks and ensures holding balance checks see uncommitted transaction state when needed.

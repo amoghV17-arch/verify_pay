@@ -18,6 +18,7 @@ export function App(): React.ReactElement {
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFunding, setIsFunding] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   const fetchLedger = useCallback(async () => {
@@ -46,6 +47,30 @@ export function App(): React.ReactElement {
         try {
           const payload = JSON.parse(event.data);
           setNotification(`PayPal Funding Received: ${formatCents(payload.amountCents ?? 0)} holding balance.`);
+          fetchLedger();
+          setRefreshKey((k) => k + 1);
+        } catch {
+          // ignore parsing error
+        }
+      });
+
+      es.addEventListener('milestone.paid', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setNotification(`Milestone payout completed: ${formatCents(payload.amountCents ?? 0)} released to freelancer.`);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'paid' } as any) : prev));
+          fetchLedger();
+          setRefreshKey((k) => k + 1);
+        } catch {
+          // ignore parsing error
+        }
+      });
+
+      es.addEventListener('milestone.status', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setNotification(`Milestone status updated: ${payload.status}`);
           fetchLedger();
           setRefreshKey((k) => k + 1);
         } catch {
@@ -126,6 +151,37 @@ export function App(): React.ReactElement {
     }
   };
 
+  const handleReleasePayment = async (targetMilestoneId: string) => {
+    setIsReleasing(true);
+    setNotification(null);
+    try {
+      const res = await fetch(`/api/milestones/${targetMilestoneId}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Failed to release milestone payout');
+      }
+
+      setNotification(`Payout released! Status: ${data.status}. Holding balance: ${formatCents(data.holdingBalanceCents ?? 0)}`);
+      if (data.status === 'paid') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'paid' } as any) : prev));
+      }
+      await fetchLedger();
+      setRefreshKey((k) => k + 1);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Release failed';
+      setNotification(`Error: ${msg}`);
+    } finally {
+      setIsReleasing(false);
+    }
+  };
+
   // Compute summary metrics from sample tasks or live ledger
   const milestones = sampleTasks.filter((t) => t.milestone);
   const sampleBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
@@ -162,129 +218,142 @@ export function App(): React.ReactElement {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span
               style={{
-                width: '24px',
-                height: '24px',
-                backgroundColor: 'var(--tide)',
-                color: '#fff',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                fontFamily: 'Bricolage Grotesque, sans-serif',
                 fontWeight: 700,
-                fontSize: '0.875rem',
+                fontSize: '1.25rem',
+                color: 'var(--ink)',
+                letterSpacing: '-0.02em',
               }}
             >
-              M
-            </span>
-            <span style={{ fontFamily: 'Bricolage Grotesque, sans-serif', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)' }}>
               Milestone
-            </span>
-          </div>
-
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--line)' }} />
-
-          <div>
-            <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>
-              Brand-site Redesign & Launch
             </span>
             <span
               style={{
-                marginLeft: '0.5rem',
-                fontSize: '0.75rem',
-                padding: '0.15rem 0.5rem',
-                borderRadius: '999px',
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
                 backgroundColor: 'rgba(31, 122, 140, 0.1)',
                 color: 'var(--tide)',
-                fontWeight: 600,
+                padding: '0.2rem 0.45rem',
+                borderRadius: '4px',
               }}
             >
               PayPal Sandbox Active
             </span>
           </div>
+          <span style={{ color: 'var(--slate)', fontSize: '0.875rem' }}>/</span>
+          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>
+            Brand-site Redesign & Launch
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          {/* Persona Switch (Viewing As) */}
+        {/* Persona Switcher & Balance Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.35rem',
               backgroundColor: 'var(--chalk)',
               padding: '0.25rem',
               borderRadius: '6px',
               border: '1px solid var(--line)',
-              fontSize: '0.8125rem',
+              gap: '0.25rem',
             }}
           >
-            <span style={{ color: 'var(--slate)', padding: '0 0.35rem', fontWeight: 500 }}>Viewing as:</span>
             <button
-              type="button"
               onClick={() => handlePersonaChange('client')}
               style={{
-                padding: '0.25rem 0.6rem',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                backgroundColor: persona === 'client' ? 'var(--paper)' : 'transparent',
+                background: persona === 'client' ? 'var(--paper)' : 'transparent',
+                border: persona === 'client' ? '1px solid var(--line)' : 'none',
+                boxShadow: persona === 'client' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
                 color: persona === 'client' ? 'var(--ink)' : 'var(--slate)',
-                boxShadow: persona === 'client' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                fontWeight: persona === 'client' ? 600 : 500,
+                padding: '0.35rem 0.65rem',
+                borderRadius: '4px',
+                fontSize: '0.8125rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
               }}
             >
-              Client (Acme Corp)
+              <span>🏛️</span>
+              <span>Client (Acme Corp)</span>
             </button>
             <button
-              type="button"
               onClick={() => handlePersonaChange('freelancer')}
               style={{
-                padding: '0.25rem 0.6rem',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                backgroundColor: persona === 'freelancer' ? 'var(--paper)' : 'transparent',
+                background: persona === 'freelancer' ? 'var(--paper)' : 'transparent',
+                border: persona === 'freelancer' ? '1px solid var(--line)' : 'none',
+                boxShadow: persona === 'freelancer' ? '0 1px 2px rgba(22, 32, 43, 0.05)' : 'none',
                 color: persona === 'freelancer' ? 'var(--ink)' : 'var(--slate)',
-                boxShadow: persona === 'freelancer' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                fontWeight: persona === 'freelancer' ? 600 : 500,
+                padding: '0.35rem 0.65rem',
+                borderRadius: '4px',
+                fontSize: '0.8125rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
               }}
             >
-              Freelancer (Arjun)
+              <span>⚡</span>
+              <span>Freelancer (Arjun)</span>
             </button>
           </div>
 
-          {/* Settle Target / Balance Chip */}
+          {/* Real-time PayPal Balance Chip */}
           <div
             id="balance-chip"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
+              backgroundColor: 'rgba(38, 107, 74, 0.08)',
+              border: '1px solid rgba(38, 107, 74, 0.25)',
               padding: '0.35rem 0.75rem',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(29, 143, 90, 0.12)',
-              border: '1px solid rgba(29, 143, 90, 0.3)',
-              color: 'var(--settled)',
-              fontWeight: 600,
-              fontSize: '0.875rem',
+              borderRadius: '6px',
             }}
           >
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--settled)',
-              }}
-            />
-            <span>Arjun Balance:</span>
-            <strong style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'Instrument Sans, sans-serif' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--settled)' }} />
+            <span style={{ fontSize: '0.8125rem', color: 'var(--slate)', fontWeight: 500 }}>
+              Paid to date:
+            </span>
+            <strong style={{ fontSize: '0.875rem', color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
               {formatCents(paidTotal)}
             </strong>
           </div>
+
+          {/* Fund Project Button for Client */}
+          {persona === 'client' && (
+            <button
+              id="fund-project-btn"
+              onClick={handleFundProject}
+              disabled={isFunding}
+              style={{
+                backgroundColor: 'var(--tide)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.45rem 0.85rem',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                cursor: isFunding ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                opacity: isFunding ? 0.7 : 1,
+              }}
+            >
+              <span>💳</span>
+              <span>{isFunding ? 'Funding...' : 'Fund with PayPal'}</span>
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Funds Meter Sub-bar */}
+      {/* Funds Status Meter (Financial Summary Bar) */}
       <section
         aria-label="Funds status meter"
         style={{
@@ -293,102 +362,84 @@ export function App(): React.ReactElement {
           padding: '0.75rem 1.5rem',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
+          gap: '2.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.875rem' }}>
-          <div>
-            <span style={{ color: 'var(--slate)' }}>Total Budget: </span>
-            <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCents(totalBudget)}</strong>
-          </div>
-          <div style={{ width: '1px', height: '14px', backgroundColor: 'var(--line)' }} />
-          <div>
-            <span style={{ color: 'var(--settled)' }}>Paid: </span>
-            <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCents(paidTotal)}</strong>
-          </div>
-          <div style={{ width: '1px', height: '14px', backgroundColor: 'var(--line)' }} />
-          <div>
-            <span style={{ color: 'var(--tide)' }}>Holding Balance: </span>
-            <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCents(heldTotal)}</strong>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--slate)' }}>
+            Total Budget
+          </span>
+          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
+            {formatCents(totalBudget)}
+          </span>
         </div>
 
-        {/* Action button & Horizontal Meter Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {persona === 'client' && (
-            <button
-              id="fund-project-btn"
-              type="button"
-              disabled={isFunding}
-              onClick={handleFundProject}
-              style={{
-                backgroundColor: 'var(--tide)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.4rem 0.85rem',
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                cursor: isFunding ? 'not-allowed' : 'pointer',
-                boxShadow: '0 1px 2px rgba(31, 122, 140, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <span>{isFunding ? 'Processing PayPal...' : 'Fund with PayPal'}</span>
-            </button>
-          )}
+        <div style={{ height: '28px', width: '1px', backgroundColor: 'var(--line)' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '240px', flex: '0 1 350px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--settled)' }}>
+            Paid (Settled)
+          </span>
+          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
+            {formatCents(paidTotal)}
+          </span>
+        </div>
+
+        <div style={{ height: '28px', width: '1px', backgroundColor: 'var(--line)' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--brass)' }}>
+            Holding Balance (Escrow)
+          </span>
+          <span style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
+            {formatCents(heldTotal)}
+          </span>
+        </div>
+
+        {/* Progress Fill Meter */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--slate)' }}>
+            <span>Project Settlement Progress</span>
+            <span>{totalBudget > 0 ? Math.round((paidTotal / totalBudget) * 100) : 0}%</span>
+          </div>
+          <div
+            style={{
+              height: '8px',
+              backgroundColor: 'var(--chalk)',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              display: 'flex',
+            }}
+          >
             <div
               style={{
-                flex: 1,
-                height: '8px',
-                backgroundColor: '#E2E8F0',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                display: 'flex',
+                width: `${totalBudget > 0 ? (paidTotal / totalBudget) * 100 : 0}%`,
+                backgroundColor: 'var(--settled)',
+                transition: 'width 0.4s ease',
               }}
-            >
-              <div
-                style={{
-                  width: `${(paidTotal / totalBudget) * 100}%`,
-                  backgroundColor: 'var(--settled)',
-                  transition: 'width 0.4s ease',
-                }}
-                title={`Paid: ${formatCents(paidTotal)}`}
-              />
-              <div
-                style={{
-                  width: `${(heldTotal / totalBudget) * 100}%`,
-                  backgroundColor: 'var(--tide)',
-                  transition: 'width 0.4s ease',
-                }}
-                title={`Committed: ${formatCents(heldTotal)}`}
-              />
-            </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--slate)', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.min(100, Math.round(((paidTotal + heldTotal) / totalBudget) * 100))}% Protected
-            </span>
+            />
+            <div
+              style={{
+                width: `${totalBudget > 0 ? (heldTotal / totalBudget) * 100 : 0}%`,
+                backgroundColor: 'var(--brass)',
+                transition: 'width 0.4s ease',
+              }}
+            />
           </div>
         </div>
       </section>
 
-      {/* Accessible Live Notification Region */}
+      {/* Notification Banner */}
       {notification && (
         <div
           role="status"
           aria-live="polite"
           style={{
-            backgroundColor: 'rgba(31, 122, 140, 0.08)',
-            borderBottom: '1px solid rgba(31, 122, 140, 0.2)',
-            color: 'var(--tide)',
-            padding: '0.4rem 1.5rem',
-            fontSize: '0.8125rem',
-            fontWeight: 500,
+            backgroundColor: notification.startsWith('Error') ? 'rgba(200, 64, 47, 0.1)' : 'rgba(31, 122, 140, 0.1)',
+            borderBottom: '1px solid var(--line)',
+            padding: '0.625rem 1.5rem',
+            fontSize: '0.875rem',
+            color: notification.startsWith('Error') ? 'var(--flag)' : 'var(--tide)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -396,7 +447,6 @@ export function App(): React.ReactElement {
         >
           <span>{notification}</span>
           <button
-            type="button"
             onClick={() => setNotification(null)}
             style={{
               background: 'none',
@@ -536,6 +586,48 @@ export function App(): React.ReactElement {
                 <span style={{ fontWeight: 600 }}>Sandbox / Mock Safe</span>
               </div>
             </div>
+
+            {/* Manual Release Payment Button for Client Persona when Milestone is Approved */}
+            {activeMilestone?.paymentStatus === 'approved' && persona === 'client' && (
+              <button
+                id="release-milestone-btn"
+                onClick={() =>
+                  handleReleasePayment(
+                    String(
+                      activeMilestone.id ||
+                        (activeMilestone as unknown as { milestoneId?: string }).milestoneId ||
+                        'ms-02'
+                    )
+                  )
+                }
+                disabled={isReleasing}
+                style={{
+                  marginTop: '0.75rem',
+                  width: '100%',
+                  padding: '0.625rem 1rem',
+                  backgroundColor: 'var(--settled)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: isReleasing ? 'not-allowed' : 'pointer',
+                  opacity: isReleasing ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 1px 2px rgba(22, 32, 43, 0.1)',
+                }}
+              >
+                <span>🚀</span>
+                <span>
+                  {isReleasing
+                    ? 'Releasing Payout...'
+                    : `Release Payment (${formatCents(activeMilestone.amountCents ?? 0)})`}
+                </span>
+              </button>
+            )}
           </div>
         </aside>
       </main>

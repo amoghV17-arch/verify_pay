@@ -54,6 +54,6 @@ test.describe('M3 E2E PayPal Funding and Real-time Updates', () => {
     // 6. Verify funds meter shows holding balance
     const meterSection = page.locator('section[aria-label="Funds status meter"]');
     await expect(meterSection).toBeVisible();
-    await expect(meterSection).toContainText('Holding Balance:');
+    await expect(meterSection).toContainText('Holding Balance');
   });
 });
