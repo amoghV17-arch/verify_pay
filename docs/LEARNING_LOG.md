@@ -8,6 +8,7 @@ Living log of concepts introduced, questions asked, and assessment scores (0: no
 | Zod runtime configuration & PayPal safety guard | M0 | 1 | 0 -> pending |
 | Bryntum TaskModel custom fields & runtime mapping | M1 | 2 | 0 -> pending |
 | Partial unique index for financial single-release | M2 | 2 | 0 -> pending |
+| Two-stage validation & self-repair loop | M5 | 2 | 0 -> pending |
 
 ## Log
 
@@ -31,3 +32,11 @@ A: pending
 Verdict: pending
 Feedback given: none
 Score: 0 -> pending
+
+### 2026-11-05 17:23 | concept: Two-stage validation & self-repair loop | milestone: M5 | difficulty: 2
+Q: In `apps/api/src/ai/planner.ts`, why do we need both Stage 1 (Zod schema validation) and Stage 2 (`validatePlanGraph` topological & rule checks) before accepting an AI plan, and how does sending specific validation errors back into the prompt history in a repair loop prevent cascading hallucination compared to just asking the model to try again from scratch?
+A: pending
+Verdict: pending
+Feedback given: none
+Score: 0 -> pending
+
