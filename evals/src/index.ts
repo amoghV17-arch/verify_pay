@@ -1,19 +1,26 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { runPlannerEval } from './plannerEval.js';
 
-console.log('[evals] Initializing evaluation framework placeholder for M5/M6/M10...');
+async function main() {
+  const summary = await runPlannerEval();
 
-const resultsDir = join(process.cwd(), 'evals', 'results');
-if (!existsSync(resultsDir)) {
-  mkdirSync(resultsDir, { recursive: true });
+  console.log(`\nPlanner Evaluation Summary:`);
+  console.log(`-----------------------------------------------`);
+  console.log(`Pass Rate:                  ${summary.passRate}% (${summary.passedBriefs}/${summary.totalBriefs})`);
+  console.log(`First-Attempt Valid Rate:   ${summary.firstAttemptValidRate}%`);
+  console.log(`Valid After Repair Rate:    ${summary.validAfterRepairRate}%`);
+  console.log(`Unsafe Brief Refused:       ${summary.unsafeBriefRefused ? 'YES' : 'NO'}`);
+  console.log(`Average Latency:            ${summary.averageLatencyMs}ms`);
+  console.log(`-----------------------------------------------\n`);
+
+  if (summary.passRate < 100) {
+    console.error(`[EVAL] Planner eval failed to meet 100% target.`);
+    process.exit(1);
+  } else {
+    console.log(`[EVAL] All benchmark briefs met targets successfully.`);
+  }
 }
 
-const summary = {
-  timestamp: new Date().toISOString(),
-  status: 'initialized',
-  framework: 'Milestone Evals Suite',
-};
-
-writeFileSync(join(resultsDir, 'latest.json'), JSON.stringify(summary, null, 2), 'utf8');
-console.log('[evals] Initial results written to evals/results/latest.json');
-
+main().catch((err) => {
+  console.error('[EVAL] Fatal error running evals:', err);
+  process.exit(1);
+});

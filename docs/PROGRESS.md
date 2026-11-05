@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T08:04:29.623Z
+Generated: 2026-11-05T11:49:35.731Z
 
-Overall (hours-weighted): [#######.............]  34%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M5 AI layer and Planner
+Overall (hours-weighted): [#########...........]  43%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M6 Milestone lifecycle and Reviewer agent
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -19,7 +19,7 @@ Current milestone: M5 AI layer and Planner
 | M2 Data layer and Gantt sync | 4 | 7/7 | [####################] 100% |
 | M3 PayPal adapter, mock, and funding | 6 | 10/10 | [####################] 100% |
 | M4 Payout release | 4 | 7/7 | [####################] 100% |
-| M5 AI layer and Planner | 5 | 0/8 | [....................]   0% |
+| M5 AI layer and Planner | 5 | 8/8 | [####################] 100% |
 | M6 Milestone lifecycle and Reviewer agent | 7 | 0/8 | [....................]   0% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 0/5 | [....................]   0% |
 | M8 Trust Panel and product UI | 6 | 0/7 | [....................]   0% |
@@ -55,3 +55,7 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-05 06:33 | M4 | overall 28% | GREEN | M3 completed: PayPal adapter, mock, funding routes, atomic ledger, live sandbox verification, and pnpm verify passed
 - 2026-11-05 06:35 | M4 | overall 28% | GREEN | Handoff M3: PayPal adapter, mock, funding routes, atomic ledger, live sandbox verification, and pnpm verify passed. Next session is M4 Payout release.
 - 2026-11-05 08:04 | M5 | overall 34% | GREEN | M4 completed: Payout release service, row locks, idempotency, webhook handling, worker reconciler, and full verification passed
+- 2026-11-05 08:05 | M5 | overall 34% | GREEN | Handoff M4: Payout release service, row locks, idempotency, webhook handling, worker reconciler, and full verification passed. Next session is M5 AI layer and Planner.
+- 2026-11-05 11:49 | M6 | overall 43% | GREEN | M5 complete: AI layer, Planner service, validation repair loop, Start & Plan Review screens, evals runner passed 100%
+- 2026-11-05 17:21 | M5 | Handoff: Built AI layer and Planner service (LlmPort with Anthropic, Gemini, OpenAI, Fixture adapters; planner.v1.md prompt, Zod schemas, 2-attempt repair loop, DAG topological sorting, vague-criteria filter, and Hamilton largest-remainder cents allocation). Added Start and Plan Review screens in web app with live percentage meter, editable criteria, and Bryntum Gantt preview. Evals benchmark passed 100% across 6 briefs (evals/results/latest.json). Not done: Reviewer agent, deliverable submission modal, and evidence verification (scheduled for M6). Next session must know: M6 implements stateMachine transitions in packages/shared, deliverable submission with SSRF guard, and Reviewer agent loop with evidence gathering.
+

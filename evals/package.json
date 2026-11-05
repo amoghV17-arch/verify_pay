@@ -8,6 +8,7 @@
     "eval": "tsx src/index.ts"
   },
   "dependencies": {
+    "@milestone/api": "workspace:*",
     "@milestone/shared": "workspace:*"
   },
   "devDependencies": {
@@ -16,4 +17,3 @@
     "typescript": "^5.4.5"
   }
 }
-

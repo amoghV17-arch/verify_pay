@@ -38,6 +38,9 @@ export function formatStatusLabel(status?: string): string {
 interface GanttProps {
   projectId?: string;
   refreshKey?: number;
+  tasksData?: unknown[];
+  dependenciesData?: unknown[];
+  readOnly?: boolean;
   onTaskSelect?: (task: MilestoneTaskModel) => void;
   onSyncSuccess?: () => void;
 }
@@ -45,6 +48,9 @@ interface GanttProps {
 export const MilestoneGantt: React.FC<GanttProps> = ({
   projectId = 'proj_brand_launch',
   refreshKey = 0,
+  tasksData,
+  dependenciesData,
+  readOnly = false,
   onTaskSelect,
   onSyncSuccess,
 }) => {
@@ -53,17 +59,28 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
 
   useEffect(() => {
     if (refreshKey > 0 && ganttInstanceRef.current?.project) {
-      ganttInstanceRef.current.project.load();
+      if (!tasksData) {
+        ganttInstanceRef.current.project.load();
+      }
     }
-  }, [refreshKey]);
+  }, [refreshKey, tasksData]);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Create ProjectModel with Bryntum Load/Sync transport
-    const project = new ProjectModel({
+    // Create ProjectModel with Bryntum Load/Sync transport or preview data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const projectConfig: any = {
       taskModelClass: MilestoneTaskModel,
-      transport: {
+    };
+
+    if (tasksData && tasksData.length > 0) {
+      projectConfig.tasksData = tasksData;
+      projectConfig.dependenciesData = dependenciesData || [];
+      projectConfig.autoLoad = false;
+      projectConfig.autoSync = false;
+    } else {
+      projectConfig.transport = {
         load: {
           url: `/api/gantt/${projectId}/load`,
           credentials: 'include',
@@ -72,13 +89,14 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
           url: `/api/gantt/${projectId}/sync`,
           credentials: 'include',
         },
-      },
-      autoLoad: true,
-      autoSync: true,
-      // Fallback initial data in case of offline dev
-      tasksData: sampleTasks as unknown as Record<string, unknown>[],
-      dependenciesData: sampleDependencies as unknown as Record<string, unknown>[],
-    });
+      };
+      projectConfig.autoLoad = true;
+      projectConfig.autoSync = true;
+      projectConfig.tasksData = sampleTasks as unknown as Record<string, unknown>[];
+      projectConfig.dependenciesData = sampleDependencies as unknown as Record<string, unknown>[];
+    }
+
+    const project = new ProjectModel(projectConfig);
 
     if (onSyncSuccess) {
       project.on('sync', () => {
@@ -89,6 +107,7 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
     const gantt = new Gantt({
       appendTo: containerRef.current,
       project,
+      readOnly,
       rowHeight: 46,
       barMargin: 8,
       startDate: new Date('2026-11-08'),

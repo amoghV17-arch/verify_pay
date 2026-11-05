@@ -136,6 +136,9 @@ importers:
 
   evals:
     dependencies:
+      '@milestone/api':
+        specifier: workspace:*
+        version: link:../apps/api
       '@milestone/shared':
         specifier: workspace:*
         version: link:../packages/shared

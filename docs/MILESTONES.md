@@ -103,14 +103,14 @@ Learning checkpoint: yes
 ## M5 AI layer and Planner
 Estimate: 5 h
 Goal: brief to editable plan to Gantt.
-- [ ] Gate H5: LLM key and provider chosen
-- [ ] `LlmPort` with Anthropic, Gemini, OpenAI-compatible, and fixture adapters
-- [ ] Prompt files `planner.v1.md`; schema and validators per `PROMPTS.md`
-- [ ] Repair loop and failure handling
-- [ ] Largest-remainder cents calculation; start dates from dependencies
-- [ ] Start screen and Plan review screen; plan applied to the Gantt with milestones and criteria
-- [ ] Assumptions list shown and editable
-- [ ] Planner eval runner and first results in `evals/results/`
+- [x] Gate H5: LLM key and provider chosen
+- [x] `LlmPort` with Anthropic, Gemini, OpenAI-compatible, and fixture adapters
+- [x] Prompt files `planner.v1.md`; schema and validators per `PROMPTS.md`
+- [x] Repair loop and failure handling
+- [x] Largest-remainder cents calculation; start dates from dependencies
+- [x] Start screen and Plan review screen; plan applied to the Gantt with milestones and criteria
+- [x] Assumptions list shown and editable
+- [x] Planner eval runner and first results in `evals/results/`
 Acceptance: the sample brief produces a valid plan in the Gantt in under 20 seconds; planner eval meets targets.
 Learning checkpoint: yes
 
