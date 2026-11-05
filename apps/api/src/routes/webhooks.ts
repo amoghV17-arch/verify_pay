@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { getDb } from '../db/index.js';
 import { paypalEvents } from '../db/schema.js';
 import { LedgerService } from '../services/ledger.js';
+import { ReleaseService } from '../services/release.js';
 import { sseHub } from '../services/sse.js';
 import { PayPalPort } from '@milestone/shared';
 
@@ -16,6 +17,7 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
   options
 ) => {
   const ledgerService = new LedgerService();
+  const releaseService = new ReleaseService();
 
   server.post(
     '/api/webhooks/paypal',
@@ -45,10 +47,25 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
         id: string;
         event_type: string;
         resource?: {
-          id: string;
+          id?: string;
           status?: string;
           custom_id?: string;
-          amount?: { value: string; currency_code: string };
+          sender_batch_id?: string;
+          payout_batch_id?: string;
+          payout_item_id?: string;
+          transaction_id?: string;
+          transaction_status?: string;
+          payout_item?: {
+            sender_item_id?: string;
+            receiver?: string;
+            amount?: { value: string; currency?: string };
+          };
+          batch_header?: {
+            sender_batch_header?: {
+              sender_batch_id?: string;
+            };
+          };
+          amount?: { value: string; currency_code?: string };
           supplementary_data?: {
             related_ids?: {
               order_id?: string;
@@ -96,6 +113,7 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
 
       // 4. Process Recognized Events
       try {
+        // A. Capture Completed (Funding)
         if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' && event.resource) {
           const captureId = event.resource.id;
           const projectId = event.resource.custom_id;
@@ -114,7 +132,6 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
               meta: { source: 'webhook', webhookEventId: event.id },
             });
 
-            // Broadcast real-time events over SSE
             sseHub.broadcast(projectId, 'project.funded', {
               projectId,
               captureId,
@@ -126,6 +143,76 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
               type: 'funded',
               amountCents,
               paypalRef: captureId,
+            });
+          }
+        }
+
+        // B. Payout Succeeded
+        if (
+          (event.event_type === 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED' ||
+            event.event_type === 'PAYMENT.PAYOUTSBATCH.SUCCESS') &&
+          event.resource
+        ) {
+          const senderBatchId =
+            event.resource.sender_batch_id ||
+            event.resource.batch_header?.sender_batch_header?.sender_batch_id ||
+            '';
+          const senderItemId = event.resource.payout_item?.sender_item_id || '';
+
+          let milestoneId = '';
+          if (senderBatchId.startsWith('ms_')) {
+            milestoneId = senderBatchId.replace(/^ms_/, '');
+          } else if (senderItemId.startsWith('ms_')) {
+            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_item$/, '');
+          }
+
+          if (milestoneId) {
+            const payoutBatchId = event.resource.payout_batch_id;
+            const payoutItemId = event.resource.payout_item_id;
+            const transactionId = event.resource.transaction_id;
+            const amountCents = event.resource.payout_item?.amount?.value
+              ? Math.round(parseFloat(event.resource.payout_item.amount.value) * 100)
+              : undefined;
+
+            await releaseService.completeMilestonePayout({
+              milestoneId,
+              payoutBatchId,
+              payoutItemId,
+              transactionId,
+              amountCents,
+            });
+          }
+        }
+
+        // C. Payout Failed / Denied / Returned / Blocked
+        if (
+          [
+            'PAYMENT.PAYOUTS-ITEM.FAILED',
+            'PAYMENT.PAYOUTS-ITEM.DENIED',
+            'PAYMENT.PAYOUTS-ITEM.RETURNED',
+            'PAYMENT.PAYOUTS-ITEM.BLOCKED',
+            'PAYMENT.PAYOUTSBATCH.DENIED',
+          ].includes(event.event_type) &&
+          event.resource
+        ) {
+          const senderBatchId =
+            event.resource.sender_batch_id ||
+            event.resource.batch_header?.sender_batch_header?.sender_batch_id ||
+            '';
+          const senderItemId = event.resource.payout_item?.sender_item_id || '';
+
+          let milestoneId = '';
+          if (senderBatchId.startsWith('ms_')) {
+            milestoneId = senderBatchId.replace(/^ms_/, '');
+          } else if (senderItemId.startsWith('ms_')) {
+            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_item$/, '');
+          }
+
+          if (milestoneId) {
+            await releaseService.failMilestonePayout({
+              milestoneId,
+              reason: event.event_type,
+              payoutBatchId: event.resource.payout_batch_id,
             });
           }
         }

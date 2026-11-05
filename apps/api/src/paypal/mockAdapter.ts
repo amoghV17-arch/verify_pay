@@ -3,6 +3,10 @@ import {
   PayPalOrderInput,
   PayPalOrderResult,
   PayPalCaptureResult,
+  PayPalPayoutInput,
+  PayPalPayoutResult,
+  PayPalPayoutBatchResult,
+  PayPalPayoutItemStatus,
   PayPalWebhookVerifyInput,
   PayPalWebhookVerifyResult,
 } from '@milestone/shared';
@@ -22,6 +26,21 @@ export class MockPayPalAdapter implements PayPalPort {
   private captures = new Map<
     string,
     { id: string; orderId: string; status: PayPalCaptureResult['status']; amountCents: number; customId?: string }
+  >();
+  private payoutBatches = new Map<
+    string,
+    {
+      payoutBatchId: string;
+      senderBatchId: string;
+      status: 'DENIED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'CANCELED';
+      items: Array<{
+        payoutItemId: string;
+        transactionStatus: PayPalPayoutItemStatus;
+        amountCents: number;
+        receiver: string;
+        senderItemId: string;
+      }>;
+    }
   >();
 
   // Failure injection & simulation controls
@@ -127,7 +146,6 @@ export class MockPayPalAdapter implements PayPalPort {
         try {
           await this.webhookHandler!(eventPayload, rawBody);
           if (this.duplicateWebhook) {
-            // Duplicate emission per test simulation
             await this.webhookHandler!(eventPayload, rawBody);
           }
         } catch {
@@ -161,8 +179,179 @@ export class MockPayPalAdapter implements PayPalPort {
     };
   }
 
+  async createPayout(input: PayPalPayoutInput, _requestId?: string): Promise<PayPalPayoutResult> {
+    const payoutBatchId = `mock_batch_${Math.random().toString(36).slice(2, 10)}`;
+    const payoutItemId = `mock_item_${Math.random().toString(36).slice(2, 10)}`;
+
+    if (this.failNextPayout) {
+      this.failNextPayout = false;
+      const failedResult: PayPalPayoutResult = {
+        payoutBatchId,
+        batchStatus: 'DENIED',
+        senderBatchId: input.senderBatchId,
+        payoutItemId,
+        itemStatus: 'FAILED',
+      };
+
+      this.payoutBatches.set(payoutBatchId, {
+        payoutBatchId,
+        senderBatchId: input.senderBatchId,
+        status: 'DENIED',
+        items: [
+          {
+            payoutItemId,
+            transactionStatus: 'FAILED',
+            amountCents: input.amountCents,
+            receiver: input.receiverEmail,
+            senderItemId: `ms_${input.milestoneId}_item`,
+          },
+        ],
+      });
+
+      if (this.webhookHandler) {
+        const eventId = `WH-MOCK-FAIL-${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+        const eventPayload = {
+          id: eventId,
+          event_version: '1.0',
+          create_time: new Date().toISOString(),
+          event_type: 'PAYMENT.PAYOUTS-ITEM.FAILED',
+          resource_type: 'payouts_item',
+          resource: {
+            payout_item_id: payoutItemId,
+            payout_batch_id: payoutBatchId,
+            transaction_status: 'FAILED',
+            sender_batch_id: input.senderBatchId,
+            payout_item: {
+              amount: {
+                value: (input.amountCents / 100).toFixed(2),
+                currency: 'USD',
+              },
+              receiver: input.receiverEmail,
+              sender_item_id: `ms_${input.milestoneId}_item`,
+            },
+          },
+        };
+
+        const dispatch = async () => {
+          const rawBody = JSON.stringify(eventPayload);
+          try {
+            await this.webhookHandler!(eventPayload, rawBody);
+          } catch {
+            // ignore
+          }
+        };
+
+        if (this.delayWebhookMs <= 0) {
+          queueMicrotask(dispatch);
+        } else {
+          setTimeout(dispatch, this.delayWebhookMs);
+        }
+      }
+
+      return failedResult;
+    }
+
+    const successResult: PayPalPayoutResult = {
+      payoutBatchId,
+      batchStatus: 'SUCCESS',
+      senderBatchId: input.senderBatchId,
+      payoutItemId,
+      itemStatus: 'SUCCESS',
+    };
+
+    this.payoutBatches.set(payoutBatchId, {
+      payoutBatchId,
+      senderBatchId: input.senderBatchId,
+      status: 'SUCCESS',
+      items: [
+        {
+          payoutItemId,
+          transactionStatus: 'SUCCESS',
+          amountCents: input.amountCents,
+          receiver: input.receiverEmail,
+          senderItemId: `ms_${input.milestoneId}_item`,
+        },
+      ],
+    });
+
+    if (this.webhookHandler) {
+      const eventId = `WH-MOCK-PAYOUT-${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+      const eventPayload = {
+        id: eventId,
+        event_version: '1.0',
+        create_time: new Date().toISOString(),
+        event_type: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED',
+        resource_type: 'payouts_item',
+        resource: {
+          payout_item_id: payoutItemId,
+          payout_batch_id: payoutBatchId,
+          transaction_id: `mock_tx_${Math.random().toString(36).slice(2, 8)}`,
+          transaction_status: 'SUCCESS',
+          sender_batch_id: input.senderBatchId,
+          payout_item: {
+            amount: {
+              value: (input.amountCents / 100).toFixed(2),
+              currency: 'USD',
+            },
+            receiver: input.receiverEmail,
+            sender_item_id: `ms_${input.milestoneId}_item`,
+          },
+        },
+      };
+
+      const dispatch = async () => {
+        const rawBody = JSON.stringify(eventPayload);
+        try {
+          await this.webhookHandler!(eventPayload, rawBody);
+          if (this.duplicateWebhook) {
+            await this.webhookHandler!(eventPayload, rawBody);
+          }
+        } catch {
+          // ignore
+        }
+      };
+
+      if (this.delayWebhookMs <= 0) {
+        queueMicrotask(dispatch);
+      } else {
+        setTimeout(dispatch, this.delayWebhookMs);
+      }
+    }
+
+    return successResult;
+  }
+
+  async getPayoutBatch(payoutBatchId: string): Promise<PayPalPayoutBatchResult> {
+    const batch = this.payoutBatches.get(payoutBatchId);
+    if (!batch) {
+      return {
+        payoutBatchId,
+        batchStatus: 'SUCCESS',
+        senderBatchId: `ms_unknown`,
+        items: [
+          {
+            payoutItemId: `mock_item_default`,
+            transactionStatus: 'SUCCESS',
+          },
+        ],
+      };
+    }
+
+    return {
+      payoutBatchId: batch.payoutBatchId,
+      batchStatus: batch.status,
+      senderBatchId: batch.senderBatchId,
+      items: batch.items.map((i) => ({
+        payoutItemId: i.payoutItemId,
+        transactionStatus: i.transactionStatus,
+        amountCents: i.amountCents,
+        receiver: i.receiver,
+        senderItemId: i.senderItemId,
+      })),
+    };
+  }
+
   async verifyWebhook(input: PayPalWebhookVerifyInput): Promise<PayPalWebhookVerifyResult> {
-    // In mock mode, check if failure simulation header is passed
     const invalidHeader = input.headers['x-mock-signature-invalid'];
     if (invalidHeader === 'true' || invalidHeader === '1') {
       return {

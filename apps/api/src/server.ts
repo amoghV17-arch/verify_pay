@@ -7,6 +7,7 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerGanttRoutes } from './routes/gantt.js';
 import { registerFundRoutes } from './routes/fund.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
+import { registerMilestoneRoutes } from './routes/milestones.js';
 import { createPayPalAdapter } from './paypal/index.js';
 
 export interface BuildServerOptions {
@@ -53,6 +54,7 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   server.register(registerGanttRoutes);
   server.register(registerFundRoutes, { paypalAdapter });
   server.register(registerWebhookRoutes, { paypalAdapter });
+  server.register(registerMilestoneRoutes, { paypalAdapter });
 
   // Health check endpoint for Render and local checks per ARCHITECTURE.md
   server.get('/healthz', async () => {

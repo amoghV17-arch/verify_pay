@@ -3,6 +3,10 @@ import {
   PayPalOrderInput,
   PayPalOrderResult,
   PayPalCaptureResult,
+  PayPalPayoutInput,
+  PayPalPayoutResult,
+  PayPalPayoutBatchResult,
+  PayPalPayoutItemStatus,
   PayPalWebhookVerifyInput,
   PayPalWebhookVerifyResult,
 } from '@milestone/shared';
@@ -206,6 +210,102 @@ export class SandboxPayPalAdapter implements PayPalPort {
     };
   }
 
+  async createPayout(input: PayPalPayoutInput, requestId?: string): Promise<PayPalPayoutResult> {
+    const body = {
+      sender_batch_header: {
+        sender_batch_id: input.senderBatchId,
+        email_subject: input.emailSubject || `Payout for milestone payment`,
+        email_message: input.note || `Milestone payment released`,
+      },
+      items: [
+        {
+          recipient_type: 'EMAIL',
+          amount: {
+            value: (input.amountCents / 100).toFixed(2),
+            currency: input.currency || 'USD',
+          },
+          note: input.note || `Milestone payment release`,
+          sender_item_id: `ms_${input.milestoneId}_item`,
+          receiver: input.receiverEmail,
+        },
+      ],
+    };
+
+    const headers: Record<string, string> = {};
+    if (requestId) {
+      headers['PayPal-Request-Id'] = requestId;
+    }
+
+    interface PayoutApiResponse {
+      batch_header: {
+        payout_batch_id: string;
+        batch_status: 'DENIED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'CANCELED';
+        sender_batch_header?: {
+          sender_batch_id: string;
+        };
+      };
+    }
+
+    const response = await this.executeWithAuth<PayoutApiResponse>('/v1/payments/payouts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    return {
+      payoutBatchId: response.batch_header.payout_batch_id,
+      batchStatus: response.batch_header.batch_status,
+      senderBatchId: response.batch_header.sender_batch_header?.sender_batch_id || input.senderBatchId,
+      raw: response as unknown as Record<string, unknown>,
+    };
+  }
+
+  async getPayoutBatch(payoutBatchId: string): Promise<PayPalPayoutBatchResult> {
+    interface PayoutBatchDetailsResponse {
+      batch_header: {
+        payout_batch_id: string;
+        batch_status: 'DENIED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'CANCELED';
+        sender_batch_header?: {
+          sender_batch_id: string;
+        };
+      };
+      items?: Array<{
+        payout_item_id: string;
+        transaction_id?: string;
+        transaction_status: PayPalPayoutItemStatus;
+        payout_item?: {
+          amount?: { value: string; currency: string };
+          receiver?: string;
+          sender_item_id?: string;
+        };
+        errors?: Record<string, unknown>;
+      }>;
+    }
+
+    const res = await this.executeWithAuth<PayoutBatchDetailsResponse>(
+      `/v1/payments/payouts/${encodeURIComponent(payoutBatchId)}`,
+      { method: 'GET' }
+    );
+
+    return {
+      payoutBatchId: res.batch_header.payout_batch_id,
+      batchStatus: res.batch_header.batch_status,
+      senderBatchId: res.batch_header.sender_batch_header?.sender_batch_id || '',
+      items: (res.items || []).map((item) => ({
+        payoutItemId: item.payout_item_id,
+        transactionId: item.transaction_id,
+        transactionStatus: item.transaction_status,
+        amountCents: item.payout_item?.amount?.value
+          ? Math.round(parseFloat(item.payout_item.amount.value) * 100)
+          : undefined,
+        receiver: item.payout_item?.receiver,
+        senderItemId: item.payout_item?.sender_item_id,
+        errors: item.errors,
+      })),
+      raw: res as unknown as Record<string, unknown>,
+    };
+  }
+
   async verifyWebhook(input: PayPalWebhookVerifyInput): Promise<PayPalWebhookVerifyResult> {
     const webhookId = input.webhookId || this.webhookId;
     if (!webhookId) {
@@ -253,4 +353,3 @@ export class SandboxPayPalAdapter implements PayPalPort {
     };
   }
 }
-
