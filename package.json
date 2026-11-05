@@ -19,7 +19,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",
     "eval": "pnpm --filter @milestone/evals eval",
-    "smoke:sandbox": "node -e \"console.log('[smoke:sandbox] Placeholder for M3 sandbox test')\"",
+    "smoke:sandbox": "node scripts/smoke-sandbox.mjs",
     "demo:reset": "node -e \"console.log('[demo:reset] Placeholder for M10 demo reset')\"",
     "verify": "node scripts/verify.mjs"
   },

@@ -37,17 +37,25 @@ export function formatStatusLabel(status?: string): string {
 
 interface GanttProps {
   projectId?: string;
+  refreshKey?: number;
   onTaskSelect?: (task: MilestoneTaskModel) => void;
   onSyncSuccess?: () => void;
 }
 
 export const MilestoneGantt: React.FC<GanttProps> = ({
   projectId = 'proj_brand_launch',
+  refreshKey = 0,
   onTaskSelect,
   onSyncSuccess,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttInstanceRef = useRef<Gantt | null>(null);
+
+  useEffect(() => {
+    if (refreshKey > 0 && ganttInstanceRef.current?.project) {
+      ganttInstanceRef.current.project.load();
+    }
+  }, [refreshKey]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -86,6 +94,20 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
       startDate: new Date('2026-11-08'),
       endDate: new Date('2026-12-28'),
       viewPreset: 'weekAndDayLetter',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      taskRenderer: ({ taskRecord, renderData }: { taskRecord: TaskModel; renderData: any }) => {
+        const model = taskRecord as MilestoneTaskModel;
+        if (model.isMilestone) {
+          const status = model.paymentStatus ?? 'unfunded';
+          const statusCls = `milestone-status-${status}`;
+          if (typeof renderData.cls === 'string') {
+            renderData.cls += ` ${statusCls}`;
+          } else if (renderData.cls && typeof renderData.cls === 'object' && 'add' in renderData.cls) {
+            renderData.cls.add(statusCls);
+          }
+        }
+        return '';
+      },
       features: {
         taskDrag: true,
         taskResize: true,
@@ -161,36 +183,61 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
           align: 'right',
           renderer: ({ record }: { record: Model }) => {
             const model = record as MilestoneTaskModel;
-            if (model.amountCents != null && model.amountCents > 0) {
-              return `<span class="money-cell">${formatCents(model.amountCents)}</span>`;
-            }
-            return '<span style="color: var(--slate); font-size: 0.8rem;">—</span>';
+            if (!model.isMilestone || model.amountCents == null) return '';
+            return `<strong class="money-cell mono" style="font-family: 'Instrument Sans', sans-serif;">${formatCents(model.amountCents)}</strong>`;
           },
         },
       ],
-      taskRenderer: ({ taskRecord, renderData }) => {
-        const model = taskRecord as MilestoneTaskModel;
-        if (model.isMilestone) {
-          const status = model.paymentStatus ?? 'unfunded';
-          const statusCls = `milestone-status-${status}`;
-          if (typeof renderData.cls === 'string') {
-            renderData.cls += ` ${statusCls}`;
-          } else if (renderData.cls && typeof renderData.cls === 'object' && 'add' in renderData.cls) {
-            renderData.cls.add(statusCls);
-          }
-        }
-        return '';
-      },
+      tbar: [
+        {
+          type: 'button',
+          text: 'Zoom In',
+          icon: 'b-fa-search-plus',
+          onClick: (): void => {
+            ganttInstanceRef.current?.zoomIn();
+          },
+        },
+        {
+          type: 'button',
+          text: 'Zoom Out',
+          icon: 'b-fa-search-minus',
+          onClick: (): void => {
+            ganttInstanceRef.current?.zoomOut();
+          },
+        },
+        {
+          type: 'button',
+          text: 'Fit Timeline',
+          icon: 'b-fa-compress',
+          onClick: (): void => {
+            ganttInstanceRef.current?.zoomToFit();
+          },
+        },
+        '->',
+        {
+          type: 'widget',
+          html: '<span style="font-size: 0.8125rem; color: var(--slate); font-weight: 500;">Milestone holding balance protected by PayPal Sandbox</span>',
+        },
+      ],
     });
 
-    if (onTaskSelect) {
-      gantt.on('taskClick', ({ taskRecord }: { taskRecord: TaskModel }) => {
+    gantt.on('taskClick', ({ taskRecord }: { taskRecord: TaskModel }) => {
+      if (onTaskSelect && taskRecord) {
         onTaskSelect(taskRecord as MilestoneTaskModel);
-      });
-      gantt.on('cellClick', ({ record }: { record: Model }) => {
+      }
+    });
+
+    gantt.on('cellClick', ({ record }: { record?: Model }) => {
+      if (onTaskSelect && record) {
         onTaskSelect(record as MilestoneTaskModel);
-      });
-    }
+      }
+    });
+
+    gantt.on('selectionChange', ({ selected }: { selected?: TaskModel[] }) => {
+      if (onTaskSelect && selected && selected.length > 0 && selected[0]) {
+        onTaskSelect(selected[0] as MilestoneTaskModel);
+      }
+    });
 
     ganttInstanceRef.current = gantt;
 
@@ -198,32 +245,19 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
       gantt.destroy();
       ganttInstanceRef.current = null;
     };
-  }, [projectId, onTaskSelect, onSyncSuccess]);
+  }, [projectId]);
 
   return (
     <div className="milestone-gantt-wrapper">
-      <div className="milestone-gantt-header">
-        <h2 className="milestone-gantt-title">
-          <span>Brand Platform Redesign</span>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 400, color: 'var(--slate)' }}>
-            (12 Tasks • 4 Milestones • $8,000 Total)
-          </span>
-        </h2>
-        <div className="milestone-gantt-legend">
-          <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Milestone States:</span>
+      <div className="milestone-legend-bar">
+        <span className="milestone-legend-title">Milestone Lifecycle Legend:</span>
+        <div className="milestone-legend-items">
           <div className="milestone-legend-item">
             <span
               className="milestone-legend-dot"
               style={{ border: '2px solid var(--settled)', background: 'var(--settled)' }}
             />
             <span>Paid (✓)</span>
-          </div>
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{ border: '2px solid var(--brass)', background: 'var(--brass)' }}
-            />
-            <span>Approved (⟳)</span>
           </div>
           <div className="milestone-legend-item">
             <span

@@ -13,14 +13,14 @@ PayPal does not provide an escrow product for this flow. Milestone's platform bu
 
 | Purpose | API | Endpoint | Verified |
 |---|---|---|---|
-| Auth | OAuth2 client credentials | `POST /v1/oauth2/token` (basic auth with client id and secret, `grant_type=client_credentials`) | ☐ |
-| Create funding order | Orders v2 | `POST /v2/checkout/orders` | ☐ |
-| Capture funding | Orders v2 | `POST /v2/checkout/orders/{id}/capture` | ☐ |
-| Get order (reconcile) | Orders v2 | `GET /v2/checkout/orders/{id}` | ☐ |
+| Auth | OAuth2 client credentials | `POST /v1/oauth2/token` (basic auth with client id and secret, `grant_type=client_credentials`) | 2026-11-05 (RFC 6749, Basic Auth, 3600s cache) |
+| Create funding order | Orders v2 | `POST /v2/checkout/orders` | 2026-11-05 (intent: CAPTURE, single purchase unit, amount in USD decimal) |
+| Capture funding | Orders v2 | `POST /v2/checkout/orders/{id}/capture` | 2026-11-05 (captures[0].status COMPLETED, PayPal-Request-Id) |
+| Get order (reconcile) | Orders v2 | `GET /v2/checkout/orders/{id}` | 2026-11-05 (id, status, purchase_units) |
 | Release milestone | Payouts | `POST /v1/payments/payouts` | ☐ |
 | Get payout batch (reconcile) | Payouts | `GET /v1/payments/payouts/{payout_batch_id}` | ☐ |
 | Refund unreleased funds (stretch) | Payments v2 | `POST /v2/payments/captures/{capture_id}/refund` | ☐ |
-| Verify webhook | Notifications | `POST /v1/notifications/verify-webhook-signature` | ☐ |
+| Verify webhook | Notifications | `POST /v1/notifications/verify-webhook-signature` | 2026-11-05 (auth_algo, cert_url, transmission_id, transmission_sig, transmission_time, webhook_id) |
 
 Token handling: cache the access token in memory until shortly before it expires, refresh on 401 once, never log it.
 

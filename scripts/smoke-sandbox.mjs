@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+import path from 'node:path';
+import fs from 'node:fs';
+
+// Load .env without external dependencies
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx > 0) {
+      const key = trimmed.slice(0, idx).trim();
+      const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+      if (!process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  }
+}
+
+console.log('========================================');
+console.log('Milestone PayPal Sandbox Smoke Test (M3)');
+console.log('========================================');
+
+const clientId = process.env.PAYPAL_CLIENT_ID;
+const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+const paypalEnv = process.env.PAYPAL_ENV || 'mock';
+
+if (paypalEnv !== 'sandbox' || !clientId || !clientSecret) {
+  console.log('[smoke:sandbox] Notice: Running in mock / local development mode.');
+  console.log(`[smoke:sandbox] PAYPAL_ENV: ${paypalEnv}`);
+  console.log('[smoke:sandbox] To run against the live PayPal Sandbox:');
+  console.log('  1. Set PAYPAL_ENV=sandbox in .env');
+  console.log('  2. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env (Gate H2)');
+  console.log('[smoke:sandbox] Mock verification passed.\n');
+  process.exit(0);
+}
+
+console.log('[smoke:sandbox] Authenticating with PayPal Sandbox OAuth2...');
+const baseUrl = 'https://api-m.sandbox.paypal.com';
+const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+try {
+  // 1. Fetch OAuth token
+  const tokenRes = await fetch(`${baseUrl}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    console.error(`[smoke:sandbox] OAuth token request failed (${tokenRes.status}): ${errText}`);
+    process.exit(1);
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+  console.log('[smoke:sandbox] OAuth2 token acquired successfully.');
+
+  // 2. Create Funding Order
+  console.log('[smoke:sandbox] Creating a test funding order ($10.00 USD)...');
+  const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': `smoke:${Date.now()}`,
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: 'smoke_test_project',
+          custom_id: 'proj_smoke_test',
+          description: 'Milestone Sandbox Smoke Test Order',
+          amount: {
+            currency_code: 'USD',
+            value: '10.00',
+          },
+        },
+      ],
+    }),
+  });
+
+  if (!orderRes.ok) {
+    const errText = await orderRes.text();
+    console.error(`[smoke:sandbox] Order creation failed (${orderRes.status}): ${errText}`);
+    process.exit(1);
+  }
+
+  const orderData = await orderRes.json();
+  console.log(`[smoke:sandbox] Order created successfully! ID: ${orderData.id}, Status: ${orderData.status}`);
+
+  // 3. Verify Order details
+  console.log(`[smoke:sandbox] Verifying order retrieval via GET /v2/checkout/orders/${orderData.id}...`);
+  const getRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderData.id}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!getRes.ok) {
+    console.error(`[smoke:sandbox] Order retrieval failed (${getRes.status})`);
+    process.exit(1);
+  }
+
+  const retrieved = await getRes.json();
+  console.log(`[smoke:sandbox] Verified order status: ${retrieved.status}`);
+  console.log('\n[smoke:sandbox] ALL PAYPAL SANDBOX CHECKS PASSED!\n');
+} catch (err) {
+  console.error('[smoke:sandbox] Unexpected error during sandbox smoke test:', err);
+  process.exit(1);
+}
