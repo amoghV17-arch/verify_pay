@@ -74,16 +74,16 @@ Learning checkpoint: yes
 ## M3 PayPal adapter, mock, and funding
 Estimate: 6 h
 Goal: a client can fund a project and the ledger reflects it, in mock and sandbox modes.
-- [ ] `PayPalPort` interface, `mockAdapter`, `sandboxAdapter`
-- [ ] Each endpoint used is verified against official docs and marked in `PAYPAL_INTEGRATION.md`
-- [ ] OAuth token caching with a single refresh on 401
-- [ ] Fund order create and capture routes with request ids
-- [ ] Webhook endpoint: raw body, signature verification (sandbox) or HMAC (mock), event dedupe
-- [ ] Ledger service with `funded` entries and invariants
-- [ ] SSE hub and `project.funded` event; UI shows the funded state on the Gantt and the funds meter
-- [ ] Gate H2 and H3: sandbox credentials and accounts provided
-- [ ] Tests: duplicate webhook, webhook before capture response, capture failure
-- [ ] `pnpm smoke:sandbox` funds a real sandbox order (needs a prepared buyer session or a documented manual approval step)
+- [x] `PayPalPort` interface, `mockAdapter`, `sandboxAdapter`
+- [x] Each endpoint used is verified against official docs and marked in `PAYPAL_INTEGRATION.md`
+- [x] OAuth token caching with a single refresh on 401
+- [x] Fund order create and capture routes with request ids
+- [x] Webhook endpoint: raw body, signature verification (sandbox) or HMAC (mock), event dedupe
+- [x] Ledger service with `funded` entries and invariants
+- [x] SSE hub and `project.funded` event; UI shows the funded state on the Gantt and the funds meter
+- [x] Gate H2 and H3: sandbox credentials and accounts provided
+- [x] Tests: duplicate webhook, webhook before capture response, capture failure
+- [x] `pnpm smoke:sandbox` funds a real sandbox order (needs a prepared buyer session or a documented manual approval step)
 Acceptance: mock e2e funds a project; one real sandbox funding is recorded in the ledger with a PayPal reference.
 Learning checkpoint: yes
 

@@ -68,3 +68,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** Bryntum Gantt allows users to edit timeline records. A client payload could maliciously attempt to modify `amountCents` or set status to `paid`.
 - **Decision:** Server-side sync endpoint strictly whitelists schedule mutations (`name`, `startDate`, `durationDays`, `percentDone`, `parentId`, `sortOrder`) and completely strips and ignores `amountCents` and `paymentStatus`.
 - **Why:** Preserves the core security invariant that LLM review policies and PayPal transactions alone control financial status.
+
+## M3 PayPal Adapter, Mock, and Funding decisions
+
+### Fastify Raw-Body Preservation for Cryptographic Webhook Verification
+- **Context:** PayPal webhook signatures require validating the raw unparsed JSON byte sequence against headers (`paypal-transmission-sig`, `paypal-cert-url`, etc.). Fastify standard JSON body parsers decode into JavaScript objects before route handlers execute.
+- **Decision:** Implemented a native Fastify buffer parser (`parseAs: 'buffer'`) that attaches `req.rawBody` while handling empty and standard JSON bodies without introducing external or unmaintained dependencies.
+- **Why:** Guarantees cryptographically exact verification against PayPal's verification endpoint while maintaining clean native Fastify routing and request parsing.
+
+### OAuth Token In-Memory Caching and Transparent 401 Refresh
+- **Context:** PayPal Orders v2 endpoints require OAuth2 Bearer tokens (`/v1/oauth2/token`). Fetching a new token per request adds 300-600ms network latency.
+- **Decision:** Cached the access token in memory with an expiration timestamp and a 60-second safety buffer; on any 401 Unauthorized response, invalidates cache and attempts a single retry.
+- **Why:** Reduces API latency for order creation and capture while safely recovering from token invalidation.
+
+### Atomic Ledger Funding and Invariant Verification
+- **Context:** When a client funds a project, the ledger entry, project status update, and unfunded milestone status transitions must happen atomically and idempotently.
+- **Decision:** Wrapped all funding writes in a database transaction with idempotency key `fund:${projectId}:${captureId}`, recomputed `holdingBalanceCents = fundedCents - releasedCents - refundedCents`, and enforced invariant `holdingBalanceCents >= 0`.
+- **Why:** Guarantees money is never duplicated across retried capture requests or delayed webhooks, and upholds project financial invariants.

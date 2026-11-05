@@ -1,12 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { formatCents } from '@milestone/shared';
 import { MilestoneGantt } from './components/Gantt.js';
 import { MilestoneTaskModel } from './models/MilestoneTaskModel.js';
 import { sampleTasks } from './data/sampleProject.js';
 
+interface LedgerSummary {
+  fundedCents: number;
+  releasedCents: number;
+  refundedCents: number;
+  holdingBalanceCents: number;
+}
+
 export function App(): React.ReactElement {
+  const projectId = 'proj_brand_launch';
   const [selectedTask, setSelectedTask] = useState<MilestoneTaskModel | null>(null);
   const [persona, setPersona] = useState<'client' | 'freelancer'>('client');
+  const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isFunding, setIsFunding] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const fetchLedger = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/ledger`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setLedgerSummary(data.summary);
+      }
+    } catch {
+      // offline dev fallback
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    // Initialize default client persona cookie
+    handlePersonaChange('client');
+    fetchLedger();
+
+    // Setup Server-Sent Events (SSE) listener
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`/api/projects/${projectId}/events`);
+
+      es.addEventListener('project.funded', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setNotification(`PayPal Funding Received: ${formatCents(payload.amountCents ?? 0)} holding balance.`);
+          fetchLedger();
+          setRefreshKey((k) => k + 1);
+        } catch {
+          // ignore parsing error
+        }
+      });
+
+      es.addEventListener('ledger.entry', () => {
+        fetchLedger();
+        setRefreshKey((k) => k + 1);
+      });
+    } catch {
+      // offline fallback
+    }
+
+    return () => {
+      es?.close();
+    };
+  }, [projectId, fetchLedger]);
 
   const handlePersonaChange = async (targetPersona: 'client' | 'freelancer') => {
     setPersona(targetPersona);
@@ -22,15 +80,65 @@ export function App(): React.ReactElement {
     }
   };
 
-  // Compute summary metrics from sample tasks
+  const handleFundProject = async () => {
+    setIsFunding(true);
+    setNotification(null);
+    try {
+      // 1. Create order
+      const orderRes = await fetch(`/api/projects/${projectId}/fund/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'PayPal-Request-Id': `fund:${projectId}:${Date.now()}`,
+        },
+        body: JSON.stringify({}),
+        credentials: 'include',
+      });
+
+      if (!orderRes.ok) {
+        const errJson = (await orderRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(errJson.error || 'Failed to create funding order');
+      }
+
+      const orderData = await orderRes.json();
+
+      // 2. Capture order
+      const capRes = await fetch(`/api/projects/${projectId}/fund/capture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ orderId: orderData.orderId }),
+      });
+
+      if (!capRes.ok) {
+        throw new Error('Failed to capture funding order');
+      }
+
+      const capData = await capRes.json();
+      setNotification(`Project funded! Captured ${capData.captureId}. Holding balance: ${formatCents(capData.holdingBalanceCents)}`);
+      await fetchLedger();
+      setRefreshKey((k) => k + 1);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Funding failed';
+      setNotification(`Error: ${msg}`);
+    } finally {
+      setIsFunding(false);
+    }
+  };
+
+  // Compute summary metrics from sample tasks or live ledger
   const milestones = sampleTasks.filter((t) => t.milestone);
-  const totalBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
-  const paidTotal = milestones
+  const sampleBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
+  const samplePaid = milestones
     .filter((m) => m.paymentStatus === 'paid')
     .reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
-  const heldTotal = milestones
+  const sampleHeld = milestones
     .filter((m) => m.paymentStatus === 'funded' || m.paymentStatus === 'in_review' || m.paymentStatus === 'approved')
     .reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
+
+  const totalBudget = sampleBudget;
+  const paidTotal = ledgerSummary ? ledgerSummary.releasedCents : samplePaid;
+  const heldTotal = ledgerSummary ? ledgerSummary.holdingBalanceCents : sampleHeld;
 
   const activeMilestone =
     selectedTask?.isMilestone
@@ -202,43 +310,106 @@ export function App(): React.ReactElement {
           </div>
           <div style={{ width: '1px', height: '14px', backgroundColor: 'var(--line)' }} />
           <div>
-            <span style={{ color: 'var(--tide)' }}>Committed / Held: </span>
+            <span style={{ color: 'var(--tide)' }}>Holding Balance: </span>
             <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCents(heldTotal)}</strong>
           </div>
         </div>
 
-        {/* Horizontal Meter Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '320px', flex: '0 1 450px' }}>
-          <div
-            style={{
-              flex: 1,
-              height: '8px',
-              backgroundColor: '#E2E8F0',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              display: 'flex',
-            }}
-          >
-            <div
+        {/* Action button & Horizontal Meter Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {persona === 'client' && (
+            <button
+              id="fund-project-btn"
+              type="button"
+              disabled={isFunding}
+              onClick={handleFundProject}
               style={{
-                width: `${(paidTotal / totalBudget) * 100}%`,
-                backgroundColor: 'var(--settled)',
-              }}
-              title={`Paid: ${formatCents(paidTotal)}`}
-            />
-            <div
-              style={{
-                width: `${(heldTotal / totalBudget) * 100}%`,
                 backgroundColor: 'var(--tide)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.4rem 0.85rem',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                cursor: isFunding ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 2px rgba(31, 122, 140, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
               }}
-              title={`Committed: ${formatCents(heldTotal)}`}
-            />
+            >
+              <span>{isFunding ? 'Processing PayPal...' : 'Fund with PayPal'}</span>
+            </button>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '240px', flex: '0 1 350px' }}>
+            <div
+              style={{
+                flex: 1,
+                height: '8px',
+                backgroundColor: '#E2E8F0',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                display: 'flex',
+              }}
+            >
+              <div
+                style={{
+                  width: `${(paidTotal / totalBudget) * 100}%`,
+                  backgroundColor: 'var(--settled)',
+                  transition: 'width 0.4s ease',
+                }}
+                title={`Paid: ${formatCents(paidTotal)}`}
+              />
+              <div
+                style={{
+                  width: `${(heldTotal / totalBudget) * 100}%`,
+                  backgroundColor: 'var(--tide)',
+                  transition: 'width 0.4s ease',
+                }}
+                title={`Committed: ${formatCents(heldTotal)}`}
+              />
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--slate)', fontVariantNumeric: 'tabular-nums' }}>
+              {Math.min(100, Math.round(((paidTotal + heldTotal) / totalBudget) * 100))}% Protected
+            </span>
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--slate)', fontVariantNumeric: 'tabular-nums' }}>
-            {Math.round(((paidTotal + heldTotal) / totalBudget) * 100)}% Protected
-          </span>
         </div>
       </section>
+
+      {/* Accessible Live Notification Region */}
+      {notification && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            backgroundColor: 'rgba(31, 122, 140, 0.08)',
+            borderBottom: '1px solid rgba(31, 122, 140, 0.2)',
+            color: 'var(--tide)',
+            padding: '0.4rem 1.5rem',
+            fontSize: '0.8125rem',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{notification}</span>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--tide)',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Main Workspace: Central Gantt + Side Trust Panel Preview */}
       <main
@@ -253,7 +424,7 @@ export function App(): React.ReactElement {
       >
         {/* Gantt Container */}
         <div style={{ minWidth: 0, height: '100%' }}>
-          <MilestoneGantt projectId="proj_brand_launch" onTaskSelect={setSelectedTask} />
+          <MilestoneGantt projectId={projectId} refreshKey={refreshKey} onTaskSelect={setSelectedTask} />
         </div>
 
         {/* Side Trust Panel Drawer Preview */}

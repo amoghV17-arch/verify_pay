@@ -7,17 +7,17 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-04T19:20:18.718Z
+Generated: 2026-11-05T06:33:27.704Z
 
-Overall (hours-weighted): [####................]  18%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M3 PayPal adapter, mock, and funding
+Overall (hours-weighted): [######..............]  28%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M4 Payout release
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
 | M0 Foundation and automation | 3 | 10/10 | [####################] 100% |
 | M1 Bryntum Gantt spike | 4 | 7/7 | [####################] 100% |
 | M2 Data layer and Gantt sync | 4 | 7/7 | [####################] 100% |
-| M3 PayPal adapter, mock, and funding | 6 | 0/10 | [....................]   0% |
+| M3 PayPal adapter, mock, and funding | 6 | 10/10 | [####################] 100% |
 | M4 Payout release | 4 | 0/7 | [....................]   0% |
 | M5 AI layer and Planner | 5 | 0/8 | [....................]   0% |
 | M6 Milestone lifecycle and Reviewer agent | 7 | 0/8 | [....................]   0% |
@@ -52,3 +52,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-04 18:20 | M3 | overall 18% | GREEN | M2 data layer and Gantt sync complete with Drizzle schema, PGlite testing, Bryntum load/sync, and monetary tamper protection
 - 2026-11-04 23:50 | M2 | Handoff: Built complete data layer with Drizzle ORM (schema.ts, migrations, in-memory PGlite for tests, node-postgres for PostgreSQL), database constraints (unique idempotency key, partial unique index for single released milestone entry), seed script with Acme & Arjun personas and 12-task project, Fastify project CRUD, demo auth with signed cookie sessions, and Bryntum load/sync endpoints with monetary tamper protection (tests prove forged client money and status payloads are rejected). Not done: PayPal payment capture, ledger funding, and webhook handling (scheduled for M3). Next session must know: M3 implements PayPalPort with mockAdapter and sandboxAdapter (Gates H2 and H3 for sandbox credentials).
 - 2026-11-04 19:20 | M3 | overall 18% | GREEN | Handoff M2/M3: M2 verified, merged to main, tagged m02-done, and pushed. Switched to m03-paypal-funding branch and created M3 task checklist. Gates H2 & H3 (PayPal sandbox credentials) are in progress by the owner in .env; mock adapter is ready to run automatically.
+- 2026-11-05 06:33 | M4 | overall 28% | GREEN | M3 completed: PayPal adapter, mock, funding routes, atomic ledger, live sandbox verification, and pnpm verify passed
