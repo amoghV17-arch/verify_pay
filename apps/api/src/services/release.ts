@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { getDb, type AppDatabase } from '../db/index.js';
 import {
@@ -68,7 +68,27 @@ export class ReleaseService {
       }
 
       const canonicalMilestoneId = m.id;
-      const idempotencyKey = `release:${canonicalMilestoneId}`;
+
+      // Count previous failed attempts for this milestone to determine attempt number
+      const failedEntries = await tx
+        .select()
+        .from(ledgerEntries)
+        .where(
+          and(
+            eq(ledgerEntries.milestoneId, canonicalMilestoneId),
+            eq(ledgerEntries.type, 'release_failed')
+          )
+        );
+
+      const attempt = failedEntries.length + 1;
+      const idempotencyKey =
+        attempt === 1
+          ? `release:${canonicalMilestoneId}`
+          : `release:${canonicalMilestoneId}:att${attempt}`;
+      const senderBatchId =
+        attempt === 1
+          ? `ms_${canonicalMilestoneId}`
+          : `ms_${canonicalMilestoneId}_att${attempt}`;
 
       // Check idempotent duplicate calls
       if (m.status === 'paid') {
@@ -156,6 +176,8 @@ export class ReleaseService {
         project: proj,
         holdingBalanceCents: ledgerSummary.holdingBalanceCents,
         idempotencyKey,
+        senderBatchId,
+        attempt,
       };
     });
 
@@ -163,15 +185,15 @@ export class ReleaseService {
       return prepResult.result;
     }
 
-    const { milestone: m, project: proj, holdingBalanceCents, idempotencyKey } = prepResult;
+    const { milestone: m, project: proj, holdingBalanceCents, idempotencyKey, senderBatchId, attempt } = prepResult;
     if (!m || !proj) {
       throw new Error('Unexpected release preparation failure');
     }
 
-    const effectiveKey = idempotencyKey || `release:${m.id}`;
+    const effectiveKey = idempotencyKey || (attempt && attempt > 1 ? `release:${m.id}:att${attempt}` : `release:${m.id}`);
+    const effectiveSenderBatchId = senderBatchId || (attempt && attempt > 1 ? `ms_${m.id}_att${attempt}` : `ms_${m.id}`);
 
-    // 2. Call PayPal Payouts with unique sender_batch_id: ms_<milestoneId> and Request-Id
-    const senderBatchId = `ms_${m.id}`;
+    // 2. Call PayPal Payouts with unique sender_batch_id and Request-Id
     const receiverEmail =
       proj.freelancerPaypalEmail ||
       process.env.DEMO_FREELANCER_PAYPAL_EMAIL ||
@@ -186,7 +208,7 @@ export class ReleaseService {
           amountCents: m.amountCents,
           currency: proj.currency || 'USD',
           receiverEmail,
-          senderBatchId,
+          senderBatchId: effectiveSenderBatchId,
           note: `${proj.title}: ${m.name}`,
           emailSubject: `Payout for milestone: ${m.name}`,
         },
@@ -233,7 +255,7 @@ export class ReleaseService {
       .values({
         id: `pb_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
         milestoneId: m.id,
-        senderBatchId,
+        senderBatchId: effectiveSenderBatchId,
         paypalBatchId: payoutResult.payoutBatchId,
         status: payoutResult.batchStatus,
         raw: payoutResult.raw || {},

@@ -1,4 +1,4 @@
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt, desc } from 'drizzle-orm';
 import { getDb, type AppDatabase } from '../db/index.js';
 import { milestones, payoutBatches } from '../db/schema.js';
 import { ReleaseService } from './release.js';
@@ -42,6 +42,7 @@ export class ReconcilerService {
         .select()
         .from(payoutBatches)
         .where(eq(payoutBatches.milestoneId, m.id))
+        .orderBy(desc(payoutBatches.createdAt))
         .limit(1);
 
       if (!batch?.paypalBatchId) {

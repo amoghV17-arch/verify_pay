@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { initDb, closeDb, AppDatabase } from '../db/index.js';
 import { seedDatabase } from '../db/seed.js';
 import { projects, milestones, ledgerEntries, payoutBatches, activity } from '../db/schema.js';
@@ -37,6 +37,7 @@ describe('Milestone M4 Payout Release Suite', () => {
       NODE_ENV: 'test',
       PAYPAL_ENV: 'mock',
       PORT: '8080',
+      LLM_PROVIDER: 'fixture',
     });
 
     server = buildServer(config, { paypalAdapter: mockPayPal });
@@ -267,6 +268,58 @@ describe('Milestone M4 Payout Release Suite', () => {
     expect(res.statusCode).toBe(403);
     const body = JSON.parse(res.body);
     expect(body.error).toBe('Forbidden');
+  });
+
+  it('9. payout retries: after a failed release, use attempt-numbered keys and sender_batch_id so retry succeeds with exactly one payout', async () => {
+    // 1. Configure mock PayPal to fail the next payout attempt
+    mockPayPal.failNextPayout = true;
+
+    // 2. Initial attempt fails
+    const failResult = await releaseService.releaseMilestone(testMilestoneId, mockPayPal, 'client');
+    expect(failResult.success).toBe(false);
+
+    // Verify milestone was reverted to 'approved' and release_failed recorded
+    const [mAfterFail] = await db.select().from(milestones).where(eq(milestones.id, testMilestoneId));
+    expect(mAfterFail.status).toBe('approved');
+
+    const failedLedgerEntries = await db
+      .select()
+      .from(ledgerEntries)
+      .where(and(eq(ledgerEntries.milestoneId, testMilestoneId), eq(ledgerEntries.type, 'release_failed')));
+    expect(failedLedgerEntries.length).toBe(1);
+
+    // 3. Retry the release payout (mock adapter default succeeds)
+    const retryResult = await releaseService.releaseMilestone(testMilestoneId, mockPayPal, 'client');
+    expect(retryResult.success).toBe(true);
+    expect(retryResult.status).toBe('paid');
+    expect(retryResult.idempotencyKey).toBe(`release:${testMilestoneId}:att2`);
+
+    // Verify milestone is now marked 'paid'
+    const [mAfterRetry] = await db.select().from(milestones).where(eq(milestones.id, testMilestoneId));
+    expect(mAfterRetry.status).toBe('paid');
+
+    // 4. Verify exactly ONE 'released' ledger entry exists (no double payout)
+    const releasedLedgerEntries = await db
+      .select()
+      .from(ledgerEntries)
+      .where(and(eq(ledgerEntries.milestoneId, testMilestoneId), eq(ledgerEntries.type, 'released')));
+    expect(releasedLedgerEntries.length).toBe(1);
+    expect(releasedLedgerEntries[0].amountCents).toBe(testMilestoneAmount);
+
+    // Verify attempt 2 payout batch was recorded with attempt-numbered sender_batch_id
+    const batches = await db
+      .select()
+      .from(payoutBatches)
+      .where(eq(payoutBatches.milestoneId, testMilestoneId));
+    expect(batches.length).toBeGreaterThanOrEqual(1);
+    const retryBatch = batches.find((b) => b.senderBatchId === `ms_${testMilestoneId}_att2`);
+    expect(retryBatch).toBeDefined();
+
+    // 5. Subsequent release calls are idempotent and return status paid
+    const idempotentCall = await releaseService.releaseMilestone(testMilestoneId, mockPayPal, 'client');
+    expect(idempotentCall.success).toBe(true);
+    expect(idempotentCall.status).toBe('paid');
+    expect(idempotentCall.message).toBe('Milestone is already paid');
   });
 });
 

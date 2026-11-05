@@ -161,9 +161,9 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
 
           let milestoneId = '';
           if (senderBatchId.startsWith('ms_')) {
-            milestoneId = senderBatchId.replace(/^ms_/, '');
+            milestoneId = senderBatchId.replace(/^ms_/, '').replace(/_att\d+$/, '');
           } else if (senderItemId.startsWith('ms_')) {
-            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_item$/, '');
+            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_att\d+$/, '').replace(/_item$/, '');
           }
 
           if (milestoneId) {
@@ -203,9 +203,9 @@ export const registerWebhookRoutes: FastifyPluginAsync<WebhookRouteOptions> = as
 
           let milestoneId = '';
           if (senderBatchId.startsWith('ms_')) {
-            milestoneId = senderBatchId.replace(/^ms_/, '');
+            milestoneId = senderBatchId.replace(/^ms_/, '').replace(/_att\d+$/, '');
           } else if (senderItemId.startsWith('ms_')) {
-            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_item$/, '');
+            milestoneId = senderItemId.replace(/^ms_/, '').replace(/_att\d+$/, '').replace(/_item$/, '');
           }
 
           if (milestoneId) {
