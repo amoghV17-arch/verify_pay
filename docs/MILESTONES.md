@@ -155,11 +155,11 @@ Learning checkpoint: no
 ## M9 The settle moment and polish (feature freeze)
 Estimate: 3 h
 Goal: one memorable interaction and a clean finish.
-- [ ] Settle animation per `DESIGN.md` with reduced-motion fallback
-- [ ] Count-up balance chip and ledger entry reveal
-- [ ] Final copy pass, favicon, page title, meta tags
-- [ ] Remove or hide any unfinished UI
-- [ ] Tag `v0.9-freeze`
+- [x] Settle animation per `DESIGN.md` with reduced-motion fallback
+- [x] Count-up balance chip and ledger entry reveal
+- [x] Final copy pass, favicon, page title, meta tags
+- [x] Remove or hide any unfinished UI
+- [x] Tag `v0.9-freeze`
 Acceptance: the payout moment is satisfying in a screen recording, and nothing on screen looks unfinished.
 Learning checkpoint: no
 

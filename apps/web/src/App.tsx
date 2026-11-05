@@ -13,6 +13,7 @@ import { FundsMeter } from './components/FundsMeter.js';
 import { TrustPanel, type LedgerEntryItem } from './components/TrustPanel.js';
 import { FundModal } from './components/FundModal.js';
 import { CloseoutReceiptModal } from './components/CloseoutReceiptModal.js';
+import { SettleCoinFlyer, useCountUp, type SettleEventData } from './components/SettleMoment.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -62,6 +63,38 @@ export function App(): React.ReactElement {
   const [autonomyMode, setAutonomyMode] = useState<'manual' | 'assisted' | 'auto'>('assisted');
   const [notification, setNotification] = useState<string | null>(null);
 
+  // Settle moment state per DESIGN.md §2
+  const [settleData, setSettleData] = useState<SettleEventData | null>(null);
+  const [isChipPulsing, setIsChipPulsing] = useState(false);
+
+  const triggerSettleMoment = useCallback(
+    (data: { milestoneId: string; milestoneName: string; amountCents: number }) => {
+      setSettleData({
+        milestoneId: data.milestoneId,
+        milestoneName: data.milestoneName,
+        amountCents: data.amountCents,
+        recipientName: 'Arjun',
+      });
+
+      // Sweep animation on Gantt milestone diamond/row
+      const milestoneDiamond = document.querySelector(`.b-gantt-task.b-milestone`);
+      milestoneDiamond?.classList.add('milestone-settling');
+
+      // Single aria-live announcement per DESIGN.md §2: surfaces in visible status notification
+      const formattedAmount = formatCents(data.amountCents);
+      setNotification(`Payout released! ${data.milestoneName} paid, ${formattedAmount} to Arjun.`);
+    },
+    []
+  );
+
+  const handleSettleComplete = useCallback(() => {
+    setSettleData(null);
+    setIsChipPulsing(true);
+    setTimeout(() => {
+      setIsChipPulsing(false);
+    }, 700);
+  }, []);
+
   const fetchProject = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
@@ -103,7 +136,7 @@ export function App(): React.ReactElement {
       es.addEventListener('project.funded', (event: MessageEvent) => {
         try {
           const payload = JSON.parse(event.data);
-          setNotification(`PayPal Funding Received: ${formatCents(payload.amountCents ?? 0)} holding balance.`);
+          setNotification(`Project funded. ${formatCents(payload.amountCents ?? 0)} is held for this project.`);
           fetchLedger();
           setRefreshKey((k) => k + 1);
         } catch {
@@ -114,7 +147,12 @@ export function App(): React.ReactElement {
       es.addEventListener('milestone.paid', (event: MessageEvent) => {
         try {
           const payload = JSON.parse(event.data);
-          setNotification(`Milestone payout completed: ${formatCents(payload.amountCents ?? 0)} released to Arjun.`);
+          // Trigger the full settle moment
+          triggerSettleMoment({
+            milestoneId: payload.milestoneId || 'ms-02',
+            milestoneName: payload.milestoneName || 'Milestone',
+            amountCents: payload.amountCents ?? 180000,
+          });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'paid' } as any) : prev));
           fetchLedger();
@@ -146,7 +184,7 @@ export function App(): React.ReactElement {
     return () => {
       es?.close();
     };
-  }, [projectId, fetchLedger]);
+  }, [projectId, fetchLedger, triggerSettleMoment]);
 
   const handlePersonaChange = async (targetPersona: 'client' | 'freelancer') => {
     setPersona(targetPersona);
@@ -225,7 +263,14 @@ export function App(): React.ReactElement {
         throw new Error(data.error || data.message || 'Failed to release milestone payout');
       }
 
-      setNotification(`Payout released! Status: ${data.status}. Holding balance: ${formatCents(data.holdingBalanceCents ?? 0)}`);
+      // Trigger the memorable settle moment
+      const releasedAmount = data.amountCents || activeMilestone?.amountCents || 180000;
+      triggerSettleMoment({
+        milestoneId: targetMilestoneId,
+        milestoneName: activeMilestone?.name || 'Milestone',
+        amountCents: releasedAmount,
+      });
+
       if (data.status === 'paid') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedTask((prev) => (prev ? ({ ...prev, paymentStatus: 'paid' } as any) : prev));
@@ -321,6 +366,9 @@ export function App(): React.ReactElement {
   const paidTotal = ledgerSummary ? ledgerSummary.releasedCents : samplePaid;
   const heldTotal = ledgerSummary ? ledgerSummary.holdingBalanceCents : sampleHeld;
 
+  // Numerical eased counter for balance chip
+  const countedPaidTotal = useCountUp(paidTotal, 700);
+
   const activeMilestone =
     selectedTask?.isMilestone
       ? selectedTask
@@ -364,6 +412,9 @@ export function App(): React.ReactElement {
         fontFamily: 'Instrument Sans, sans-serif',
       }}
     >
+      {/* Settle coin flyer along an arc per DESIGN.md §2 */}
+      {settleData && <SettleCoinFlyer settleData={settleData} onComplete={handleSettleComplete} />}
+
       {/* 1. Left Rail (Collapsible Projects Navigation) */}
       <LeftRail
         currentProjectId={projectId}
@@ -456,6 +507,7 @@ export function App(): React.ReactElement {
               </select>
             </div>
 
+            {/* New Plan Button for Client Persona */}
             {persona === 'client' && (
               <button
                 id="new-plan-btn"
@@ -548,9 +600,10 @@ export function App(): React.ReactElement {
               </button>
             </div>
 
-            {/* Freelancer Balance Chip (Target of settle moment per DESIGN.md) */}
+            {/* Freelancer Balance Chip (Target of settle moment per DESIGN.md §2) */}
             <div
               id="balance-chip"
+              className={isChipPulsing ? 'chip-pulsing' : ''}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -559,6 +612,7 @@ export function App(): React.ReactElement {
                 border: '1px solid rgba(29, 143, 90, 0.25)',
                 padding: '0.3rem 0.65rem',
                 borderRadius: '6px',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
               }}
             >
               <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--settled)' }} />
@@ -566,7 +620,7 @@ export function App(): React.ReactElement {
                 Arjun:
               </span>
               <strong style={{ fontSize: '0.875rem', color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatCents(paidTotal)}
+                {formatCents(countedPaidTotal)}
               </strong>
             </div>
 

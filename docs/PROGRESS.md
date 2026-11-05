@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T18:03:31.158Z
+Generated: 2026-11-05T18:28:45.937Z
 
-Overall (hours-weighted): [##############......]  69%   Day 2/5, 4 day(s) left   Schedule: GREEN
-Current milestone: M9 The settle moment and polish (feature freeze)
+Overall (hours-weighted): [###############.....]  74%   Day 2/5, 4 day(s) left   Schedule: GREEN
+Current milestone: M10 Hardening, evals, failure drills
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -23,7 +23,7 @@ Current milestone: M9 The settle moment and polish (feature freeze)
 | M6 Milestone lifecycle and Reviewer agent | 7 | 8/8 | [####################] 100% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
-| M9 The settle moment and polish (feature freeze) | 3 | 0/5 | [....................]   0% |
+| M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 0/12 | [....................]   0% |
 | M11 Deploy | 3 | 0/7 | [....................]   0% |
 | M12 Documentation and submission assets | 4 | 0/6 | [....................]   0% |
@@ -72,3 +72,8 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - Built: Trust Panel with 5 designated sections (status & next step, acceptance criteria with expandable evidence, AI review trace with duration-tracked tool steps and injection warnings, money & sandbox settlement with ledger references, and activity trail with actor glyphs); FundsMeter with 3-segment visual financial progress bar and Project Protection Guarantee trigger; LeftRail collapsible project navigation; CloseoutReceiptModal with audit trail JSON export (`/api/projects/:id/audit`); responsive screenshot review at 1440, 1024, and 390 px; 3 unit tests (`trustPanel.test.ts`) and full Playwright E2E suite (`trustPanel.spec.ts`).
   - Deliberately unfinished: M9 Settle animation (700ms sweep + 900ms coin travel to Arjun's balance chip), count-up counter, and feature freeze cleanup.
   - Next session note: M9 focuses on the memorable settle moment when milestone moves to paid status. All core product screens, modals, and audit trails are complete and verified.
+- 2026-11-05 18:28 | M10 | overall 74% | GREEN | M9 Settle Moment, count-up chip, copy polish, and feature freeze completed
+- Handoff (M9 -> M10):
+  - Built: Settle moment per DESIGN.md §2 featuring 700ms fill sweep (`@keyframes milestone-settle-sweep`), quadratic Bézier flying coin animation (`SettleCoinFlyer`, 900ms), numerical counter easing for balance chip (`useCountUp`), balance chip pulsing animation (`.chip-pulsing`), and unified polite `aria-live` announcement (`"Payout released! <Milestone> paid, <Amount> to Arjun."`). Implemented complete `prefers-reduced-motion: reduce` fallback bypassing coin travel and sweeps while preserving instant chip updates and accessible announcements. Refined page title, metadata, custom SVG milestone favicon, copy polish across UI, and tagged feature freeze `v0.9-freeze`.
+  - Deliberately unfinished: M10 hardening drills, automated failure simulations, performance benchmark runs, and demo reset scripts.
+  - Next session note: Feature freeze is active (`v0.9-freeze`). M10 is dedicated exclusively to hardening, automated failure drills (delayed webhooks, duplicate webhooks, injection attacks, LLM timeouts), demo model evals, and `pnpm demo:reset`.

@@ -191,6 +191,18 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Configured `subGridConfigs: { locked: { width: 440 } }` in Bryntum Gantt, establishing a balanced division between task table data and the interactive timeline canvas.
 - **Why:** Ensures dependency lines, timeline badges, and milestone diamonds remain prominently visible and interactive across 1440px desktop and 1024px tablet viewports.
 
+## M9 The Settle Moment and Feature Freeze Decisions
+
+### Choreographed Settle Moment with Quadratic Arc and Reduced-Motion Fallback
+- **Context:** `docs/DESIGN.md` §2 defines one memorable interaction when payout succeeds: 700ms milestone sweep, diamond coin marker tracking along a quadratic curve to the freelancer's balance chip (900ms), eased number count-up (`useCountUp`), and polite `aria-live` announcement. Users with `prefers-reduced-motion` require instant feedback without animation.
+- **Decision:** Built `SettleCoinFlyer` with dynamic quadratic Bézier trajectory calculation connecting milestone bounding boxes to `#balance-chip`, combined with `@keyframes milestone-settle-sweep` and `.chip-pulsing`. Under `prefers-reduced-motion: reduce`, coin flight and sweeps are completely bypassed, immediately applying chip highlights and firing the screen reader announcement.
+- **Why:** Delivers the primary emotional payoff of the product while adhering strictly to WCAG 2.2 accessibility standards.
+
+### Unified Visual Notification and ARIA Live Region
+- **Context:** Maintaining separate invisible `aria-live` containers alongside visual status banners led to duplicate screen reader announcements and strict-mode element ambiguity.
+- **Decision:** Unified screen reader and visual feedback into a single `role="status"` `aria-live="polite"` notification element with clear, unambiguous payout confirmation (`Payout released! <Milestone> paid, <Amount> to Arjun.`).
+- **Why:** Ensures exactly one accessible announcement is made per payout event while keeping the DOM clean and accessible.
+
 
 
 
