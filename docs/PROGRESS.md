@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T11:37:51.548Z
+Generated: 2026-11-06T18:09:11.193Z
 
-Overall (hours-weighted): [###################.]  97%   Day 3/5, 3 day(s) left   Schedule: GREEN
-Current milestone: M13 Video and submission
+Overall (hours-weighted): [############........]  60%   Day 3/5, 3 day(s) left   Schedule: GREEN
+Current milestone: M8b P1 Design foundation
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -23,6 +23,17 @@ Current milestone: M13 Video and submission
 | M6 Milestone lifecycle and Reviewer agent | 7 | 8/8 | [####################] 100% |
 | M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
+| M8a P0 UI Audit and plan | 2 | 5/5 | [####################] 100% |
+| M8b P1 Design foundation | 4 | 0/6 | [....................]   0% |
+| M8c P2 Public landing and entry | 5 | 0/5 | [....................]   0% |
+| M8d P3 Backend: invites, sessions, roles | 4 | 0/5 | [....................]   0% |
+| M8e P4 Client area | 5 | 0/5 | [....................]   0% |
+| M8f P5 Freelancer area | 4 | 0/5 | [....................]   0% |
+| M8g P6 Lifecycle, review, settlement | 5 | 0/5 | [....................]   0% |
+| M8h P7 Schedule (Bryntum Gantt) | 3 | 0/5 | [....................]   0% |
+| M8i P8 Demo mode, split view, seeds | 3 | 0/4 | [....................]   0% |
+| M8j P9 Polish and quality pass | 3 | 0/5 | [....................]   0% |
+| M8k P10 Regression and deployment | 3 | 0/4 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -112,3 +123,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - What remains:
     - Gate H10: Owner records 2:30 screen & voice demo, uploads to YouTube, and pastes final URLs into the Devpost submission form.
   - Next session: Stretch goals S1–S4 (Critical path, refund unreleased funds, Bryntum TaskBoard, dark theme) or final submission wrap-up.
+- 2026-11-06 18:09 | M8b | overall 60% | GREEN | P0 UI redesign audit and plan complete; Section 2 flaws verified; architectural blueprint and route/component plan recorded; M8a-M8k milestones added

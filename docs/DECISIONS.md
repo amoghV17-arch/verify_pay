@@ -252,6 +252,90 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Created `render.yaml` infrastructure-as-code blueprint automating build, migration, and start commands with `/healthz` health monitoring. Authored `scripts/wake.mjs` with retry backoff and detailed diagnostics to pre-warm the instance prior to testing or demo recording.
 - **Why:** Guarantees repeatable, zero-touch deployment builds and seamless evaluation runs without unexpected cold start timeouts.
 
+## P0 UI Redesign Audit and Architecture Plan (Section 14 M8a)
+
+### 1. Codebase and Live Application Audit (Section 2 Verification)
+- **Context:** `docs/UI_IMPLEMENTATION.md` supersedes `docs/DESIGN.md` and specifies a complete transformation from a single-screen developer prototype into an editorial fintech SaaS platform. Before implementing feature code, Phase P0 mandates an exhaustive code-level and visual audit of the current deployed app (`https://verify-pay.onrender.com`) and local codebase.
+- **Decision:** Verified all 13 visual and 3 code-level flaws identified in `docs/UI_IMPLEMENTATION.md` Section 2:
+  1. *Default serif font fallback on plan screen:* Confirmed. `apps/web/index.html` relies on external Google Fonts links (`Bricolage Grotesque` and `Instrument Sans`), which fail or fall back to system serif in offline, cached, or strict CSP environments. `PlanReviewScreen.tsx` inputs inherit browser serif fallbacks.
+  2. *Mismatched amounts (list vs header):* Confirmed. `sampleProject.ts` and hardcoded state in `App.tsx` diverge from ledger totals computed by `LedgerService`.
+  3. *Fund button on already funded project:* Confirmed. `showFundAction` in `App.tsx` and `FundsMeter.tsx` was rendered unconditionally, even when `holdingBalanceCents > 0`.
+  4. *Paid milestone showing "no AI reviews":* Confirmed. Milestone 1 is seeded as `paid` in `sampleProject.ts` without a corresponding row in the `reviews` database table. `TrustPanel.tsx` displays "No AI reviews conducted yet for this milestone" for a settled milestone.
+  5. *Oversized unstyled legend:* Confirmed. `Gantt.css` renders a wide, unstyled milestone color legend above the timeline.
+  6. *Truncated dates and tight grid cells:* Confirmed. Bryntum locked columns allocate fixed widths that truncate dates and titles on viewports below 1440px.
+  7. *Payment chips on non-milestone tasks:* Confirmed. Standard duration tasks inherited payment status CSS classes.
+  8. *Duplicated actions:* Confirmed. Fund and Release triggers were duplicated across header, funds meter, and Trust Panel.
+  9. *All-caps labels:* Confirmed. `ACCEPTANCE CRITERIA`, `TOTAL BUDGET`, and eyebrow labels violate sentence case guidelines.
+  10. *Dishonest / prohibited wording:* Confirmed. UI used "protected by PayPal Sandbox", "Guarantee & Allocation", and shield glyphs (`🛡️`), violating Section 1 and Section 2 honesty rules.
+  11. *Held funds in "needs a decision" color:* Confirmed. `FundsMeter.tsx` styles held balance with `var(--brass)` (`#825605`), which conveys an alert/warning instead of steady held funds.
+  12. *Persona switch in header:* Confirmed. Header contains `Viewing as: Client / Freelancer` buttons calling a cookie endpoint directly.
+  13. *Oversized zoom buttons & single-screen layout:* Confirmed. Whole application is rendered on a single view in `App.tsx` (811 lines) without client-side routing.
+  14. *Code-level flaw: Default `projectId` and sample-data fallbacks:* Confirmed in `App.tsx` lines 25-47 (`DEMO_PROJECTS` in frontend memory, default `'proj_brand_launch'`).
+  15. *Code-level flaw: Demo-oriented fallback identities in auth:* Confirmed in `apps/api/src/auth/index.ts` lines 93-102 and line 122 (unauthenticated requests silently default to `'client'`).
+  16. *Code-level flaw: Persona switching via cookie endpoint instead of project membership:* Confirmed in `/api/auth/persona` and `projects.ts` (projects are created with hardcoded `freelancerId: 'user_freelancer_01'`).
+- **Why:** Confirms exact scope of technical and visual debt before writing code, ensuring the redesign addresses root architectural causes rather than superficial cosmetic fixes.
+
+### 2. Architecture & Tech Stack Plan
+- **Vite 5 SPA with React Router:** Install `react-router-dom` in `apps/web`. Fastify already serves `index.html` with wildcard SPA fallback (`server.ts`), enabling seamless direct deep-linking to all public, client, and freelancer URLs.
+- **Self-Hosted Typography:** Replace external Google Fonts links with `@fontsource/geist-sans` and `@fontsource/dm-serif-display` in `apps/web/package.json`. Preload critical weights; zero external font requests; verified in production build.
+- **Editorial Fintech Color Tokens:** Replace outdated tokens in `Gantt.css` and base CSS with exact hex specifications from Section 3.1:
+  - `--paper: #F5F2EA`, `--surface: #FFFFFF`, `--forest: #202722`, `--ink: #252922`, `--ink-2: #5F645C`, `--line: #E6E3DA`.
+  - Action & status tokens: `--teal: #337D70`, `--teal-ink: #2B6B60`, `--teal-wash: #E3EFEC`, `--amber: #D7A65A`, `--amber-ink: #8A5A0B`, `--amber-wash: #F6EBD6`, `--red: #B3392B`, `--red-wash: #F7E3DF`.
+  - Contrast compliance: Automated contrast checks verify `--ink-2` (5.4:1 on paper), `--teal-ink` (5.5:1 on paper/white), `--amber-ink` (5.3:1 on paper), and `--red` (5.3:1 on paper).
+- **Icons:** Add `lucide-react` (tree-shaken, stroke 1.5) for consistent iconography across all components.
+
+### 3. Route and Component Plan
+- **Route Hierarchy (`apps/web/src/routes/`):**
+  - **Public:** `/` (Story landing page with layered CSS `ProductPreview` and pinned 5-stage scroll scene), `/get-started` (Role selection), `/join` & `/join/:token` (Invite acceptance), `/safety` (Honest prototype limits), `/receipt/:shareId` (Shared read-only receipt), `/demo` & `/demo/split` (Judge side-by-side view).
+  - **Client (`/client` shell):** `/client` (Projects overview with primary next action), `/client/new` (4-step wizard: Brief, Plan, Invite, Fund), `/client/projects/:id` (Overview with financial hierarchy), `/client/projects/:id/schedule` (Full-width Bryntum Gantt with inspector panel), `/client/projects/:id/deliverables` and `/deliverables/:milestoneId` (3-zone Review screen), `/client/projects/:id/payments` (Ledger, settlement history, audit export), `/client/projects/:id/activity` (Event timeline).
+  - **Freelancer (`/freelancer` shell):** `/freelancer` (Projects overview), `/freelancer/projects/:id` (Overview with Next Up action card and "Locked for you" funds), `/freelancer/projects/:id/deliverables` (Deliverable cards & restyled slide-over submit modal), `/freelancer/projects/:id/schedule` (Read-mostly Gantt / mobile List view), `/freelancer/projects/:id/payments` (Payout history and sandbox references).
+- **Component System (`apps/web/src/components/ui/`):**
+  - Core primitives: `Button` (forest primary, outline secondary, quiet text, destructive), `IconButton`, `Input`, `Textarea`, `Select`, `Field`, `StatusBadge` (glyph + word, never color alone), `Tabs`, `Dialog`, `SlideOver` (focus trap + Escape), `Tooltip`, `Toast`, `Skeleton`, `EmptyState`, `FinancialFigure`, `Avatar`.
+  - Domain components: `LifecycleProgress` (5 stages: Agreed, Funded, Submitted, Verified, Paid), `ProjectRow`, `MilestoneRow`, `EvidenceChip`, `Timeline`, `InspectorPanel`, `DemoBar`, `ProductPreview`.
+
+### 4. Backend Contracts and Schema Additions (Section 10)
+- **Table `invites`:**
+  - Columns: `id text PRIMARY KEY`, `project_id text REFERENCES projects(id)`, `created_by text REFERENCES users(id)`, `token_hash text NOT NULL`, `code_hash text NOT NULL`, `expires_at timestamp with time zone NOT NULL`, `max_uses integer DEFAULT 1`, `used_count integer DEFAULT 0`, `accepted_by text REFERENCES users(id)`, `accepted_at timestamp with time zone`, `revoked_at timestamp with time zone`, `created_at timestamp with time zone DEFAULT now()`.
+  - Security: Cryptographically secure 128-bit URL tokens (`base64url`) and Crockford base32 short codes (`MILE-XXXXXXXXXX`). Store only HMAC-SHA-256 hashes with constant-time comparison (`timingSafeEqual`). Rate-limited lookups (10 requests / 10 min per IP) returning generic error responses.
+- **Table `receipt_shares`:**
+  - Columns: `id text PRIMARY KEY`, `milestone_id text REFERENCES milestones(id)`, `share_id_hash text NOT NULL`, `created_by text REFERENCES users(id)`, `revoked_at timestamp with time zone`, `created_at timestamp with time zone DEFAULT now()`.
+- **Table `projects` addition:**
+  - Column: `is_demo boolean DEFAULT false NOT NULL`. Seeded demo rows are marked `true`.
+- **Dual Session Cookies & `X-Persona` Header:**
+  - Cookies: `ms_client` and `ms_freelancer` (`httpOnly`, `sameSite: 'lax'`, `secure` in production).
+  - Routes inspect `X-Persona` header derived from route prefix (`/client` vs `/freelancer`) and authenticate strictly against the corresponding role cookie. Enables simultaneous sessions for `/demo/split` without session collision.
+- **Funding Gate:**
+  - `/api/projects/:id/fund/order` and `/capture` reject funding with `400 Bad Request` unless `project.freelancer_id` is set via an accepted invite.
+
+### 5. Risk Assessment and Mitigation Strategy
+- **Risk 1 (Dependency addition):** Adding `react-router-dom`, `@fontsource/geist-sans`, `@fontsource/dm-serif-display`, and `lucide-react`.
+  - *Mitigation:* Explicitly specified in UI_IMPLEMENTATION.md; small dev/runtime dependencies with permissive MIT/Apache licenses; tree-shakeable.
+- **Risk 2 (Bryntum bundle size & LCP):** Bryntum trial package is ~5MB unminified; loading it on the landing page would destroy LCP targets (< 2.5s).
+  - *Mitigation:* Strict dynamic `React.lazy()` code-splitting. Bryntum is loaded exclusively on `/client/projects/:id/schedule`, `/freelancer/projects/:id/schedule`, and step 2 of the project wizard. Public landing page uses CSS-only `ProductPreview` with zero Bryntum or chart dependencies.
+- **Risk 3 (Database and Ledger Invariants):** New migrations must not alter financial invariants.
+  - *Mitigation:* Schema additions (`invites`, `receipt_shares`, `projects.is_demo`) are strictly additive. Ledger table, partial unique indexes, payout row locks, and HMAC/webhook signatures remain 100% untouched.
+- **Risk 4 (E2E Test Suite Transition):** Existing Playwright tests target the legacy single-page workspace.
+  - *Mitigation:* Keep existing tests green while building P1–P3. In P4–P7, progressively introduce route-specific E2E tests, verifying complete end-to-end user journeys across all breakpoints.
+
+### 6. Phase Roadmap (Phases P0 to P10)
+- **P0 (Current):** Audit and plan, verification of Section 2 issues, baseline screenshots at 1440/1024/768/390 px, decision record, owner approval.
+- **P1:** Design foundation (tokens, fonts, primitives, React Router shell, honesty linter, /styleguide).
+- **P2:** Public landing page (Hero, CSS preview, pinned proof scene, /get-started, /safety).
+- **P3:** Backend architecture (invites table, HMAC hashing, rate limiter, dual cookies, role authorization matrix).
+- **P4:** Client area (shell, projects list, 4-step wizard, project overview, deliverables, payments, audit export).
+- **P5:** Freelancer area (join flow, shell, projects, overview with Next Up action, deliverables slide-over, payouts).
+- **P6:** Lifecycle & Review screen (LifecycleProgress 5-stage mapping, 3-zone review, settlement receipt, share links).
+- **P7:** Schedule (dedicated Gantt page, context bar, inspector panel, mobile List view, code-splitting).
+- **P8:** Demo mode & Split view (DemoBar, /demo/split dual-iframe, seed updates).
+- **P9:** Polish (micro-interactions, axe audit, responsiveness pass across 6 breakpoints, copy review).
+- **P10:** Regression & deployment (full test suite, sandbox payout smoke test, Render deployment, webhook verification).
+
+### 7. Open Questions for the Owner
+1. **Font packages:** Confirming usage of `@fontsource/geist-sans` and `@fontsource/dm-serif-display` for self-hosted zero-request typography.
+2. **Icons:** Confirming `lucide-react` for tree-shaken feather icons.
+3. **E2E test migration:** Existing Playwright specs in `e2e/` will be maintained until route-specific specs are implemented in P4–P7.
+
+
 
 
 

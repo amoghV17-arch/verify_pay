@@ -152,6 +152,115 @@ Goal: one coherent product experience.
 Acceptance: a new person can complete the flow without instructions.
 Learning checkpoint: no
 
+## M8a P0 UI Audit and plan
+Estimate: 2 h
+Goal: complete UI redesign audit and architectural plan.
+- [x] Inspect repo, routes, auth, App.tsx, components, API, schema, SSE, tests, scripts, deployed app
+- [x] Verify Section 2 visual flaws and code-level issues (hardcoded IDs, fallback data, cookie auth)
+- [x] Produce architecture summary, route/component plan, files to change, backend contracts, risks
+- [x] Record comprehensive audit and redesign plan in docs/DECISIONS.md with open questions listed
+- [x] Multi-resolution audit screenshots captured at 1440, 1024, 768, and 390 px
+Acceptance: written plan in docs/DECISIONS.md; open questions listed; owner approval.
+
+## M8b P1 Design foundation
+Estimate: 4 h
+Goal: typography, design tokens, component library, router foundation, and honesty lint.
+- [ ] Install and configure Geist and DM Serif Display self-hosted fonts
+- [ ] Implement design tokens CSS (paper, surface, forest, ink, line, teal, amber, red)
+- [ ] Build reusable component library (Button, Field, StatusBadge, Dialog, SlideOver, etc.)
+- [ ] Configure React Router with route shells, guards, and SPA fallback
+- [ ] Add honesty lint test for user-facing copy
+- [ ] Build dev-only /styleguide catalog with zero axe accessibility violations
+Acceptance: every page uses correct fonts in the production build; components documented on a dev-only /styleguide; axe clean.
+
+## M8c P2 Public landing and entry
+Estimate: 5 h
+Goal: editorial landing story, role selection, safety page.
+- [ ] Build minimal, animated landing page (Hero with ProductPreview, Agreement, Proof scene, etc.)
+- [ ] Implement pinned 5-stage proof-to-payment scene with scroll progress
+- [ ] Build role selection screen (/get-started) with two distinct paths
+- [ ] Build honest /safety and prototype limits page
+- [ ] Verify accessibility, performance (LCP < 2.5s), and reduced-motion fallback
+Acceptance: scroll through at six breakpoints; reduced-motion version reads well; Lighthouse accessibility 95+; LCP under 2.5s.
+
+## M8d P3 Backend: invites, sessions, roles
+Estimate: 4 h
+Goal: HMAC invites, dual session cookies, role authorization matrix.
+- [ ] Create invites table with token_hash and code_hash HMAC verification
+- [ ] Implement rate-limited invite creation, preview, and acceptance endpoints
+- [ ] Implement dual cookies (ms_client, ms_freelancer) and X-Persona header validation
+- [ ] Add projects.is_demo column and enforce server-side role authorization matrix
+- [ ] Add unit and integration tests for all authorization matrix cells
+Acceptance: authorization matrix tests green; invite flow works through the API; no payment logic changes.
+
+## M8e P4 Client area
+Estimate: 5 h
+Goal: client shell, projects overview, 4-step wizard, deliverables, payments.
+- [ ] Build client application shell with persistent left sidebar
+- [ ] Build client projects list (/client) with next-action buttons
+- [ ] Build 4-step project creation wizard (/client/new: Brief, Plan, Invite, Fund)
+- [ ] Build client project overview (/client/projects/:id) with financial hierarchy and next action
+- [ ] Build client deliverables list, payments view with audit export, and activity log
+Acceptance: a new person creates a plan, invites, and funds without instructions; all figures match the ledger.
+
+## M8f P5 Freelancer area
+Estimate: 4 h
+Goal: invite join, freelancer shell, deliverables with restyled slide-over, payments.
+- [ ] Build join project screens (/join and /join/:token) with invite acceptance
+- [ ] Build freelancer application shell and projects list (/freelancer)
+- [ ] Build freelancer project overview with "Locked for you" financial cards and Next Up action
+- [ ] Build freelancer deliverables view with restyled submission slide-over
+- [ ] Build freelancer payments view with PayPal payout references
+Acceptance: freelancer accepts, sees funding status, submits, and watches the review with no client-only controls reachable.
+
+## M8g P6 Lifecycle, review, settlement
+Estimate: 5 h
+Goal: LifecycleProgress, 3-zone review, settlement receipt, share links.
+- [ ] Build signature LifecycleProgress component mapping all backend states cleanly
+- [ ] Build 3-zone Review screen (Deliverable, AI Verification, Payment/Action)
+- [ ] Implement injection warnings and expandable AI reasoning tool trace
+- [ ] Build settlement receipt card and private-by-default share links (/receipt/:shareId)
+- [ ] Verify settlement animation and count-up chip with reduced-motion support
+Acceptance: all backend states map correctly; Paid never shows early; injection state displayed correctly; receipts private by default.
+
+## M8h P7 Schedule (Bryntum Gantt)
+Estimate: 3 h
+Goal: visual centerpiece schedule page, inspector panel, mobile List view.
+- [ ] Dedicated full-width schedule page with context bar (zoom, fit, view toggle)
+- [ ] Restyle Bryntum Gantt with editorial fintech CSS tokens
+- [ ] Build slide-over task inspector panel
+- [ ] Implement responsive mobile fallback (List view below 768px)
+- [ ] Implement code-splitting and lazy-loading for Bryntum bundle
+Acceptance: Gantt fully functional; role restrictions enforced server-side; no truncated text.
+
+## M8i P8 Demo mode, split view, seeds
+Estimate: 3 h
+Goal: guided demo walkthrough, /demo/split dual-iframe view, prepared deliverables.
+- [ ] Build dismissible DemoBar with step-by-step guided walkthrough
+- [ ] Build /demo/split dual-iframe view synchronizing client and freelancer over SSE
+- [ ] Update seed scripts and pnpm demo:reset with is_demo flag and prepared deliverables
+- [ ] Verify complete demo path in under 3 minutes
+Acceptance: complete demo path in about three minutes; /demo/split updates both sides live.
+
+## M8j P9 Polish and quality pass
+Estimate: 3 h
+Goal: micro-interactions, responsive pass across 6 breakpoints, copy review.
+- [ ] Polish micro-interactions, loading skeletons, and empty states
+- [ ] Comprehensive responsiveness pass at 1440, 1280, 1024, 768, 390, 360 px
+- [ ] Accessibility pass with axe-core and keyboard navigation verification
+- [ ] Copy and honesty audit across all screens
+- [ ] Update README and docs/DEMO_AND_SUBMISSION.md with new screenshots and script
+Acceptance: three clean runs of the demo path; every item in section 15 checked.
+
+## M8k P10 Regression and deployment
+Estimate: 3 h
+Goal: full regression, sandbox verification, production deploy to Render.
+- [ ] Run full verification suite (lint, typecheck, unit, failure drills, E2E)
+- [ ] Execute real sandbox funding and payout smoke test
+- [ ] Deploy updated build to Render and run health checks
+- [ ] Verify production webhook delivery and private-window demo flow
+Acceptance: all green; deployed app passes the demo path; webhook verified.
+
 ## M9 The settle moment and polish (feature freeze)
 Estimate: 3 h
 Goal: one memorable interaction and a clean finish.
