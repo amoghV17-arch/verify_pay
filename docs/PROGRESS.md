@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T18:09:11.193Z
+Generated: 2026-11-06T18:47:36.321Z
 
-Overall (hours-weighted): [############........]  60%   Day 3/5, 3 day(s) left   Schedule: GREEN
-Current milestone: M8b P1 Design foundation
+Overall (hours-weighted): [#############.......]  64%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M8c P2 Public landing and entry
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -24,7 +24,7 @@ Current milestone: M8b P1 Design foundation
 | M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
 | M8a P0 UI Audit and plan | 2 | 5/5 | [####################] 100% |
-| M8b P1 Design foundation | 4 | 0/6 | [....................]   0% |
+| M8b P1 Design foundation | 4 | 6/6 | [####################] 100% |
 | M8c P2 Public landing and entry | 5 | 0/5 | [....................]   0% |
 | M8d P3 Backend: invites, sessions, roles | 4 | 0/5 | [....................]   0% |
 | M8e P4 Client area | 5 | 0/5 | [....................]   0% |
@@ -135,3 +135,18 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Phase P1 (Design foundation: tokens CSS, fonts, primitives, React Router shell, honesty lint). No feature code written in P0 per specification.
   - Next session must know:
     - P1 implements fonts (`@fontsource/geist-sans`, `@fontsource/dm-serif-display`), tokens, `lucide-react`, component primitives, router shell, honesty linter, and dev-only `/styleguide`. Owner approval of P0 audit and open questions is the gate to starting P1.
+- 2026-11-06 18:47 | M8c | overall 64% | GREEN | P1 design foundation complete; self-hosted fonts bundled; tokens CSS, component primitives, router shells, honesty lint, and /styleguide verified with zero axe violations
+- Handoff (P1 -> P2):
+  - What was built:
+    - Self-hosted typography: Added `@fontsource/geist-sans` and `@fontsource/dm-serif-display` in `apps/web/package.json`; removed all external Google Fonts requests in `index.html`; verified `.woff`/`.woff2` bundling in production build.
+    - Editorial fintech design tokens in `apps/web/src/styles/tokens.css` per §3.1 (`--paper: #F5F2EA`, `--surface: #FFFFFF`, `--forest: #202722`, `--ink: #252922`, `--ink-2: #5F645C`, `--teal: #337D70`, `--amber: #D7A65A`, `--red: #B3392B`, motion tokens, radii).
+    - Component library primitives in `apps/web/src/components/ui/`: `Button`, `IconButton`, `Field`, `Input`, `Textarea`, `Select`, `StatusBadge` (all 7 money states with glyph + word), `Badge`, `Dialog`, `SlideOver`, `Tabs`, `Tooltip`, `Toast`, `Skeleton`, `EmptyState`, `FinancialFigure`, `LifecycleProgress` (5-stage signature component), `EvidenceChip`, `Timeline`, `ProjectRow`, `MilestoneRow`, `InspectorPanel`, `DemoBar`, and `Avatar`.
+    - Automated honesty lint test (`apps/web/src/__tests__/honestyLint.test.ts`) enforcing §0.6 prohibitions against "escrow", "guarantee", "insured", or "secure payments". Cleaned up legacy strings in `FundModal.tsx` and `FundsMeter.tsx`.
+    - React Router v7 configuration (`apps/web/src/router.tsx`) with `PublicShell`, `ClientShell`, and `FreelancerShell`. Removed persona switch from client/freelancer headers per §4.2.
+    - Dev-only `/styleguide` catalog documenting all tokens, components, and money states.
+    - E2E Playwright test suite (`e2e/styleguide.spec.ts`) verifying zero critical/serious axe-core violations, computed font families, and capturing screenshots across all 4 breakpoints (`docs/screens/p1/`).
+    - Full test suite passing (`pnpm verify`: 190 Vitest tests, 28 Playwright tests).
+  - What is deliberately unfinished:
+    - Phase P2: Public landing page story, hero preview CSS animation, pinned 5-stage proof-to-payment scroll scene, `/get-started`, and `/safety`.
+  - Next session must know:
+    - Per user instruction, all UI redesign work (P1 through P10) stays on this single branch (`ui-redesign`). Do not switch branches for P2. Ready to begin P2.

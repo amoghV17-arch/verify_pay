@@ -88,7 +88,7 @@ test.describe('M8 Trust Panel and Product UI Suite', () => {
     await expect(fundModal).toBeVisible();
     await expect(fundModal).toContainText('Fund Project');
     await expect(fundModal).toContainText('Milestone Allocation Breakdown');
-    await expect(fundModal).toContainText('Project Protection Guarantee');
+    await expect(fundModal).toContainText('How funds are held');
     await expect(page.locator('#confirm-fund-btn')).toBeVisible();
 
     // Close fund modal

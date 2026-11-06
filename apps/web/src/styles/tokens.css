@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Milestone Design Tokens: Editorial Fintech & Precision SaaS
+   Reference: docs/UI_IMPLEMENTATION.md §3
+   ========================================================================== */
+
+/* Self-hosted Typography */
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
+@import '@fontsource/dm-serif-display/400.css';
+@import '@fontsource/dm-serif-display/400-italic.css';
+
+:root {
+  /* Surface & Base Colors */
+  --paper: #F5F2EA;           /* App and marketing background */
+  --surface: #FFFFFF;         /* Panels, inputs, slide-overs, cards */
+  --forest: #202722;          /* Dark sections, primary buttons, strong text */
+  --ink: #252922;             /* Primary text */
+  --ink-2: #5F645C;           /* Secondary text (~5.4:1 contrast on paper) */
+  --line: #E6E3DA;            /* Hairlines and subtle borders */
+
+  /* Primary Action & Completed / Held States (Teal) */
+  --teal: #337D70;            /* Primary action fill with white text (~4.9:1 on white) */
+  --teal-ink: #2B6B60;        /* Teal text on paper or white (~5.5:1 on paper) */
+  --teal-wash: #E3EFEC;       /* Teal background tint */
+
+  /* Waiting / Human Action States (Amber - Fills/Borders/Icons only for amber, ink for text) */
+  --amber: #D7A65A;           /* Amber fill, borders, icons */
+  --amber-ink: #8A5A0B;       /* Amber text (~5.3:1 on paper) */
+  --amber-wash: #F6EBD6;      /* Amber background tint */
+
+  /* Error & Failure States (Red) */
+  --red: #B3392B;             /* Error red (~5.3:1 on paper) */
+  --red-wash: #F7E3DF;        /* Red background tint */
+
+  /* Focus & Accessibility */
+  --focus: #2F5FD0;           /* High-contrast focus ring */
+
+  /* Dark Forest Section Accents */
+  --teal-on-dark: #7CC4B4;    /* Teal accents on forest background */
+  --paper-on-dark: #F5F2EA;   /* Text on forest background */
+  --line-on-dark: rgba(245, 242, 234, 0.15);
+
+  /* Typography Font Families */
+  --font-ui: 'Geist Sans', Geist, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'DM Serif Display', Georgia, serif;
+
+  /* Elevation & Shadows */
+  --shadow-sm: 0 1px 2px rgba(37, 41, 34, 0.04);
+  --shadow-md: 0 4px 12px rgba(37, 41, 34, 0.08);
+  --shadow-lg: 0 12px 32px rgba(37, 41, 34, 0.12);
+  --shadow-overlay: 0 20px 48px -8px rgba(32, 39, 34, 0.24);
+
+  /* Border Radii */
+  --radius-sm: 4px;
+  --radius-input: 8px;
+  --radius-btn: 8px;
+  --radius-card: 12px;
+  --radius-panel: 14px;
+  --radius-chip: 999px;
+  --radius-full: 9999px;
+
+  /* Motion Timing & Easing */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 480ms;
+  --duration-scene: 700ms;
+}
+
+/* Base Document Reset & Typography Defaults */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* Numerals for Financial Data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Focus Visible Standard */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Accessibility: Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

@@ -183,7 +183,7 @@ export const FundsMeter: React.FC<FundsMeterProps> = ({
         </div>
       </div>
 
-      {/* Guarantee & Allocation Modal Trigger */}
+      {/* Project Funding Modal Trigger */}
       {showFundAction && onFundClick && (
         <button
           id="open-fund-modal-btn"
@@ -203,8 +203,7 @@ export const FundsMeter: React.FC<FundsMeterProps> = ({
             gap: '0.35rem',
           }}
         >
-          <span>🛡️</span>
-          <span>Guarantee & Allocation</span>
+          <span>Fund project</span>
         </button>
       )}
     </section>

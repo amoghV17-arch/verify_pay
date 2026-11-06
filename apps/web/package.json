@@ -10,9 +10,13 @@
   },
   "dependencies": {
     "@bryntum/gantt": "npm:@bryntum/gantt-trial@latest",
+    "@fontsource/dm-serif-display": "^5.3.0",
+    "@fontsource/geist-sans": "^5.3.0",
     "@milestone/shared": "workspace:*",
+    "lucide-react": "^1.69.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

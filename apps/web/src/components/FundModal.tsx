@@ -181,7 +181,7 @@ export const FundModal: React.FC<FundModalProps> = ({
               lineHeight: 1.4,
             }}
           >
-            🔒 <strong>Project Protection Guarantee:</strong> Funds are held for this project and released milestone by milestone only after deliverables pass agreed acceptance criteria.
+            🔒 <strong>How funds are held:</strong> Funds are held for this project and released milestone by milestone only after deliverables pass agreed acceptance criteria.
           </div>
         </div>
 

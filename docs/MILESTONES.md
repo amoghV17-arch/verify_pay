@@ -165,12 +165,12 @@ Acceptance: written plan in docs/DECISIONS.md; open questions listed; owner appr
 ## M8b P1 Design foundation
 Estimate: 4 h
 Goal: typography, design tokens, component library, router foundation, and honesty lint.
-- [ ] Install and configure Geist and DM Serif Display self-hosted fonts
-- [ ] Implement design tokens CSS (paper, surface, forest, ink, line, teal, amber, red)
-- [ ] Build reusable component library (Button, Field, StatusBadge, Dialog, SlideOver, etc.)
-- [ ] Configure React Router with route shells, guards, and SPA fallback
-- [ ] Add honesty lint test for user-facing copy
-- [ ] Build dev-only /styleguide catalog with zero axe accessibility violations
+- [x] Install and configure Geist and DM Serif Display self-hosted fonts
+- [x] Implement design tokens CSS (paper, surface, forest, ink, line, teal, amber, red)
+- [x] Build reusable component library (Button, Field, StatusBadge, Dialog, SlideOver, etc.)
+- [x] Configure React Router with route shells, guards, and SPA fallback
+- [x] Add honesty lint test for user-facing copy
+- [x] Build dev-only /styleguide catalog with zero axe accessibility violations
 Acceptance: every page uses correct fonts in the production build; components documented on a dev-only /styleguide; axe clean.
 
 ## M8c P2 Public landing and entry
