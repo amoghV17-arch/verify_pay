@@ -371,7 +371,7 @@ export class ReviewerService {
       milestoneId: milestone.id,
       deliverableId,
       kind: 'initial',
-      model: llm.model,
+      model: llm.model ?? process.env.LLM_MODEL ?? 'mock-model',
       promptVersion: PROMPT_VERSION,
       trace,
       criteriaResults: finalVerdict.criteria,

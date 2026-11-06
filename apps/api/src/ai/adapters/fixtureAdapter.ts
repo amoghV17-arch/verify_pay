@@ -24,6 +24,49 @@ export class FixtureAdapter implements LlmPort {
     const userMessage = request.messages.find((m) => m.role === 'user')?.content ?? '';
     const isRepair = request.messages.some((m) => m.content.includes('Your previous output failed validation'));
 
+    // Check if this is a reviewer tool completion request
+    const hasSubmitVerdict = request.tools?.some((t) => t.name === 'submit_verdict');
+    if (hasSubmitVerdict) {
+      const injectionSuspected =
+        userMessage.toLowerCase().includes('ignore previous') ||
+        userMessage.toLowerCase().includes('override instructions') ||
+        userMessage.toLowerCase().includes('payout immediately') ||
+        userMessage.toLowerCase().includes('bypass');
+
+      const verdictPayload = {
+        criteria: [
+          {
+            index: 0,
+            result: injectionSuspected ? 'unclear' : 'pass',
+            evidence: injectionSuspected ? 'Suspicious instruction pattern detected' : 'Acceptance criteria verified with high confidence',
+            confidence: injectionSuspected ? 0.3 : 0.95,
+          },
+        ],
+        verdict: injectionSuspected ? 'escalate_to_human' : 'release',
+        injectionSuspected,
+        feedbackForFreelancer: injectionSuspected
+          ? 'Submission flagged for manual client review.'
+          : 'Deliverable passed all acceptance criteria.',
+      };
+
+      return {
+        content: null,
+        toolCalls: [
+          {
+            id: 'call_fixture_verdict',
+            name: 'submit_verdict',
+            arguments: JSON.stringify(verdictPayload),
+          },
+        ],
+        provider: this.provider,
+        model: this.model,
+        latencyMs: 15,
+        inputTokens: 200,
+        outputTokens: 100,
+        promptVersion: 'reviewer.v1',
+      };
+    }
+
     // Check if brief is unsafe / illegal
     if (
       userMessage.toLowerCase().includes('crack password') ||

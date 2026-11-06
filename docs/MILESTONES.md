@@ -166,18 +166,18 @@ Learning checkpoint: no
 ## M10 Hardening, evals, failure drills
 Estimate: 5 h
 Goal: it works every time, and we can prove it.
-- [ ] Full Playwright e2e on the mock: brief to paid, in all three autonomy modes
-- [ ] Failure drills automated: delayed webhook, duplicate webhook, payout failure, LLM invalid JSON, LLM timeout, tool SSRF attempt, injection
-- [ ] Final planner and reviewer eval runs on the demo model; results saved
-- [ ] Performance check: review under 40 seconds in normal cases; plan under 20 seconds
-- [ ] `pnpm demo:reset` restores a clean demo project and personas in under 10 seconds
-- [ ] Accessibility audit (axe or similar) with no serious issues
-- [ ] Run ledger and concurrency tests against real Postgres in CI and via DATABASE_URL_TEST
-- [ ] Project-row lock in the release transaction and count release_pending as reserved
-- [ ] Verify the webhook signature request does not re-serialize the event body
-- [ ] Dependency audit and upgrade decision
-- [ ] Persist PGlite data locally
-- [ ] Add missing decision records (auth and CSRF, SSE, mock adapter fidelity, secret scanner)
+- [x] Full Playwright e2e on the mock: brief to paid, in all three autonomy modes
+- [x] Failure drills automated: delayed webhook, duplicate webhook, payout failure, LLM invalid JSON, LLM timeout, tool SSRF attempt, injection
+- [x] Final planner and reviewer eval runs on the demo model; results saved
+- [x] Performance check: review under 40 seconds in normal cases; plan under 20 seconds
+- [x] `pnpm demo:reset` restores a clean demo project and personas in under 10 seconds
+- [x] Accessibility audit (axe or similar) with no serious issues
+- [x] Run ledger and concurrency tests against real Postgres in CI and via DATABASE_URL_TEST
+- [x] Project-row lock in the release transaction and count release_pending as reserved
+- [x] Verify the webhook signature request does not re-serialize the event body
+- [x] Dependency audit and upgrade decision
+- [x] Persist PGlite data locally
+- [x] Add missing decision records (auth and CSRF, SSE, mock adapter fidelity, secret scanner)
 Acceptance: three consecutive clean runs of the full demo path.
 Learning checkpoint: yes (failure drills)
 

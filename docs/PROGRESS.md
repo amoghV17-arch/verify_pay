@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-05T18:34:49.877Z
+Generated: 2026-11-06T05:20:16.735Z
 
-Overall (hours-weighted): [###############.....]  74%   Day 3/5, 3 day(s) left   Schedule: GREEN
-Current milestone: M10 Hardening, evals, failure drills
+Overall (hours-weighted): [################....]  82%   Day 3/5, 3 day(s) left   Schedule: GREEN
+Current milestone: M11 Deploy
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -24,7 +24,7 @@ Current milestone: M10 Hardening, evals, failure drills
 | M7 Autonomy modes, scheduler, appeal | 3 | 5/5 | [####################] 100% |
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
-| M10 Hardening, evals, failure drills | 5 | 0/12 | [....................]   0% |
+| M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 0/7 | [....................]   0% |
 | M12 Documentation and submission assets | 4 | 0/6 | [....................]   0% |
 | M13 Video and submission | 4 | 0/5 | [....................]   0% |
@@ -78,3 +78,8 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - Deliberately unfinished: M10 hardening drills, automated failure simulations, performance benchmark runs, and demo reset scripts.
   - Next session note: Feature freeze is active (`v0.9-freeze`). M10 is dedicated exclusively to hardening, automated failure drills (delayed webhooks, duplicate webhooks, injection attacks, LLM timeouts), demo model evals, and `pnpm demo:reset`.
 - 2026-11-05 18:34 | M10 | overall 74% | GREEN | handoff
+- 2026-11-06 05:20 | M11 | overall 82% | GREEN | M10 hardening, evals, and failure drills complete
+- Handoff (M10 -> M11):
+  - Built: Full automated failure drills suite (`failureDrills.test.ts`, 7 drills: delayed webhook, duplicate webhook, payout failure with retry, LLM invalid JSON, LLM timeout, tool SSRF attempt, injection); full Playwright e2e suite covering all 3 autonomy modes (`fullFlow.spec.ts`, brief to paid); axe-core accessibility audit (`a11y.spec.ts`) with zero critical/serious issues; `pnpm demo:reset` script restoring fresh demo state in ~1.0s; local PGlite data persistence in `.data/pglite/`; PostgreSQL 16 service container in CI and Postgres concurrency tests (`postgresConcurrency.test.ts`); project-row locking and reserved pending balance invariant in `releaseMilestone`; raw webhook signature payload fix; comprehensive eval benchmark runs meeting 100% pass rate; and updated DECISIONS.md records.
+  - Deliberately unfinished: M11 Production deployment (Railway, render, fly, or Cloud Run configuration, live sandbox smoke test, health checks).
+  - Next session note: M11 is Deploy. Ensure deployed container uses SANDBOX PayPal environment (`api-m.sandbox.paypal.com`) and connects to hosted PostgreSQL.

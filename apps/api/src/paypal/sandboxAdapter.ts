@@ -318,22 +318,21 @@ export class SandboxPayPalAdapter implements PayPalPort {
       return val || '';
     };
 
-    let parsedEvent: unknown;
+    // Validate that rawBody is syntactically valid JSON before splicing
     try {
-      parsedEvent = JSON.parse(input.rawBody);
+      JSON.parse(input.rawBody);
     } catch {
       return { verified: false, status: 'FAILURE' };
     }
 
-    const verifyPayload = {
-      auth_algo: getHeader('paypal-auth-algo'),
-      cert_url: getHeader('paypal-cert-url'),
-      transmission_id: getHeader('paypal-transmission-id'),
-      transmission_sig: getHeader('paypal-transmission-sig'),
-      transmission_time: getHeader('paypal-transmission-time'),
-      webhook_id: webhookId,
-      webhook_event: parsedEvent,
-    };
+    // Preserve the exact raw incoming JSON bytes to avoid re-serialization key-reordering/float mutations
+    const authAlgo = getHeader('paypal-auth-algo');
+    const certUrl = getHeader('paypal-cert-url');
+    const transmissionId = getHeader('paypal-transmission-id');
+    const transmissionSig = getHeader('paypal-transmission-sig');
+    const transmissionTime = getHeader('paypal-transmission-time');
+
+    const verifyBody = `{"auth_algo":${JSON.stringify(authAlgo)},"cert_url":${JSON.stringify(certUrl)},"transmission_id":${JSON.stringify(transmissionId)},"transmission_sig":${JSON.stringify(transmissionSig)},"transmission_time":${JSON.stringify(transmissionTime)},"webhook_id":${JSON.stringify(webhookId)},"webhook_event":${input.rawBody.trim()}}`;
 
     interface VerifyApiResponse {
       verification_status: 'SUCCESS' | 'FAILURE';
@@ -343,7 +342,7 @@ export class SandboxPayPalAdapter implements PayPalPort {
       '/v1/notifications/verify-webhook-signature',
       {
         method: 'POST',
-        body: JSON.stringify(verifyPayload),
+        body: verifyBody,
       }
     );
 

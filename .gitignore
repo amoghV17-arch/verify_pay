@@ -10,3 +10,4 @@ playwright-report/
 test-results/
 evals/results/*.tmp
 *.tsbuildinfo
+.data/

@@ -587,7 +587,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--slate)' }}>Holding Invariant:</span>
-            <span style={{ color: 'var(--settled)', fontWeight: 600 }}>Funded before start</span>
+            <span style={{ color: '#137042', fontWeight: 600 }}>Funded before start</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--slate)' }}>PayPal Mode:</span>
@@ -628,6 +628,9 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
           Activity Trail
         </h4>
         <div
+          tabIndex={0}
+          role="region"
+          aria-label="Activity history list"
           style={{
             display: 'flex',
             flexDirection: 'column',

@@ -76,6 +76,7 @@ export const CloseoutReceiptModal: React.FC<CloseoutReceiptModalProps> = ({
 
   return (
     <div
+      id="closeout-receipt-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="closeout-receipt-title"

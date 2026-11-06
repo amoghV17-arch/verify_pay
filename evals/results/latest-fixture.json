@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-05T11:48:26.952Z",
+  "timestamp": "2026-11-06T05:19:50.019Z",
   "provider": "fixture",
   "model": "fixture-planner-v1",
   "promptVersion": "planner.v1",
@@ -9,7 +9,7 @@
   "firstAttemptValidRate": 100,
   "validAfterRepairRate": 100,
   "unsafeBriefRefused": true,
-  "averageLatencyMs": 5,
+  "averageLatencyMs": 3,
   "results": [
     {
       "id": "b1_web_design",
@@ -23,7 +23,7 @@
       "percentagesValid": true,
       "criteriaQualityPassed": true,
       "vagueWordCount": 0,
-      "latencyMs": 19,
+      "latencyMs": 12,
       "tasksCount": 6,
       "milestonesCount": 3
     },
@@ -39,7 +39,7 @@
       "percentagesValid": true,
       "criteriaQualityPassed": true,
       "vagueWordCount": 0,
-      "latencyMs": 3,
+      "latencyMs": 1,
       "tasksCount": 6,
       "milestonesCount": 3
     },
@@ -55,7 +55,7 @@
       "percentagesValid": true,
       "criteriaQualityPassed": true,
       "vagueWordCount": 0,
-      "latencyMs": 2,
+      "latencyMs": 1,
       "tasksCount": 6,
       "milestonesCount": 3
     },
@@ -71,7 +71,7 @@
       "percentagesValid": true,
       "criteriaQualityPassed": true,
       "vagueWordCount": 0,
-      "latencyMs": 2,
+      "latencyMs": 1,
       "tasksCount": 6,
       "milestonesCount": 3
     },
@@ -87,7 +87,7 @@
       "percentagesValid": true,
       "criteriaQualityPassed": true,
       "vagueWordCount": 0,
-      "latencyMs": 3,
+      "latencyMs": 1,
       "tasksCount": 6,
       "milestonesCount": 3
     },

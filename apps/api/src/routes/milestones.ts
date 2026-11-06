@@ -10,7 +10,7 @@ import { sseHub } from '../services/sse.js';
 import { getDb } from '../db/index.js';
 import { milestones, deliverables, activity, reviews } from '../db/schema.js';
 import { createLlmPort } from '../ai/llmFactory.js';
-import { DeliverableKindSchema, assertTransition, type PayPalPort, type MilestoneStatus } from '@milestone/shared';
+import { DeliverableKindSchema, assertTransition, type PayPalPort, type LlmPort, type MilestoneStatus } from '@milestone/shared';
 import { z } from 'zod';
 
 export interface MilestoneRoutesOptions {
@@ -104,10 +104,16 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
 
       // Kick off reviewer asynchronously (do not await — returns 202 immediately)
       const projectId = milestone.projectId;
+      const paypal =
+        (request.server as unknown as { paypalAdapter?: PayPalPort }).paypalAdapter ||
+        options.paypalAdapter;
+      const llm =
+        (request.server as unknown as { llmAdapter?: LlmPort }).llmAdapter ||
+        createLlmPort();
+
       setImmediate(async () => {
         try {
-          const llm = createLlmPort();
-          const reviewer = new ReviewerService(db);
+          const reviewer = new ReviewerService(db, paypal);
           await reviewer.review(milestone.id, deliverableId, llm, projectId);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);

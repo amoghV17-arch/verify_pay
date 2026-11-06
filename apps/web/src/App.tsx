@@ -466,7 +466,7 @@ export function App(): React.ReactElement {
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   backgroundColor: 'rgba(31, 122, 140, 0.1)',
-                  color: 'var(--tide)',
+                  color: '#125461',
                   padding: '0.2rem 0.45rem',
                   borderRadius: '4px',
                 }}
@@ -484,9 +484,10 @@ export function App(): React.ReactElement {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', flexWrap: 'wrap' }}>
             {/* Autonomy Mode Selector */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
-              <span style={{ color: 'var(--slate)', fontWeight: 500 }}>Mode:</span>
+              <label htmlFor="autonomy-mode-select" style={{ color: 'var(--slate)', fontWeight: 500 }}>Mode:</label>
               <select
                 id="autonomy-mode-select"
+                aria-label="Autonomy Mode"
                 value={autonomyMode}
                 disabled={persona !== 'client'}
                 onChange={(e) => handleAutonomyModeChange(e.target.value as 'manual' | 'assisted' | 'auto')}
@@ -619,7 +620,7 @@ export function App(): React.ReactElement {
               <span style={{ fontSize: '0.75rem', color: 'var(--slate)', fontWeight: 500 }}>
                 Arjun:
               </span>
-              <strong style={{ fontSize: '0.875rem', color: 'var(--settled)', fontVariantNumeric: 'tabular-nums' }}>
+              <strong style={{ fontSize: '0.875rem', color: '#137042', fontVariantNumeric: 'tabular-nums' }}>
                 {formatCents(countedPaidTotal)}
               </strong>
             </div>

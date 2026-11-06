@@ -19,18 +19,28 @@ let pgPool: pg.Pool | null = null;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function initDb(options?: { useMemory?: boolean; databaseUrl?: string }): Promise<AppDatabase> {
+export async function initDb(options?: { useMemory?: boolean; databaseUrl?: string; dataDir?: string; skipMigrations?: boolean }): Promise<AppDatabase> {
   const isTest = process.env.NODE_ENV === 'test' || options?.useMemory;
   const dbUrl = options?.databaseUrl || process.env.DATABASE_URL;
 
-  // Use in-memory PGlite for tests or when no DATABASE_URL is provided
+  // Use PGlite when in test mode, when explicitly requested, or when no DATABASE_URL is configured
   if (isTest || !dbUrl) {
     if (!pgliteClient) {
-      pgliteClient = new PGlite();
+      if (isTest) {
+        pgliteClient = new PGlite();
+      } else {
+        const dataPath = options?.dataDir || path.resolve(process.cwd(), '.data/pglite');
+        if (!fs.existsSync(dataPath)) {
+          fs.mkdirSync(dataPath, { recursive: true });
+        }
+        pgliteClient = new PGlite(dataPath);
+      }
     }
     const db = drizzlePglite(pgliteClient, { schema });
     dbInstance = db;
-    await applyMigrations(db);
+    if (!options?.skipMigrations) {
+      await applyMigrations(db);
+    }
     return db;
   }
 
@@ -105,4 +115,4 @@ export async function applyMigrations(db: AppDatabase): Promise<void> {
 
 export { schema };
 
-export { seedDatabase } from './seed.js';
+export { seedDatabase, resetDemoDatabase } from './seed.js';

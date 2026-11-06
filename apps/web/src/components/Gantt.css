@@ -5,8 +5,8 @@
   --slate: #5B6B7C;
   --line: #DDE3E9;
   --tide: #1F7A8C;
-  --brass: #B07A12;
-  --settled: #1D8F5A;
+  --brass: #825605;
+  --settled: #157347;
   --flag: #C8402F;
   --focus: #2F5FD0;
 }
@@ -275,8 +275,9 @@
 }
 
 .status-pill.funded {
-  background-color: rgba(31, 122, 140, 0.15);
-  color: var(--tide);
+  background-color: rgba(31, 122, 140, 0.12);
+  color: #114B57;
+  font-weight: 600;
 }
 
 .status-pill.in_review {

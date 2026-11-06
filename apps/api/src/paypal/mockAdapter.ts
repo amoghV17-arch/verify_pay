@@ -48,6 +48,7 @@ export class MockPayPalAdapter implements PayPalPort {
   public failNextPayout = false;
   public delayWebhookMs: number;
   public duplicateWebhook = false;
+  public asyncPayout = false;
 
   private webhookHandler?: (event: Record<string, unknown>, rawBody: string) => Promise<void>;
 
@@ -251,22 +252,26 @@ export class MockPayPalAdapter implements PayPalPort {
       return failedResult;
     }
 
+    const isAsync = this.asyncPayout;
+    const batchStatus = isAsync ? 'PENDING' : 'SUCCESS';
+    const itemStatus: PayPalPayoutItemStatus = isAsync ? 'PENDING' : 'SUCCESS';
+
     const successResult: PayPalPayoutResult = {
       payoutBatchId,
-      batchStatus: 'SUCCESS',
+      batchStatus,
       senderBatchId: input.senderBatchId,
       payoutItemId,
-      itemStatus: 'SUCCESS',
+      itemStatus,
     };
 
     this.payoutBatches.set(payoutBatchId, {
       payoutBatchId,
       senderBatchId: input.senderBatchId,
-      status: 'SUCCESS',
+      status: batchStatus,
       items: [
         {
           payoutItemId,
-          transactionStatus: 'SUCCESS',
+          transactionStatus: itemStatus,
           amountCents: input.amountCents,
           receiver: input.receiverEmail,
           senderItemId: `ms_${input.milestoneId}_item`,

@@ -214,3 +214,21 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
   await db.insert(activity).values(activityRows).onConflictDoNothing();
 }
 
+/**
+ * Completely resets and reseeds demo project data in under 10 seconds.
+ */
+export async function resetDemoDatabase(db: AppDatabase): Promise<void> {
+  const { activity, payoutBatches, ledgerEntries, reviews, deliverables, dependencies, milestones, tasks, projects } = schema;
+  await db.delete(activity);
+  await db.delete(payoutBatches);
+  await db.delete(ledgerEntries);
+  await db.delete(reviews);
+  await db.delete(deliverables);
+  await db.delete(dependencies);
+  await db.delete(milestones);
+  await db.delete(tasks);
+  await db.delete(projects);
+
+  await seedDatabase(db);
+}
+

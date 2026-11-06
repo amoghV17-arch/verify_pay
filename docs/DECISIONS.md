@@ -203,6 +203,43 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Unified screen reader and visual feedback into a single `role="status"` `aria-live="polite"` notification element with clear, unambiguous payout confirmation (`Payout released! <Milestone> paid, <Amount> to Arjun.`).
 - **Why:** Ensures exactly one accessible announcement is made per payout event while keeping the DOM clean and accessible.
 
+## M10 Hardening, Evals, and Failure Drills Decisions
+
+### Auth, Session Tokens, and CSRF Protection
+- **Context:** Applications handling financial release triggers must authenticate callers, enforce role separation (client vs freelancer), and defend against cross-site request forgery without requiring cumbersome external identity provider setup for local and demo evaluators.
+- **Decision:** Implemented lightweight signed session tokens (`jose` HS256) stored in `httpOnly`, `sameSite: 'lax'` cookies (`milestone_session`). Protected mutating routes using role-guard middleware (`requireRole(['client'])`, `requireRole(['freelancer'])`). Defense against CSRF is achieved through the combination of `sameSite: 'lax'` cookie isolation and mandatory `application/json` Content-Type parsing across all mutating API endpoints.
+- **Why:** Delivers airtight session and role security without introducing external auth dependencies, ensuring the demo evaluator can seamlessly switch between client and freelancer personas with verified permissions.
+
+### Server-Sent Events (SSE) Pub/Sub Architecture and Connection Lifecycle
+- **Context:** The Bryntum Gantt, Funds Meter, and Trust Panel need real-time timeline, review, and settlement updates as background AI reviews and PayPal payouts occur, without resorting to expensive, continuous client polling.
+- **Decision:** Built an in-memory project-scoped SSE hub (`sseHub`) delivering structured events (`milestone.status`, `review.progress`, `payout.settled`). Implemented automatic 15-second heartbeat comments (`: heartbeat\n\n`) to keep HTTP connections alive through proxies and browsers, with automated listener cleanup on request abort (`req.raw.on('close', ...)`).
+- **Why:** Minimizes network overhead, provides sub-second UI updates during AI reviews and settlement moments, and prevents server-side memory leaks from orphaned SSE client connections.
+
+### Mock PayPal Adapter Fidelity and Deterministic Failure Simulation
+- **Context:** Rigorous end-to-end testing, failure drills, and local development require PayPal Orders v2 and Payouts v1 behaviors without calling external network endpoints or risking accidental live payments.
+- **Decision:** Designed `MockPayPalAdapter` to replicate exact PayPal REST API schemas, batch IDs, item statuses (`SUCCESS`, `PENDING`), transmission headers, and webhook payloads. Added deterministic simulation controls: configurable webhook delivery delay (`defaultWebhookDelayMs`), single-use failure toggles (`failNextPayout`), and shared-secret HMAC signature simulation.
+- **Why:** Enables 100% offline, reproducible failure drills (delayed webhooks, duplicate webhook delivery, payout rejection, attempt-suffix retries) that behave identically to the real sandbox environment.
+
+### Automated Secret Scanner and Pre-Commit Security Guardrails
+- **Context:** Hackathon rules and money safety mandate zero credential leaks (PayPal sandbox/live credentials, LLM keys, RSA/SSH keys, `.env` files).
+- **Decision:** Authored `scripts/scan-secrets.mjs` integrated into `pnpm verify` and pre-commit hooks. Scans codebase and staged files with regex patterns for PayPal client secrets, OpenAI/Anthropic/Gemini keys, JWT secrets, and private keys while explicitly allowing harmless mock fixture tokens.
+- **Why:** Guarantees no sensitive credentials or live secrets are ever committed to version control or included in public demo artifacts.
+
+### Dependency Audit and Production Stack Version Stability
+- **Context:** Running `pnpm audit` reports advisories in development tooling (`vitest`, `tinypool` UI server) and Fastify v4 Content-Type parsing notices addressed in Fastify v5.
+- **Decision:** Evaluated all advisories. Identified that high/critical notices are strictly confined to local dev-only test server tooling that is never exposed or deployed to production. Kept production stack pinned to Fastify 4.28 LTS and Node 20/24 LTS for the hackathon submission, avoiding breaking changes in Fastify plugin ecosystems (`fastify-type-provider-zod`, `fastify-cookie`) immediately prior to final code freeze.
+- **Why:** Preserves absolute stability, ensures all 185+ unit, failure drill, and E2E tests pass reliably without unvetted major dependency upgrades.
+
+### Project-Row Locking and Reserved Pending Balance Invariant
+- **Context:** Under high concurrency or rapid multi-milestone release requests, concurrent transactions could overdraw the project holding balance if balance checks only evaluate already-settled ledger entries.
+- **Decision:** Extended `releaseMilestone` to acquire exclusive PostgreSQL row locks (`FOR UPDATE`) on both the project row and the milestone row in a single atomic transaction. Extended `getProjectLedgerSummary` to calculate active `pendingReleaseCents` from milestones currently in `releasing` status, and enforced invariant `holdingBalanceCents - pendingReleaseCents >= milestone.amountCents`.
+- **Why:** Mathematically eliminates double-release and multi-milestone overdraw race conditions at the database engine level.
+
+### Local Data Persistence via PGlite
+- **Context:** Developers and judges running Milestone locally without Docker or external PostgreSQL suffered complete database resets upon server restarts.
+- **Decision:** Configured PGlite in `apps/api/src/db/index.ts` to persist data to `.data/pglite/` directory when `DATABASE_URL` is omitted, while preserving isolated in-memory PGlite instances (`useMemory: true`) for hermetic, sub-second unit and integration test runs. Added `skipMigrations` optimization to `initDb` to accelerate startup.
+- **Why:** Delivers persistent local developer state across server reloads without sacrificing sub-second hermetic test suite execution.
+
 
 
 

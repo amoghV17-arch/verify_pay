@@ -178,7 +178,7 @@ describe('Milestone M4 Payout Release Suite', () => {
 
     await expect(
       releaseService.releaseMilestone(testMilestoneId, mockPayPal, 'client')
-    ).rejects.toThrow(/Insufficient holding balance/);
+    ).rejects.toThrow(/Insufficient.*holding balance/i);
 
     // Milestone should remain approved
     const [m] = await db.select().from(milestones).where(eq(milestones.id, testMilestoneId));

@@ -123,21 +123,30 @@ export class ReleaseService {
         );
       }
 
-      // Check project existence and holding balance
-      const [proj] = await tx
+      // Check project existence, holding balance, and acquire project-row lock FOR UPDATE
+      let projQuery = tx
         .select()
         .from(projects)
-        .where(eq(projects.id, m.projectId))
-        .limit(1);
+        .where(eq(projects.id, m.projectId));
+
+      if ('for' in projQuery && typeof projQuery.for === 'function') {
+        projQuery = projQuery.for('update');
+      }
+      const [proj] = await projQuery.limit(1);
 
       if (!proj) {
         throw new Error(`Project ${m.projectId} not found for milestone ${canonicalMilestoneId}`);
       }
 
       const ledgerSummary = await this.ledgerService.getProjectLedgerSummary(proj.id, tx);
-      if (ledgerSummary.holdingBalanceCents < m.amountCents) {
+      const availableFunds =
+        ledgerSummary.availableHoldingCents !== undefined
+          ? ledgerSummary.availableHoldingCents
+          : ledgerSummary.holdingBalanceCents - ledgerSummary.pendingReleaseCents;
+
+      if (availableFunds < m.amountCents) {
         throw new Error(
-          `CRITICAL FINANCIAL GUARD: Insufficient holding balance (${ledgerSummary.holdingBalanceCents} cents) to release milestone amount (${m.amountCents} cents).`
+          `CRITICAL FINANCIAL GUARD: Insufficient available holding balance (${availableFunds} cents available, ${ledgerSummary.pendingReleaseCents} cents reserved) to release milestone amount (${m.amountCents} cents).`
         );
       }
 
