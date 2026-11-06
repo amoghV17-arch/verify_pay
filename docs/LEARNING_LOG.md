@@ -9,6 +9,7 @@ Living log of concepts introduced, questions asked, and assessment scores (0: no
 | Bryntum TaskModel custom fields & runtime mapping | M1 | 2 | 0 -> pending |
 | Partial unique index for financial single-release | M2 | 2 | 0 -> pending |
 | Two-stage validation & self-repair loop | M5 | 2 | 0 -> pending |
+| Payout retry idempotency & attempt numbering | M10 | 2 | 0 -> pending |
 
 ## Log
 
@@ -39,4 +40,12 @@ A: pending
 Verdict: pending
 Feedback given: none
 Score: 0 -> pending
+
+### 2026-11-06 10:50 | concept: Payout retry idempotency & attempt numbering | milestone: M10 | difficulty: 2
+Q: In `apps/api/src/services/release.ts` (tested in `apps/api/src/__tests__/failureDrills.test.ts`), when an initial PayPal payout batch attempt fails (e.g. PayPal sandbox returns a transient failure or insufficient balance), why can't we simply re-use the original idempotency key and sender batch ID when the client or reconciler retries the payout, and how does the `:att{N}` suffix ensure exactly one payout occurs without risking duplicate money movement if the first batch actually succeeded asynchronously?
+A: pending
+Verdict: pending
+Feedback given: none
+Score: 0 -> pending
+
 
