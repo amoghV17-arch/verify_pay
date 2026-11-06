@@ -1,12 +1,31 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadConfig } from '@milestone/shared';
 import { buildServer } from '../server.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('Single Deployable Static Serving & SPA Fallback', () => {
   let app: FastifyInstance;
+  let createdMockDist = false;
+  let mockDistPath = '';
 
   beforeAll(async () => {
+    // Hermetic test guard: if web app has not been built yet, create a minimal index.html
+    // so this unit test runs cleanly on clean checkouts before build steps.
+    const distPath = path.resolve(process.cwd(), 'apps/web/dist');
+    const indexPath = path.join(distPath, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+      fs.mkdirSync(distPath, { recursive: true });
+      fs.writeFileSync(
+        indexPath,
+        '<!doctype html><html lang="en"><body><div id="root">Mock Milestone SPA</div></body></html>',
+        'utf-8'
+      );
+      createdMockDist = true;
+      mockDistPath = distPath;
+    }
+
     const config = loadConfig({
       NODE_ENV: 'test',
       PAYPAL_ENV: 'mock',
@@ -17,6 +36,13 @@ describe('Single Deployable Static Serving & SPA Fallback', () => {
 
   afterAll(async () => {
     await app.close();
+    if (createdMockDist && mockDistPath && fs.existsSync(mockDistPath)) {
+      try {
+        fs.rmSync(mockDistPath, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
   });
 
   it('GET / serves the index.html SPA entrypoint', async () => {

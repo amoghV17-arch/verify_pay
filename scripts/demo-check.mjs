@@ -167,3 +167,4 @@ if (allPassed) {
 console.log('====================================================\n');
 
 process.exitCode = allPassed ? 0 : 1;
+
