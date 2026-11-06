@@ -124,3 +124,14 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Gate H10: Owner records 2:30 screen & voice demo, uploads to YouTube, and pastes final URLs into the Devpost submission form.
   - Next session: Stretch goals S1–S4 (Critical path, refund unreleased funds, Bryntum TaskBoard, dark theme) or final submission wrap-up.
 - 2026-11-06 18:09 | M8b | overall 60% | GREEN | P0 UI redesign audit and plan complete; Section 2 flaws verified; architectural blueprint and route/component plan recorded; M8a-M8k milestones added
+- Handoff (P0 -> P1):
+  - What was built:
+    - Comprehensive code-level and live-app audit verifying all 13 visual flaws and 3 code-level issues from `UI_IMPLEMENTATION.md` §2 (hardcoded `projectId`, fallback sample data, cookie auth defaults, external fonts, all-caps labels, misleading wording, brass color for held funds, monolithic `App.tsx`).
+    - Multi-resolution audit screenshots captured at 1440, 1024, 768, and 390 px into `docs/screens/audit/`.
+    - Complete architectural blueprint and decision record in `docs/DECISIONS.md` covering tech stack, self-hosted fonts, color tokens, React Router architecture, reusable component library, Section 10 backend contracts (invites, receipt_shares, dual cookies, funding gates), and risk mitigation strategy.
+    - Updated `docs/MILESTONES.md` with sections M8a to M8k and synchronized `docs/PROGRESS.md`.
+    - Full verification passed (`pnpm verify`: 189 unit tests, 22 Playwright tests, typecheck, lint, build).
+  - What is deliberately unfinished:
+    - Phase P1 (Design foundation: tokens CSS, fonts, primitives, React Router shell, honesty lint). No feature code written in P0 per specification.
+  - Next session must know:
+    - P1 implements fonts (`@fontsource/geist-sans`, `@fontsource/dm-serif-display`), tokens, `lucide-react`, component primitives, router shell, honesty linter, and dev-only `/styleguide`. Owner approval of P0 audit and open questions is the gate to starting P1.
