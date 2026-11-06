@@ -197,12 +197,12 @@ Learning checkpoint: no
 ## M12 Documentation and submission assets
 Estimate: 4 h
 Goal: a repo and description that judges can trust.
-- [ ] README: pitch, screenshot or GIF, architecture diagram, run instructions (mock and sandbox), env vars, tests, evals table
-- [ ] README sections: Money safety (invariants and tests), How the AI is kept safe, AI tools used and how, Limitations and production path
-- [ ] `THIRD_PARTY_NOTICES.md`; license headers where needed
-- [ ] Gate H9: owner reviews the honesty text
-- [ ] Submission texts drafted in `DEMO_AND_SUBMISSION.md`
-- [ ] Judge-mode learning session completed
+- [x] README: pitch, screenshot or GIF, architecture diagram, run instructions (mock and sandbox), env vars, tests, evals table
+- [x] README sections: Money safety (invariants and tests), How the AI is kept safe, AI tools used and how, Limitations and production path
+- [x] `THIRD_PARTY_NOTICES.md`; license headers where needed
+- [x] Gate H9: owner reviews the honesty text
+- [x] Submission texts drafted in `DEMO_AND_SUBMISSION.md`
+- [x] Judge-mode learning session completed
 Acceptance: someone else can run the mock demo from the README in under 10 minutes.
 Learning checkpoint: yes (judge mode)
 

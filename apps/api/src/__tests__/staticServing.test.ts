@@ -64,3 +64,4 @@ describe('Single Deployable Static Serving & SPA Fallback', () => {
     expect(res.headers['content-type']).toContain('application/json');
   });
 });
+

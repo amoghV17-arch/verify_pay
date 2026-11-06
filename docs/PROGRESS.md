@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T07:59:11.821Z
+Generated: 2026-11-06T08:44:44.179Z
 
-Overall (hours-weighted): [#################...]  87%   Day 3/5, 3 day(s) left   Schedule: GREEN
-Current milestone: M12 Documentation and submission assets
+Overall (hours-weighted): [###################.]  93%   Day 3/5, 3 day(s) left   Schedule: GREEN
+Current milestone: M13 Video and submission
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -26,7 +26,7 @@ Current milestone: M12 Documentation and submission assets
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
-| M12 Documentation and submission assets | 4 | 0/6 | [....................]   0% |
+| M12 Documentation and submission assets | 4 | 6/6 | [####################] 100% |
 | M13 Video and submission | 4 | 0/5 | [....................]   0% |
 | S1 Critical path and baseline overlay (stretch) | 2 | 0/2 | [....................]   0% |
 | S2 Refund unreleased funds on cancellation (stretch) | 2 | 0/1 | [....................]   0% |
@@ -94,3 +94,11 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - All 189 unit/integration tests and 22 Playwright E2E tests pass cleanly (`pnpm verify`).
   - What is deliberately unfinished: M12 Documentation (README, THIRD_PARTY_NOTICES, honesty text) and M13 Video/Submission.
   - Next session: M12 Documentation and submission assets.
+- 2026-11-06 08:44 | M13 | overall 93% | GREEN | M12 documentation and submission assets complete
+  - What was built:
+    - Comprehensive, publication-ready `README.md` with product pitch, live demo links, architecture diagram, 10-minute mock run instructions, sandbox instructions, env vars table, verification breakdown, evals table, and all 4 deep technical sections ("Money safety", "How the AI is kept safe", "AI tools used and how", "Limitations and production path").
+    - `THIRD_PARTY_NOTICES.md` with complete attribution of open-source packages and Bryntum Gantt Pro evaluation licensing notice.
+    - `docs/DEMO_AND_SUBMISSION.md` updated with exact model names, prompt versions, safety guarantees, real eval numbers, and submission text descriptions.
+    - Verified full test suite (`pnpm verify`: 189 unit tests, 22 Playwright E2E tests, secret scan, ESLint, TypeScript).
+  - What is deliberately unfinished: M13 Video recording, uploading, and submission form filing.
+  - Next session: M13 Video and submission.

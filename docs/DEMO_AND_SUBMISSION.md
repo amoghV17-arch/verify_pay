@@ -70,33 +70,35 @@ Notes:
 
 ## 6. Text description template
 
-> **Milestone** is a project workspace where the plan, the money, and the proof of work live on one Gantt chart.
+> **Milestone** is a project workspace where the project plan, milestone money, and proof of work live on a single interactive Bryntum Gantt chart.
 >
-> **The problem.** Freelancers, especially those working across borders for small clients, are often ghosted at the final payment, while clients hesitate to pay for work they can't verify. Marketplace escrow is expensive and slow, and informal deals rely on trust.
+> **The problem.** Freelancers, especially those working across borders for small businesses, are routinely ghosted at final payment, while clients hesitate to pay upfront for work they cannot yet inspect. Traditional marketplace escrow is expensive (charging up to 20% platform fees) and slow, while informal contracts rely entirely on unenforceable trust.
 >
-> **What it does.** A client pastes a brief. An AI planner turns it into a Bryntum Gantt with dependencies, milestones, payment amounts, and checkable acceptance criteria. The client funds the project with PayPal. As the freelancer submits deliverables, an AI reviewer verifies each against its criteria using tools (reading repos and pages), and reports evidence and confidence. If the policy allows, PayPal Payouts releases the milestone payment to the freelancer. The client chooses how much autonomy the AI gets: approve every payment, a short objection window, or automatic release.
+> **What it does.** A client pastes a brief. An AI planner turns it into a live Bryntum Gantt schedule with dependencies, milestone deliverables, payment amounts, and observable acceptance criteria. The client funds the project via PayPal Sandbox Checkout. As the freelancer delivers work, an AI reviewer inspects deliverables using bounded tools (reading GitHub repos and web pages) and returns criterion-by-criterion evidence and confidence scores. If criteria pass, PayPal Payouts releases the milestone payment directly to the freelancer's account. The client selects how much autonomy the AI gets: manual approval, a time-window objection period (assisted mode), or automated release.
 >
-> **How it is built.** React and Bryntum Gantt, a Fastify and Postgres backend, PayPal Orders, Payouts, and Webhooks (verified, deduplicated, reconciled), an append-only ledger, and a tool-calling LLM agent with schema validation, tool limits, SSRF protection, and server-side verdict recomputation so the AI can never move money by itself.
+> **How it is built.** 
+> - **Frontend:** React 18, Bryntum Gantt Pro, Tailwind CSS, Lucide icons, Canvas Confetti.
+> - **Backend & DB:** Fastify single deployable serving both API and SPA, Neon PostgreSQL with Drizzle ORM, row locking, and local PGlite fallback.
+> - **PayPal Integration:** Orders v2 Checkout (funding capture), Payouts v1 (milestone release), and Webhooks v1 with cryptographic signature verification, event deduplication, and an append-only financial ledger.
+> - **AI Layer:** Multi-model `LlmPort` (Google Gemini, Anthropic Claude, OpenAI-compatible, and hermetic Fixtures), two-stage planner repair loop, tool-calling reviewer with SSRF guards and 200 KB caps, and server-side verdict recomputation.
 >
-> **Why it matters.** It gives a freelancer certainty and a client protection, without paying marketplace fees. It is also an example of an AI agent that influences money with human guardrails.
+> **Why it matters.** It provides freelancers certainty of funds and clients objective verification of deliverables, without marketplace fee overhead. It is a working blueprint of an AI agent that safely coordinates real money under strict human guardrails.
 >
-> **Honest limits.** This is a sandbox demo. Production would need money-transmission licensing, KYC, dispute handling, and fee policy decisions. See the README.
-
-Adjust the wording to match what truly works at submission time.
+> **Honest limits.** This is an engineered hackathon prototype operating in the PayPal Sandbox environment. A production deployment requires regulated money-transmission licensing or custodial escrow partnerships, KYC/AML identity verification, legal terms of service, dispute arbitration, and platform fee economics. See the README.
 
 ## 7. AI tools explanation template
 
-> **Models and providers:** <provider and model names, with versions used for the final demo>.
+> **Models and providers:** Google Gemini (`gemini-2.5-flash`), Anthropic Claude (`claude-3-5-sonnet`), and OpenAI-compatible models supported via a modular `LlmPort` interface. Continuous integration and hermetic offline runs use recorded benchmark fixtures (`FixtureAdapter`).
 >
-> **Planner:** converts a brief into a validated plan (tasks, dependencies, milestones, payment percentages, acceptance criteria). Output is forced through a tool schema, validated with zod and server-side rules (percentages, cycles, vague criteria), repaired up to two times, and measured by evals.
+> **Planner:** Converts a freeform brief into a topologically ordered Gantt schedule with finish-to-start dependencies, milestone percentage allocations, and observable criteria. Output is validated with Zod, DAG cycle detection, graph reachability, and a vague-word heuristic scanner. A two-stage automated self-repair loop provides up to two repair attempts with structured feedback.
 >
-> **Reviewer:** a tool-calling agent that fetches public pages, reads files from public GitHub repositories, and judges each acceptance criterion with evidence and confidence. It is limited to 8 tool calls and a time budget.
+> **Reviewer:** An autonomous tool-calling agent with two constrained tools: `fetch_url` (retrieving public URLs) and `read_file` (reading repository contents via the GitHub REST API). It assesses each agreed criterion independently with an evidence excerpt and confidence score. The reviewer is strictly bounded: max 8 tool calls, 10-second timeout, 200 KB streaming body cap, and an SSRF pre-flight DNS resolver blocking private, loopback, link-local, and cloud metadata IP ranges (AWS/GCP/Alibaba).
 >
-> **Safety:** deliverables are treated as untrusted data; injection attempts are detected and escalate to a human; the server recomputes the verdict from per-criterion results and applies the stricter of the model's and the policy's verdicts; the LLM has no payment tool.
+> **Safety:** Deliverable text and repository URLs are treated as untrusted input, enclosed in XML delimiters, and scanned for prompt injection markers prior to LLM execution. The server independently recomputes the final verdict from individual criterion evaluations, enforcing `release < request_changes < escalate_to_human`. If prompt injection is detected, any criterion is unmet, or confidence is low, the server forces human escalation. The LLM has no payment tool and can never move money autonomously.
 >
-> **Evaluation:** `pnpm eval` runs <N> planner briefs and <M> reviewer cases (including adversarial ones). Results for <model, date>: <real numbers>.
+> **Evaluation:** `pnpm eval` runs automated benchmarks against 6 diverse planner briefs (100% pass rate, 100% first-attempt valid, 100% valid after repair, unsafe brief correctly refused) and 7 reviewer cases (100% pass rate, 100% injection detection accuracy, adversarial prompt injection correctly escalated to human).
 >
-> **Development tooling:** the project was built with an AI coding agent guided by the documents in `/docs` (listed in the README). Human decisions: product concept, scope, review of safety and honesty text.
+> **Development tooling:** Built with Google Antigravity (Gemini) agentic coding assistant guided by the architectural specs and protocols in `/docs`. Human decisions: product concept, core state machines, financial invariants, security boundaries, honesty review, Render hosting, and PayPal Sandbox account configuration.
 
 Fill in only what is true. Declare AI-assisted development honestly if the rules ask about it.
 

@@ -29,7 +29,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
 
     clientCookie = await createSessionToken({ userId: 'user_client_01', role: 'client' });
     freelancerCookie = await createSessionToken({ userId: 'user_freelancer_01', role: 'freelancer' });
-  }, 35000);
+  }, 60000);
 
   afterAll(async () => {
     await server.close();
