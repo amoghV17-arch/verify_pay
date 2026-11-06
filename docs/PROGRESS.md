@@ -103,3 +103,12 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - What is deliberately unfinished: M13 Video recording, uploading, and submission form filing.
   - Next session: M13 Video and submission.
 - 2026-11-06 11:37 | M13 | overall 97% | GREEN | M13 video rehearsal script and submission pack finalized; all demo-check & verification suites passing
+  - What was built:
+    - Pre-flight automated demo-readiness check `scripts/demo-check.mjs` (`pnpm demo:check`) verifying live Render deployment, hosted React SPA delivery, Neon DB connectivity, demo reset speed (3.56s), PayPal Sandbox OAuth2 credentials, webhook registration, and secret scanner.
+    - Video rehearsal script (2:30 target) with second-by-second visual choreography and voice-over in `docs/DEMO_AND_SUBMISSION.md`.
+    - Polished Devpost submission copy (Elevator pitch, full description, technical architecture, and AI safety explanation) in `docs/DEMO_AND_SUBMISSION.md`.
+    - Fixed Windows PGlite WASM parallel test hook timeout in Vitest by increasing `beforeAll` timeout to 60s.
+    - Verified full verification suite (`pnpm verify`: 189 unit tests, 22 Playwright E2E tests, secret scan, ESLint, TypeScript).
+  - What remains:
+    - Gate H10: Owner records 2:30 screen & voice demo, uploads to YouTube, and pastes final URLs into the Devpost submission form.
+  - Next session: Stretch goals S1–S4 (Critical path, refund unreleased funds, Bryntum TaskBoard, dark theme) or final submission wrap-up.
