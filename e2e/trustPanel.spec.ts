@@ -4,7 +4,7 @@ test.describe('M8 Trust Panel and Product UI Suite', () => {
   test('renders complete layout per DESIGN.md: left rail, funds meter, Gantt, and Trust Panel', async ({ page }) => {
     // 1440px Desktop Viewport
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Verify Top App Header & Persona Switcher ("Viewing as")
     await expect(page.locator('header')).toContainText('Milestone');
@@ -129,7 +129,7 @@ test.describe('M8 Trust Panel and Product UI Suite', () => {
 
   test('persona switcher toggles between client and freelancer controls', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // Start as Client
     await page.locator('#persona-client-btn').click();

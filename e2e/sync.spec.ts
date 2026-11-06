@@ -28,7 +28,7 @@ test.describe('M2 E2E Data Layer & Gantt Sync Suite', () => {
 
   test('Gantt loads real data from API, syncs edits, and persists on page reload', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Verify that the Gantt container renders
     const ganttContainer = page.locator('.b-gantt');

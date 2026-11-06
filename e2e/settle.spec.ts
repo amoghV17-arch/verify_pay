@@ -49,7 +49,7 @@ test.describe('M9 Settle Moment & Motion Suite', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Ensure Client persona
     const clientBtn = page.locator('#persona-client-btn');
@@ -88,7 +88,7 @@ test.describe('M9 Settle Moment & Motion Suite', () => {
     // Emulate reduced motion
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // Ensure Client persona
     const clientBtn = page.locator('#persona-client-btn');

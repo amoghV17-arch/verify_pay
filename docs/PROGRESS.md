@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T18:47:36.321Z
+Generated: 2026-11-06T19:54:37.127Z
 
-Overall (hours-weighted): [#############.......]  64%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M8c P2 Public landing and entry
+Overall (hours-weighted): [##############......]  69%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M8d P3 Backend: invites, sessions, roles
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -25,7 +25,7 @@ Current milestone: M8c P2 Public landing and entry
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
 | M8a P0 UI Audit and plan | 2 | 5/5 | [####################] 100% |
 | M8b P1 Design foundation | 4 | 6/6 | [####################] 100% |
-| M8c P2 Public landing and entry | 5 | 0/5 | [....................]   0% |
+| M8c P2 Public landing and entry | 5 | 5/5 | [####################] 100% |
 | M8d P3 Backend: invites, sessions, roles | 4 | 0/5 | [....................]   0% |
 | M8e P4 Client area | 5 | 0/5 | [....................]   0% |
 | M8f P5 Freelancer area | 4 | 0/5 | [....................]   0% |
@@ -150,3 +150,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Phase P2: Public landing page story, hero preview CSS animation, pinned 5-stage proof-to-payment scroll scene, `/get-started`, and `/safety`.
   - Next session must know:
     - Per user instruction, all UI redesign work (P1 through P10) stays on this single branch (`ui-redesign`). Do not switch branches for P2. Ready to begin P2.
+- 2026-11-06 19:54 | M8d | overall 69% | GREEN | Completed Phase P2: public landing page with CSS product preview, pinned proof-to-payment scene, role selection (/get-started), and safety page (/safety). Captured multi-resolution screenshots at 1440, 1024, 768, and 390 px with zero axe-core violations.

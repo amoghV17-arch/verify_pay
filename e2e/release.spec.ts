@@ -41,7 +41,7 @@ test.describe('M4 E2E Payout Release Suite', () => {
 
   test('client can select an approved milestone and release payment', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Verify page and Gantt loaded
     const ganttContainer = page.locator('.b-gantt');

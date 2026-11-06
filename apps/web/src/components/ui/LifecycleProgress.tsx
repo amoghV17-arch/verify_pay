@@ -95,7 +95,7 @@ export const LifecycleProgress: React.FC<LifecycleProgressProps> = ({
             );
           })}
         </div>
-        <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>{activeText}</span>
+        <span style={{ color: style?.color || 'var(--ink-2)', fontWeight: 500 }}>{activeText}</span>
       </div>
     );
   }

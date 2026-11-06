@@ -41,7 +41,7 @@ test.describe('M6 E2E Reviewer & Deliverable Lifecycle Suite', () => {
 
   test('freelancer persona can see and open submit deliverable modal', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     const ganttContainer = page.locator('.b-gantt');
     await expect(ganttContainer).toBeVisible({ timeout: 15000 });

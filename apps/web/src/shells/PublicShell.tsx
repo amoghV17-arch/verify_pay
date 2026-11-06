@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button.js';
 import { DemoBar } from '../components/ui/DemoBar.js';
 
-export const PublicShell: React.FC = () => {
+export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
 
@@ -151,7 +151,7 @@ export const PublicShell: React.FC = () => {
 
       {/* Main Page Content */}
       <main style={{ flex: 1 }}>
-        <Outlet />
+        {children || <Outlet />}
       </main>
 
       {/* Public Footer */}

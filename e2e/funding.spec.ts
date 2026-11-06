@@ -28,7 +28,7 @@ test.describe('M3 E2E PayPal Funding and Real-time Updates', () => {
 
   test('client can initiate and capture funding with holding balance update', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Verify page and Gantt loaded
     const ganttContainer = page.locator('.b-gantt');

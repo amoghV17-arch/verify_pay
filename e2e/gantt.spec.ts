@@ -4,7 +4,7 @@ test.describe('M1 Bryntum Gantt Spike Suite', () => {
   test('renders themed Gantt with 12 tasks, 4 milestones, custom columns, and money states', async ({ page }) => {
     // Set viewport to 1440x900 desktop
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Verify Header & Application Shell
     await expect(page.locator('header')).toContainText('Milestone');

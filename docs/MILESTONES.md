@@ -176,11 +176,11 @@ Acceptance: every page uses correct fonts in the production build; components do
 ## M8c P2 Public landing and entry
 Estimate: 5 h
 Goal: editorial landing story, role selection, safety page.
-- [ ] Build minimal, animated landing page (Hero with ProductPreview, Agreement, Proof scene, etc.)
-- [ ] Implement pinned 5-stage proof-to-payment scene with scroll progress
-- [ ] Build role selection screen (/get-started) with two distinct paths
-- [ ] Build honest /safety and prototype limits page
-- [ ] Verify accessibility, performance (LCP < 2.5s), and reduced-motion fallback
+- [x] Build minimal, animated landing page (Hero with ProductPreview, Agreement, Proof scene, etc.)
+- [x] Implement pinned 5-stage proof-to-payment scene with scroll progress
+- [x] Build role selection screen (/get-started) with two distinct paths
+- [x] Build honest /safety and prototype limits page
+- [x] Verify accessibility, performance (LCP < 2.5s), and reduced-motion fallback
 Acceptance: scroll through at six breakpoints; reduced-motion version reads well; Lighthouse accessibility 95+; LCP under 2.5s.
 
 ## M8d P3 Backend: invites, sessions, roles

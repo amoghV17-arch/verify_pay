@@ -34,7 +34,7 @@ test.describe('M10 Accessibility Audit Suite (axe-core)', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     const clientBtn = page.locator('#persona-client-btn');
     await expect(clientBtn).toBeVisible({ timeout: 15000 });
@@ -57,7 +57,7 @@ test.describe('M10 Accessibility Audit Suite (axe-core)', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     const newPlanBtn = page.locator('#new-plan-btn');
     if (await newPlanBtn.isVisible()) {
@@ -81,7 +81,7 @@ test.describe('M10 Accessibility Audit Suite (axe-core)', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // Open Closeout Receipt Modal from Left Rail using exact unique id
     const receiptBtn = page.locator('#rail-closeout-receipt-btn');

@@ -29,7 +29,7 @@ test.describe('M5 E2E AI Layer and Planner Workflow', () => {
 
   test('client can create a verified plan from brief, review it, and apply to Gantt in under 20s', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Initial workspace load
     const ganttContainer = page.locator('.b-gantt');

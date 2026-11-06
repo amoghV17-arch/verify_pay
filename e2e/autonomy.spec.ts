@@ -41,7 +41,7 @@ test.describe('M7 E2E Autonomy Modes, Scheduler & Appeal Suite', () => {
 
   test('client can view and change autonomy mode in the header', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     const select = page.locator('#autonomy-mode-select');
     await expect(select).toBeVisible({ timeout: 15000 });

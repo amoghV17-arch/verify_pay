@@ -1,11 +1,26 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useSearchParams } from 'react-router-dom';
 import { PublicShell } from './shells/PublicShell.js';
 import { ClientShell } from './shells/ClientShell.js';
 import { FreelancerShell } from './shells/FreelancerShell.js';
 import { StyleguidePage } from './pages/StyleguidePage.js';
+import { LandingPage } from './pages/LandingPage.js';
+import { GetStartedPage } from './pages/GetStartedPage.js';
+import { SafetyPage } from './pages/SafetyPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { App as LegacyWorkspaceApp } from './App.js';
+
+const RootRoute: React.FC = () => {
+  const [params] = useSearchParams();
+  if (params.get('workspace') === 'true' || params.get('legacy') === 'true') {
+    return <LegacyWorkspaceApp />;
+  }
+  return (
+    <PublicShell>
+      <LandingPage />
+    </PublicShell>
+  );
+};
 
 // Route shells & guards per docs/UI_IMPLEMENTATION.md §4.1
 export const router = createBrowserRouter([
@@ -24,7 +39,7 @@ export const router = createBrowserRouter([
   // Public Marketing & Story Routes (Section 5)
   {
     path: '/',
-    element: <LegacyWorkspaceApp />, // Preserves existing single-page workspace for E2E tests until P2
+    element: <RootRoute />,
   },
   {
     path: '/safety',
@@ -32,17 +47,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <div style={{ maxWidth: '680px', margin: '3rem auto', padding: '0 1rem' }}>
-            <h1 className="font-display" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
-              Safety and prototype limits
-            </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--ink-2)', lineHeight: 1.6 }}>
-              Milestone is built for the PayPal & AI Hackathon. It operates exclusively in PayPal Sandbox mode.
-              Funds are held for each project and released milestone by milestone only after agreed acceptance criteria are verified.
-            </p>
-          </div>
-        ),
+        element: <SafetyPage />,
       },
     ],
   },
@@ -52,17 +57,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <div style={{ maxWidth: '680px', margin: '3rem auto', padding: '0 1rem' }}>
-            <h1 className="font-display" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
-              How will you use Milestone?
-            </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--ink-2)', lineHeight: 1.6 }}>
-              Select your role to begin. Clients create structured milestone agreements and fund them via PayPal Sandbox.
-              Freelancers join with an invite code and deliver verifiable work.
-            </p>
-          </div>
-        ),
+        element: <GetStartedPage />,
       },
     ],
   },

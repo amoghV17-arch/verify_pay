@@ -44,7 +44,7 @@ test.describe('M10 Full End-to-End Journey: Brief to Paid (All 3 Autonomy Modes)
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto('/?workspace=true');
 
     // 1. Start on Workspace or navigate to Start Screen
     const clientBtn = page.locator('#persona-client-btn');
