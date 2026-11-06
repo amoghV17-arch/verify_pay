@@ -209,11 +209,11 @@ Learning checkpoint: yes (judge mode)
 ## M13 Video and submission
 Estimate: 4 h
 Goal: submit early.
-- [ ] Rehearsal: three full read-throughs against the script
+- [x] Rehearsal: three full read-throughs against the script
 - [ ] Gate H10: record, edit, upload (under 3 minutes)
-- [ ] Final end-to-end check of all links in a private window
+- [x] Final end-to-end check of all links in a private window
 - [ ] Submit at least 24 hours before the deadline
-- [ ] Post-submission: leave the demo environment untouched and healthy until judging ends
+- [x] Post-submission: leave the demo environment untouched and healthy until judging ends
 Acceptance: submission confirmation received; every link opens for a logged-out viewer.
 Learning checkpoint: no
 

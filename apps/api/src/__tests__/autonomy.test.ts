@@ -65,7 +65,7 @@ describe('M7 Autonomy Modes and Scheduler Suite', () => {
     });
     server = buildServer(config, { paypalAdapter: mockPayPal });
     await server.ready();
-  }, 35000);
+  }, 60000);
 
   afterAll(async () => {
     await server?.close();

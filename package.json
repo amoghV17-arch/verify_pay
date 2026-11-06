@@ -22,6 +22,7 @@
     "smoke:sandbox": "node scripts/smoke-sandbox.mjs",
     "wake": "node scripts/wake.mjs",
     "demo:reset": "node scripts/demo-reset.mjs",
+    "demo:check": "node scripts/demo-check.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "devDependencies": {

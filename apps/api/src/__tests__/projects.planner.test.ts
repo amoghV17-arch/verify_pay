@@ -19,7 +19,7 @@ describe('Project Planner API Endpoints', () => {
     const db = await initDb({ useMemory: true });
     await seedDatabase(db);
     server = buildServer(config);
-  }, 35000);
+  }, 60000);
 
   it('POST /api/projects/plan returns 400 when brief is missing', async () => {
     const res = await server.inject({

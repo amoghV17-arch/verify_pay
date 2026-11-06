@@ -53,3 +53,4 @@ The following accessibility test component is licensed under MPL-2.0:
 PayPal API specifications, SDKs, and REST endpoints are used under the PayPal Developer Agreement for sandbox integration testing only:
 - **Endpoints:** `https://api-m.sandbox.paypal.com`
 - **APIs Used:** Orders v2 Checkout API, Payouts v1 API, Webhooks v1 Notification API, Identity OAuth2 API.
+

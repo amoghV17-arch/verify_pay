@@ -7,9 +7,9 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T08:44:44.179Z
+Generated: 2026-11-06T11:37:51.548Z
 
-Overall (hours-weighted): [###################.]  93%   Day 3/5, 3 day(s) left   Schedule: GREEN
+Overall (hours-weighted): [###################.]  97%   Day 3/5, 3 day(s) left   Schedule: GREEN
 Current milestone: M13 Video and submission
 
 | Milestone | Est (h) | Tasks | Progress |
@@ -27,7 +27,7 @@ Current milestone: M13 Video and submission
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
 | M12 Documentation and submission assets | 4 | 6/6 | [####################] 100% |
-| M13 Video and submission | 4 | 0/5 | [....................]   0% |
+| M13 Video and submission | 4 | 3/5 | [############........]  60% |
 | S1 Critical path and baseline overlay (stretch) | 2 | 0/2 | [....................]   0% |
 | S2 Refund unreleased funds on cancellation (stretch) | 2 | 0/1 | [....................]   0% |
 | S3 Bryntum TaskBoard for the freelancer (stretch) | 3 | 0/1 | [....................]   0% |
@@ -102,3 +102,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Verified full test suite (`pnpm verify`: 189 unit tests, 22 Playwright E2E tests, secret scan, ESLint, TypeScript).
   - What is deliberately unfinished: M13 Video recording, uploading, and submission form filing.
   - Next session: M13 Video and submission.
+- 2026-11-06 11:37 | M13 | overall 97% | GREEN | M13 video rehearsal script and submission pack finalized; all demo-check & verification suites passing

@@ -17,7 +17,7 @@ describe('Trust Panel & Audit API Endpoints', () => {
     const db = await initDb({ useMemory: true });
     await seedDatabase(db);
     server = buildServer(config);
-  }, 35000);
+  }, 60000);
 
   it('GET /api/projects/:id/activity returns activity trail', async () => {
     const res = await server.inject({

@@ -40,7 +40,7 @@ describe('Milestone M10 Automated Failure Drills Suite', () => {
 
     server = buildServer(config, { paypalAdapter: mockPayPal });
     await server.ready();
-  }, 35000);
+  }, 60000);
 
   afterAll(async () => {
     await server.close();

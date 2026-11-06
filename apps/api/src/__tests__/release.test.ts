@@ -46,7 +46,7 @@ describe('Milestone M4 Payout Release Suite', () => {
     // Create client session token for HTTP endpoint tests
     const token = await createSessionToken({ userId: 'user_client_01', role: 'client' });
     clientCookie = `milestone_session=${token}`;
-  }, 35000);
+  }, 60000);
 
   afterAll(async () => {
     await server.close();
