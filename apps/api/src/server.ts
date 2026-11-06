@@ -1,6 +1,10 @@
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { AppConfig, PayPalPort, LlmPort } from '@milestone/shared';
 import { registerAuth } from './auth/index.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -14,6 +18,22 @@ import { createLlmPort } from './ai/llmFactory.js';
 export interface BuildServerOptions {
   paypalAdapter?: PayPalPort;
   llmAdapter?: LlmPort;
+  serveStatic?: boolean;
+}
+
+function resolveWebDist(): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), 'apps/web/dist'),
+    path.resolve(process.cwd(), '../web/dist'),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../apps/web/dist'),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.existsSync(path.join(candidate, 'index.html'))) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 export function buildServer(config: AppConfig, options?: BuildServerOptions): FastifyInstance {
@@ -94,6 +114,36 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
       time: new Date().toISOString(),
     };
   });
+
+  // Register static file serving for React SPA in production/single-deployable mode
+  const shouldServeStatic = options?.serveStatic ?? true;
+  if (shouldServeStatic) {
+    const webDist = resolveWebDist();
+    if (webDist) {
+      server.register(fastifyStatic, {
+        root: webDist,
+        prefix: '/',
+      });
+
+      server.setNotFoundHandler((req, reply) => {
+        // Return 404 JSON for api, health, or non-GET requests
+        if (
+          (req.method !== 'GET' && req.method !== 'HEAD') ||
+          req.raw.url?.startsWith('/api') ||
+          req.raw.url?.startsWith('/healthz')
+        ) {
+          reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: `Route ${req.method}:${req.raw.url} not found`,
+          });
+          return;
+        }
+
+        reply.sendFile('index.html');
+      });
+    }
+  }
 
   return server;
 }

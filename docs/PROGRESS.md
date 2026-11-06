@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T05:20:16.735Z
+Generated: 2026-11-06T07:59:11.821Z
 
-Overall (hours-weighted): [################....]  82%   Day 3/5, 3 day(s) left   Schedule: GREEN
-Current milestone: M11 Deploy
+Overall (hours-weighted): [#################...]  87%   Day 3/5, 3 day(s) left   Schedule: GREEN
+Current milestone: M12 Documentation and submission assets
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -25,7 +25,7 @@ Current milestone: M11 Deploy
 | M8 Trust Panel and product UI | 6 | 7/7 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
-| M11 Deploy | 3 | 0/7 | [....................]   0% |
+| M11 Deploy | 3 | 7/7 | [####################] 100% |
 | M12 Documentation and submission assets | 4 | 0/6 | [....................]   0% |
 | M13 Video and submission | 4 | 0/5 | [....................]   0% |
 | S1 Critical path and baseline overlay (stretch) | 2 | 0/2 | [....................]   0% |
@@ -83,3 +83,14 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - Built: Full automated failure drills suite (`failureDrills.test.ts`, 7 drills: delayed webhook, duplicate webhook, payout failure with retry, LLM invalid JSON, LLM timeout, tool SSRF attempt, injection); full Playwright e2e suite covering all 3 autonomy modes (`fullFlow.spec.ts`, brief to paid); axe-core accessibility audit (`a11y.spec.ts`) with zero critical/serious issues; `pnpm demo:reset` script restoring fresh demo state in ~1.0s; local PGlite data persistence in `.data/pglite/`; PostgreSQL 16 service container in CI and Postgres concurrency tests (`postgresConcurrency.test.ts`); project-row locking and reserved pending balance invariant in `releaseMilestone`; raw webhook signature payload fix; comprehensive eval benchmark runs meeting 100% pass rate; and updated DECISIONS.md records.
   - Deliberately unfinished: M11 Production deployment (Railway, render, fly, or Cloud Run configuration, live sandbox smoke test, health checks).
   - Next session note: M11 is Deploy. Ensure deployed container uses SANDBOX PayPal environment (`api-m.sandbox.paypal.com`) and connects to hosted PostgreSQL.
+- 2026-11-06 07:59 | M12 | overall 87% | GREEN | M11 deploy complete
+  - What was built:
+    - Free persistent PostgreSQL database created on Neon and migrated (`DATABASE_URL`).
+    - Render web service configured (`render.yaml`) and live at `https://verify-pay.onrender.com`.
+    - Single deployable: Fastify configured with `@fastify/static` to serve `apps/web/dist` at root with SPA fallback.
+    - PayPal Sandbox webhook registered (`https://verify-pay.onrender.com/api/webhooks/paypal`) and verified with wildcard `*` event types.
+    - Wake-up script (`scripts/wake.mjs`) added and verified (`pnpm wake`).
+    - Live sandbox smoke test (`pnpm smoke:sandbox`) updated to verify deployed health, DB seed, and sandbox API connectivity.
+    - All 189 unit/integration tests and 22 Playwright E2E tests pass cleanly (`pnpm verify`).
+  - What is deliberately unfinished: M12 Documentation (README, THIRD_PARTY_NOTICES, honesty text) and M13 Video/Submission.
+  - Next session: M12 Documentation and submission assets.

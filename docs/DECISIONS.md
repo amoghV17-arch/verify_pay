@@ -240,6 +240,19 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Configured PGlite in `apps/api/src/db/index.ts` to persist data to `.data/pglite/` directory when `DATABASE_URL` is omitted, while preserving isolated in-memory PGlite instances (`useMemory: true`) for hermetic, sub-second unit and integration test runs. Added `skipMigrations` optimization to `initDb` to accelerate startup.
 - **Why:** Delivers persistent local developer state across server reloads without sacrificing sub-second hermetic test suite execution.
 
+## M11 Deploy decisions
+
+### Single Deployable Architecture with Embedded SPA Static Serving
+- **Context:** Deploying separate frontend and backend services on free cloud tiers increases operational complexity, creates CORS configuration overhead, requires separate custom domain bindings, and doubles cold start wake-up latency for demo judges.
+- **Decision:** Configured Fastify API to serve the built React SPA assets (`apps/web/dist`) directly from root `/` via `@fastify/static`, with SPA wildcard fallback (`index.html`) on non-API/non-health routes.
+- **Why:** Delivers a single, cohesive deployment URL (`https://verify-pay.onrender.com`), eliminates CORS boundaries in production, ensures unified webhook handling, and enables instant wake-up of both API and UI with a single HTTP probe.
+
+### Declarative Blueprint and Wake-Up Resilience for Free Tier Cloud Runtimes
+- **Context:** Render free-tier instances sleep after 15 minutes of inactivity, requiring 30–60 seconds for cold boot. Automated smoke testing or judge review without warming risks initial request timeouts.
+- **Decision:** Created `render.yaml` infrastructure-as-code blueprint automating build, migration, and start commands with `/healthz` health monitoring. Authored `scripts/wake.mjs` with retry backoff and detailed diagnostics to pre-warm the instance prior to testing or demo recording.
+- **Why:** Guarantees repeatable, zero-touch deployment builds and seamless evaluation runs without unexpected cold start timeouts.
+
+
 
 
 

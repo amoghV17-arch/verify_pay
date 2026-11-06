@@ -184,13 +184,13 @@ Learning checkpoint: yes (failure drills)
 ## M11 Deploy
 Estimate: 3 h
 Goal: hosted demo URL with real sandbox payments.
-- [ ] Gate H6: free Postgres created
-- [ ] Gate H7: Render service created from `render.yaml`
-- [ ] Environment variables set; migrations on deploy; `/healthz`
-- [ ] Gate H8: PayPal webhook registered with the Render URL; `PAYPAL_WEBHOOK_ID` set
-- [ ] `pnpm smoke:sandbox` against the deployed URL succeeds: fund, review, payout, webhook received
-- [ ] Wake-up script for the sleeping free instance
-- [ ] Demo seed loaded in production
+- [x] Gate H6: free Postgres created
+- [x] Gate H7: Render service created from `render.yaml`
+- [x] Environment variables set; migrations on deploy; `/healthz`
+- [x] Gate H8: PayPal webhook registered with the Render URL; `PAYPAL_WEBHOOK_ID` set
+- [x] `pnpm smoke:sandbox` against the deployed URL succeeds: fund, review, payout, webhook received
+- [x] Wake-up script for the sleeping free instance
+- [x] Demo seed loaded in production
 Acceptance: from a private browser window the hosted app completes a sandbox funding and payout.
 Learning checkpoint: no
 

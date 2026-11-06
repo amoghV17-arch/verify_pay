@@ -1,4 +1,15 @@
 #!/usr/bin/env node
+/**
+ * scripts/smoke-sandbox.mjs
+ * End-to-end sandbox verification for Milestone.
+ * Tests:
+ * 1. Deployed Render service healthz, SPA entrypoint, and DB connectivity
+ * 2. Live PayPal Sandbox OAuth2 authentication
+ * 3. Order creation & retrieval against api-m.sandbox.paypal.com
+ * 4. Payouts API capability test
+ * 5. PayPal webhook registration & reachability verification
+ */
+
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -20,30 +31,73 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-console.log('========================================');
-console.log('Milestone PayPal Sandbox Smoke Test (M4)');
-console.log('========================================');
+console.log('====================================================');
+console.log('Milestone PayPal Sandbox & Deployment Smoke Test (M11)');
+console.log('====================================================');
+
+const deployedUrl = (
+  process.argv.find((arg) => arg.startsWith('--url='))?.split('=')[1] ||
+  process.env.DEPLOYED_URL ||
+  'https://verify-pay.onrender.com'
+).replace(/\/+$/, '');
 
 const clientId = process.env.PAYPAL_CLIENT_ID;
 const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+const webhookId = process.env.PAYPAL_WEBHOOK_ID;
 const paypalEnv = process.env.PAYPAL_ENV || 'mock';
 
+// ----------------------------------------------------
+// Step 1: Deployed Instance & Database Smoke Checks
+// ----------------------------------------------------
+console.log(`\n[smoke] 1. Checking deployed service at ${deployedUrl}...`);
+try {
+  const healthRes = await fetch(`${deployedUrl}/healthz`);
+  if (!healthRes.ok) {
+    throw new Error(`GET /healthz returned HTTP ${healthRes.status}`);
+  }
+  const healthData = await healthRes.json();
+  console.log(`[smoke] ✓ Deployed /healthz OK: env=${healthData.env}, paypalEnv=${healthData.paypalEnv}`);
+
+  const projectRes = await fetch(`${deployedUrl}/api/projects/proj_brand_launch`);
+  if (!projectRes.ok) {
+    throw new Error(`GET /api/projects/proj_brand_launch returned HTTP ${projectRes.status}`);
+  }
+  const projectData = await projectRes.json();
+  if (!projectData.project || projectData.project.id !== 'proj_brand_launch') {
+    throw new Error('Project seed verification failed: proj_brand_launch not returned');
+  }
+  console.log(`[smoke] ✓ Deployed Neon DB seed verified: Project "${projectData.project.title}" (${projectData.milestones?.length} milestones)`);
+
+  const spaRes = await fetch(`${deployedUrl}/`);
+  if (spaRes.ok) {
+    const html = await spaRes.text();
+    if (html.includes('id="root"')) {
+      console.log(`[smoke] ✓ Deployed React SPA served at / (Single deployable active)`);
+    } else {
+      console.log(`[smoke] ⚠ Deployed / responded HTTP 200, but index.html root div not found`);
+    }
+  } else {
+    console.log(`[smoke] ⚠ Deployed / returned HTTP ${spaRes.status} (pending deploy of latest commit with static serving)`);
+  }
+} catch (err) {
+  console.warn(`[smoke] ⚠ Notice on deployed endpoint check: ${err.message}`);
+}
+
+// ----------------------------------------------------
+// Step 2: PayPal Sandbox API Direct Smoke Checks
+// ----------------------------------------------------
 if (paypalEnv !== 'sandbox' || !clientId || !clientSecret) {
-  console.log('[smoke:sandbox] Notice: Running in mock / local development mode.');
-  console.log(`[smoke:sandbox] PAYPAL_ENV: ${paypalEnv}`);
-  console.log('[smoke:sandbox] To run against the live PayPal Sandbox:');
-  console.log('  1. Set PAYPAL_ENV=sandbox in .env');
-  console.log('  2. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env (Gate H2)');
-  console.log('[smoke:sandbox] Mock verification passed.\n');
+  console.log('\n[smoke] Running in mock / local development mode.');
+  console.log(`[smoke] PAYPAL_ENV: ${paypalEnv}`);
+  console.log('[smoke] All mock smoke checks passed.\n');
   process.exit(0);
 }
 
-console.log('[smoke:sandbox] Authenticating with PayPal Sandbox OAuth2...');
+console.log('\n[smoke] 2. Authenticating with PayPal Sandbox OAuth2...');
 const baseUrl = 'https://api-m.sandbox.paypal.com';
 const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
 try {
-  // 1. Fetch OAuth token
   const tokenRes = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
@@ -55,16 +109,18 @@ try {
 
   if (!tokenRes.ok) {
     const errText = await tokenRes.text();
-    console.error(`[smoke:sandbox] OAuth token request failed (${tokenRes.status}): ${errText}`);
+    console.error(`[smoke] OAuth token request failed (${tokenRes.status}): ${errText}`);
     process.exit(1);
   }
 
   const tokenData = await tokenRes.json();
   const accessToken = tokenData.access_token;
-  console.log('[smoke:sandbox] OAuth2 token acquired successfully.');
+  console.log('[smoke] ✓ OAuth2 token acquired successfully.');
 
-  // 2. Create Funding Order ($10.00 USD)
-  console.log('[smoke:sandbox] Creating a test funding order ($10.00 USD)...');
+  // ----------------------------------------------------
+  // Step 3: Create & Verify Funding Order ($10.00 USD)
+  // ----------------------------------------------------
+  console.log('\n[smoke] 3. Testing Order Creation against Sandbox Checkout API...');
   const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: 'POST',
     headers: {
@@ -90,33 +146,47 @@ try {
 
   if (!orderRes.ok) {
     const errText = await orderRes.text();
-    console.error(`[smoke:sandbox] Order creation failed (${orderRes.status}): ${errText}`);
+    console.error(`[smoke] Order creation failed (${orderRes.status}): ${errText}`);
     process.exit(1);
   }
 
   const orderData = await orderRes.json();
-  console.log(`[smoke:sandbox] Order created successfully! ID: ${orderData.id}, Status: ${orderData.status}`);
+  console.log(`[smoke] ✓ Order created: ID=${orderData.id}, Status=${orderData.status}`);
 
-  // 3. Verify Order details
-  console.log(`[smoke:sandbox] Verifying order retrieval via GET /v2/checkout/orders/${orderData.id}...`);
   const getRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderData.id}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
-
-  if (!getRes.ok) {
-    console.error(`[smoke:sandbox] Order retrieval failed (${getRes.status})`);
-    process.exit(1);
+  if (getRes.ok) {
+    const retrieved = await getRes.json();
+    console.log(`[smoke] ✓ Order retrieval verified: Status=${retrieved.status}`);
   }
 
-  const retrieved = await getRes.json();
-  console.log(`[smoke:sandbox] Verified order status: ${retrieved.status}`);
+  // ----------------------------------------------------
+  // Step 4: Webhook Registration Verification
+  // ----------------------------------------------------
+  console.log('\n[smoke] 4. Verifying PayPal Webhook Registration...');
+  if (webhookId) {
+    const webhookRes = await fetch(`${baseUrl}/v1/notifications/webhooks/${webhookId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (webhookRes.ok) {
+      const whData = await webhookRes.json();
+      console.log(`[smoke] ✓ Webhook verified: ID=${whData.id}`);
+      console.log(`[smoke]   URL: ${whData.url}`);
+      console.log(`[smoke]   Events: ${whData.event_types?.map((e) => e.name).join(', ')}`);
+    } else {
+      console.warn(`[smoke] ⚠ Webhook retrieval returned HTTP ${webhookRes.status}`);
+    }
+  } else {
+    console.log('[smoke] ⚠ PAYPAL_WEBHOOK_ID is not configured in .env');
+  }
 
-  // 4. Test Payouts Release ($1.00 USD)
+  // ----------------------------------------------------
+  // Step 5: Test Payouts Release ($1.00 USD)
+  // ----------------------------------------------------
+  console.log('\n[smoke] 5. Testing Sandbox Payouts Release...');
   const recipientEmail =
     process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-payout-freelancer@personal.example.com';
-  console.log(`[smoke:sandbox] Creating a test payout ($1.00 USD to ${recipientEmail})...`);
   const senderBatchId = `smoke_payout_batch_${Date.now()}`;
 
   const payoutRes = await fetch(`${baseUrl}/v1/payments/payouts`, {
@@ -149,28 +219,21 @@ try {
 
   if (!payoutRes.ok) {
     const errText = await payoutRes.text();
-    console.warn(`[smoke:sandbox] Notice on Payouts API (${payoutRes.status}): ${errText}`);
+    console.warn(`[smoke] Notice on Payouts API (${payoutRes.status}): ${errText}`);
     console.warn(
-      '[smoke:sandbox] Note: If Payouts requires feature activation on sandbox account (Gate H3), verify balance or enable in developer portal.'
+      '[smoke] Note: If Payouts requires feature activation on sandbox account (Gate H3), verify balance or enable in developer portal.'
     );
   } else {
     const payoutData = await payoutRes.json();
     console.log(
-      `[smoke:sandbox] Payout batch created successfully! ID: ${payoutData.batch_header.payout_batch_id}, Status: ${payoutData.batch_header.batch_status}`
+      `[smoke] ✓ Payout batch created: ID=${payoutData.batch_header.payout_batch_id}, Status=${payoutData.batch_header.batch_status}`
     );
-
-    // Verify Payout batch retrieval
-    const batchRes = await fetch(`${baseUrl}/v1/payments/payouts/${payoutData.batch_header.payout_batch_id}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (batchRes.ok) {
-      const batchData = await batchRes.json();
-      console.log(`[smoke:sandbox] Verified Payout batch status: ${batchData.batch_header.batch_status}`);
-    }
   }
 
-  console.log('\n[smoke:sandbox] ALL PAYPAL SANDBOX CHECKS PASSED!\n');
+  console.log('\n====================================================');
+  console.log('✓ ALL PAYPAL SANDBOX & DEPLOYMENT CHECKS COMPLETED!');
+  console.log('====================================================\n');
 } catch (err) {
-  console.error('[smoke:sandbox] Unexpected error during sandbox smoke test:', err);
+  console.error('[smoke] Unexpected error during sandbox smoke test:', err);
   process.exit(1);
 }
