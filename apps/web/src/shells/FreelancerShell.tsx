@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useParams } from 'react-router-dom';
 import {
+  FolderKanban,
   LayoutDashboard,
   PackageCheck,
   Calendar,
@@ -18,8 +19,13 @@ export const FreelancerShell: React.FC = () => {
 
   const currentProjectId = routeProjectId || 'proj_brand_launch';
 
-  // Section 7 navigation: Overview, My deliverables, Schedule, Payments (NO funding, autonomy, or invite controls)
+  // Section 7 navigation: Projects, Overview, My deliverables, Schedule, Payments (NO funding, autonomy, or invite controls)
   const navItems = [
+    {
+      label: 'Projects',
+      path: '/freelancer',
+      icon: <FolderKanban size={18} />,
+    },
     {
       label: 'Overview',
       path: `/freelancer/projects/${currentProjectId}`,

@@ -206,11 +206,11 @@ Acceptance: a new person creates a plan, invites, and funds without instructions
 ## M8f P5 Freelancer area
 Estimate: 4 h
 Goal: invite join, freelancer shell, deliverables with restyled slide-over, payments.
-- [ ] Build join project screens (/join and /join/:token) with invite acceptance
-- [ ] Build freelancer application shell and projects list (/freelancer)
-- [ ] Build freelancer project overview with "Locked for you" financial cards and Next Up action
-- [ ] Build freelancer deliverables view with restyled submission slide-over
-- [ ] Build freelancer payments view with PayPal payout references
+- [x] Build join project screens (/join and /join/:token) with invite acceptance
+- [x] Build freelancer application shell and projects list (/freelancer)
+- [x] Build freelancer project overview with "Locked for you" financial cards and Next Up action
+- [x] Build freelancer deliverables view with restyled submission slide-over
+- [x] Build freelancer payments view with PayPal payout references
 Acceptance: freelancer accepts, sees funding status, submits, and watches the review with no client-only controls reachable.
 
 ## M8g P6 Lifecycle, review, settlement

@@ -384,5 +384,23 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Built `apps/web/src/data/fallbackData.ts` matching the canonical seed project (`proj_brand_launch`). Client pages attempt live API queries first and gracefully fall back to seed data if the backend is unreachable. All mock references use sandbox labels (`HOLD-SANDBOX-MOCK`), strictly avoiding deceptive terminology.
 - **Why:** Guarantees robust, zero-failure E2E testing and screenshot generation in preview environments while maintaining 100% honesty lint compliance.
 
+## M8f Phase P5 Freelancer Area Architecture & Design Decisions
+
+### Zero Client Controls in Freelancer Workspace
+- **Context:** Freelancers need a focused environment to review acceptance criteria, submit deliverables, and track payments without accessing client-only actions (funding, autonomy toggles, invite code generation, or client notes).
+- **Decision:** Stripped all client controls from `FreelancerShell`, `FreelancerOverviewPage`, `FreelancerDeliverablesPage`, and `FreelancerPaymentsPage`. The API strips autonomy configuration and private client notes from freelancer DTOs. Nav rail contains only freelancer-relevant links: Projects, Overview, Deliverables, Schedule, Payments.
+- **Why:** Guarantees strict role isolation and prevents UI confusion or privilege leakage in accordance with `docs/UI_IMPLEMENTATION.md` §7.
+
+### Submit Slide-Over Drawer with 4-Step Progress Timeline
+- **Context:** Fullscreen modal dialogs obstruct background context. Deliverable submission requires selecting artifact type (`url`, `repo`, `document`, `text`, `image`), providing content, and monitoring verification progress.
+- **Decision:** Replaced modal dialog with `SubmitSlideOver`, a 440px right-anchored slide-over drawer with subtle backdrop blur. Upon submission, the form smoothly transitions to a 4-step vertical progress timeline (Submitted -> AI Evaluation -> Decision -> Payout) connected to real-time SSE events with live step descriptions and instant feedback display.
+- **Why:** Provides a modern, responsive submission experience that keeps the user anchored in their milestone context while observing autonomous AI evaluation.
+
+### Calm Financial Hierarchy & Transparent PayPal Sandbox Receipts
+- **Context:** Freelancers need immediate clarity on what is earned vs. locked in sandbox before commencing work, along with verifiable transaction proofs.
+- **Decision:** Displayed 3 prominent financial figures in `FreelancerPaymentsPage`: Earned (big green, deposited to PayPal), Locked for you (large ink, held in sandbox for remaining milestones), and Total agreement. Included per-milestone settlement rows with PayPal sandbox batch IDs, one-click clipboard copying, and official payment settlement receipt modals.
+- **Why:** Reassures freelancers that payment is locked prior to work commencement and offers complete transparency into PayPal sandbox settlements.
+
+
 
 

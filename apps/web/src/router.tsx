@@ -1,5 +1,5 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider, Navigate, useSearchParams } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, useSearchParams } from 'react-router-dom';
 import { PublicShell } from './shells/PublicShell.js';
 import { ClientShell } from './shells/ClientShell.js';
 import { FreelancerShell } from './shells/FreelancerShell.js';
@@ -15,6 +15,11 @@ import { ClientOverviewPage } from './pages/client/ClientOverviewPage.js';
 import { ClientDeliverablesPage } from './pages/client/ClientDeliverablesPage.js';
 import { ClientPaymentsPage } from './pages/client/ClientPaymentsPage.js';
 import { ClientActivityPage } from './pages/client/ClientActivityPage.js';
+import { JoinFlowPage } from './pages/freelancer/JoinFlowPage.js';
+import { FreelancerProjectsPage } from './pages/freelancer/FreelancerProjectsPage.js';
+import { FreelancerOverviewPage } from './pages/freelancer/FreelancerOverviewPage.js';
+import { FreelancerDeliverablesPage } from './pages/freelancer/FreelancerDeliverablesPage.js';
+import { FreelancerPaymentsPage } from './pages/freelancer/FreelancerPaymentsPage.js';
 
 const RootRoute: React.FC = () => {
   const [params] = useSearchParams();
@@ -73,29 +78,11 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <div style={{ maxWidth: '680px', margin: '3rem auto', padding: '0 1rem' }}>
-            <h1 className="font-display" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
-              Join a project agreement
-            </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--ink-2)', lineHeight: 1.6 }}>
-              Enter your invitation code (e.g. MILE-XXXXXXXXXX) to review the agreed criteria and accept.
-            </p>
-          </div>
-        ),
+        element: <JoinFlowPage />,
       },
       {
         path: ':token',
-        element: (
-          <div style={{ maxWidth: '680px', margin: '3rem auto', padding: '0 1rem' }}>
-            <h1 className="font-display" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
-              Invitation Preview
-            </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--ink-2)', lineHeight: 1.6 }}>
-              Review the project milestones, payment allocation, and acceptance criteria before accepting.
-            </p>
-          </div>
-        ),
+        element: <JoinFlowPage />,
       },
     ],
   },
@@ -147,19 +134,19 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/freelancer/projects/proj_brand_launch" replace />,
+        element: <FreelancerProjectsPage />,
       },
       {
         path: 'projects/:id',
-        element: <LegacyWorkspaceApp />,
+        element: <FreelancerOverviewPage />,
       },
       {
         path: 'projects/:id/deliverables',
-        element: <LegacyWorkspaceApp />,
+        element: <FreelancerDeliverablesPage />,
       },
       {
         path: 'projects/:id/deliverables/:milestoneId',
-        element: <LegacyWorkspaceApp />,
+        element: <FreelancerDeliverablesPage />,
       },
       {
         path: 'projects/:id/schedule',
@@ -167,7 +154,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/payments',
-        element: <LegacyWorkspaceApp />,
+        element: <FreelancerPaymentsPage />,
       },
     ],
   },

@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-07T07:09:45.285Z
+Generated: 2026-11-07T08:16:09.416Z
 
-Overall (hours-weighted): [################....]  78%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M8f P5 Freelancer area
+Overall (hours-weighted): [################....]  82%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M8g P6 Lifecycle, review, settlement
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -28,7 +28,7 @@ Current milestone: M8f P5 Freelancer area
 | M8c P2 Public landing and entry | 5 | 5/5 | [####################] 100% |
 | M8d P3 Backend: invites, sessions, roles | 4 | 5/5 | [####################] 100% |
 | M8e P4 Client area | 5 | 5/5 | [####################] 100% |
-| M8f P5 Freelancer area | 4 | 0/5 | [....................]   0% |
+| M8f P5 Freelancer area | 4 | 5/5 | [####################] 100% |
 | M8g P6 Lifecycle, review, settlement | 5 | 0/5 | [....................]   0% |
 | M8h P7 Schedule (Bryntum Gantt) | 3 | 0/5 | [....................]   0% |
 | M8i P8 Demo mode, split view, seeds | 3 | 0/4 | [....................]   0% |
@@ -241,3 +241,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
     - Next phase is P5 (`M8f Freelancer area`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P5`).
+- 2026-11-07 08:16 | M8g | overall 82% | GREEN | Completed Phase P5: Freelancer area with join flow, overview Next Up card, deliverables slide-over, and payments breakdown
