@@ -2,7 +2,7 @@
 
 > **Where the project plan, the milestone money, and the proof of work live on one Gantt chart.**
 
-[![CI / Verification](https://img.shields.io/badge/Verification-Passing%20(189%20unit%20%2B%2022%20e2e)-emerald)](https://github.com/amoghV17-arch/verify_pay)
+[![CI / Verification](https://img.shields.io/badge/Verification-Passing%20(217%20unit%20%2B%2078%20e2e)-emerald)](https://github.com/amoghV17-arch/verify_pay)
 [![Hosted Demo](https://img.shields.io/badge/Hosted%20Demo-verify--pay.onrender.com-blue)](https://verify-pay.onrender.com)
 [![PayPal](https://img.shields.io/badge/PayPal-Sandbox%20Integrated-003087?logo=paypal)](https://developer.paypal.com)
 [![Bryntum Gantt](https://img.shields.io/badge/Gantt-Bryntum%20Pro%20v6.2.5-orange)](https://www.bryntum.com/products/gantt)
@@ -199,13 +199,14 @@ pnpm verify
 
 ### Verification Breakdown:
 1. **Secret Scanner (`pnpm check:secrets`):** Scans the repository and staged commits for committed credentials or private keys.
-2. **Unit & Failure Drills (`pnpm test`):** **189 tests** across 17 test suites covering:
+2. **Unit & Failure Drills (`pnpm test`):** **217 tests** across 20 test suites covering:
    - State machine transitions & money invariants.
    - Dual-locking concurrency safety under simulated parallel clicks.
    - Payout retries and duplicate batch prevention.
    - Fastify static asset delivery & SPA wildcard routing fallback.
-3. **Playwright E2E (`pnpm test:e2e`):** **22 comprehensive E2E tests** covering:
-   - **Accessibility Audits (axe-core):** Zero critical or serious accessibility violations across Gantt Workspace, Start Screen, Fund Modal, and Receipt Closeout.
+3. **Playwright E2E (`pnpm test:e2e`):** **78 comprehensive E2E tests** covering:
+   - **Accessibility Audits (axe-core):** Zero critical or serious accessibility violations across Gantt Workspace, Start Screen, Fund Modal, Review page, and Receipt Closeout.
+   - **6-Breakpoint Responsiveness Pass:** Zero horizontal overflow across 1440px, 1280px, 1024px, 768px, 390px, and 360px.
    - **All 3 Autonomy Journeys:** Manual client approval, Assisted 20-second release window with objection handling and appeals, and Autonomous AI release.
    - **Bryntum Gantt Rendering:** Custom milestone diamonds, state classes, currency formatting, and task dependency synchronization.
    - **The Settle Moment:** Coin travel, balance incrementation, and `prefers-reduced-motion` compliance.
