@@ -242,3 +242,46 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Next phase is P5 (`M8f Freelancer area`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P5`).
 - 2026-11-07 08:16 | M8g | overall 82% | GREEN | Completed Phase P5: Freelancer area with join flow, overview Next Up card, deliverables slide-over, and payments breakdown
+- Handoff (P5 -> P6):
+  - What was built:
+    - Join flow (`JoinFlowPage.tsx`) at `/join` and `/join/:token`:
+      - Code input form with Crockford Base32 sample code button (`Try sample invite code: MILE-MOCKINVITE`).
+      - Project preview section with title, client name, total budget, client funding notice ("The client funds the project holding balance after you accept"), project brief, and full acceptance criteria breakdown per milestone.
+      - Acceptance form with name, email, PayPal sandbox recipient email, prototype notice ("Email addresses are not verified against real SMTP servers in this sandbox environment"), and one-click submission redirecting to the project overview.
+      - Resilient fallback ensuring seamless operation in both live Fastify environments and static Vite preview.
+    - Freelancer application shell (`FreelancerShell.tsx`):
+      - Persistent left navigation rail containing only freelancer-accessible links: Projects (`/freelancer`), Overview (`/freelancer/projects/:id`), My deliverables (`/freelancer/projects/:id/deliverables`), Schedule (`/freelancer/projects/:id/schedule`), Payments (`/freelancer/projects/:id/payments`).
+      - Zero client-only controls (no funding actions, no autonomy toggles, no invite generation, no client notes).
+      - Freelancer profile card ("Arjun Mehta • Freelancer") and PayPal Sandbox status chip.
+    - Freelancer projects directory (`FreelancerProjectsPage.tsx`) at `/freelancer`:
+      - Quick-join input at top (`Have an invitation code?`) for immediate code redemption.
+      - Project cards displaying title, brief, state sentence, locked and earned figures, and contextual next-action buttons.
+    - Freelancer project overview (`FreelancerOverviewPage.tsx`) at `/freelancer/projects/:id`:
+      - Next Up card always first with green border, *"Next Up for Delivery"*, milestone title, amount, and *"Funded and locked. You can start"* badge (or waiting for client funding state).
+      - 5-stage `LifecycleProgress` bar mapping backend milestone states.
+      - Financial hierarchy: large **Locked for you (Holding Balance)** card in forest green, **Earned to Date (Settled)** card, and **Total Agreement Value** card.
+      - Upcoming milestones table and recent project activity timeline.
+    - Freelancer deliverables view (`FreelancerDeliverablesPage.tsx`) at `/freelancer/projects/:id/deliverables`:
+      - Milestone deliverable cards with acceptance criteria checklist, Evidence chips, and review status badges (Paid via PayPal, Evaluating criteria, Changes requested, Independent appeal review active).
+      - Action buttons: "Submit deliverable" on funded milestones, "Submit revision" + "Appeal" on changes-requested milestones.
+      - Integrated with `AppealModal.tsx` for submitting 1-click appeal explanations.
+    - Deliverable slide-over drawer (`SubmitSlideOver.tsx`):
+      - 440px wide right-anchored slide-over with backdrop blur, replacing modal.
+      - Kind selector tabs (`url`, `repo`, `document`, `text`, `image`) with type-specific placeholders and helpers.
+      - Live 4-step vertical progress timeline: Submitted -> AI Evaluation (Claude 3.5 Sonnet) -> Decision -> Settlement.
+      - Live SSE log container and reviewer feedback expansion.
+    - Freelancer payments view (`FreelancerPaymentsPage.tsx`) at `/freelancer/projects/:id/payments`:
+      - 3 side-by-side top totals: Earned (big green number, deposited to PayPal), Locked for you (large ink number, held in PayPal sandbox for remaining milestones), and Total agreement.
+      - Per-milestone settlement table with payout dates, truncated PayPal sandbox transaction batch IDs, one-click clipboard copy button, and verified sandbox badges.
+      - Payment Settlement Receipt modal (`Dialog.tsx`) with payout metadata, recipient email, settlement timestamp, and immutable audit confirmation.
+    - Routing integration in `router.tsx`: Connected `/join`, `/join/:token`, `/freelancer`, `/freelancer/projects/:id`, `/deliverables`, and `/payments`.
+    - Comprehensive Playwright test suite (`e2e/freelancerArea.spec.ts`): 6 passing test cases covering all freelancer flows.
+    - Multi-resolution screenshots across all 4 breakpoints (1440, 1024, 768, 390 px) saved to `docs/screens/p5/` (28 screenshots total).
+    - 100% verification passed: `secret-scan` passed, ESLint passed, `tsc --build` passed, Vite production build passed, 217 Vitest tests passed with honesty lint compliance, 54 Playwright E2E tests passing.
+  - What is deliberately unfinished:
+    - Phase P6 (`M8g Lifecycle, review, settlement`): Signature LifecycleProgress component refinement across all states, 3-zone review screen (Deliverable, AI Verification, Payment/Action), injection warning overlays, expandable AI tool reasoning trace, and public receipt sharing.
+  - Next session must know:
+    - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
+    - Next phase is P6 (`M8g P6 Lifecycle, review, settlement`).
+    - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P6`).
+
