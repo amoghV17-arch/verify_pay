@@ -8,7 +8,6 @@ import { LandingPage } from './pages/LandingPage.js';
 import { GetStartedPage } from './pages/GetStartedPage.js';
 import { SafetyPage } from './pages/SafetyPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
-import { App as LegacyWorkspaceApp } from './App.js';
 import { ClientProjectsPage } from './pages/client/ClientProjectsPage.js';
 import { NewProjectWizard } from './pages/client/NewProjectWizard.js';
 import { ClientOverviewPage } from './pages/client/ClientOverviewPage.js';
@@ -22,11 +21,24 @@ import { FreelancerDeliverablesPage } from './pages/freelancer/FreelancerDeliver
 import { FreelancerPaymentsPage } from './pages/freelancer/FreelancerPaymentsPage.js';
 import { ReviewPage } from './pages/ReviewPage.js';
 import { SharedReceiptPage } from './pages/SharedReceiptPage.js';
+import { ScheduleSkeleton } from './components/schedule/ScheduleSkeleton.js';
+
+// Lazy-loaded Legacy Workspace App (for ?workspace=true)
+const LegacyWorkspaceApp = React.lazy(() => import('./App.js').then((m) => ({ default: m.App })));
+
+// Lazy-loaded Bryntum Gantt schedule page per UI_IMPLEMENTATION.md §9 and §14 (Phase P7)
+const LazySchedulePage = React.lazy(() =>
+  import('./pages/SchedulePage.js').then((module) => ({ default: module.SchedulePage }))
+);
 
 const RootRoute: React.FC = () => {
   const [params] = useSearchParams();
   if (params.get('workspace') === 'true' || params.get('legacy') === 'true') {
-    return <LegacyWorkspaceApp />;
+    return (
+      <React.Suspense fallback={<ScheduleSkeleton />}>
+        <LegacyWorkspaceApp />
+      </React.Suspense>
+    );
   }
   return (
     <PublicShell>
@@ -128,7 +140,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/schedule',
-        element: <LegacyWorkspaceApp />,
+        element: (
+          <React.Suspense fallback={<ScheduleSkeleton />}>
+            <LazySchedulePage role="client" />
+          </React.Suspense>
+        ),
       },
       {
         path: 'projects/:id/deliverables',
@@ -172,7 +188,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/schedule',
-        element: <LegacyWorkspaceApp />,
+        element: (
+          <React.Suspense fallback={<ScheduleSkeleton />}>
+            <LazySchedulePage role="freelancer" />
+          </React.Suspense>
+        ),
       },
       {
         path: 'projects/:id/payments',

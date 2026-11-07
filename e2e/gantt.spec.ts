@@ -7,9 +7,11 @@ test.describe('M1 Bryntum Gantt Spike Suite', () => {
     await page.goto('/?workspace=true');
 
     // 1. Verify Header & Application Shell
-    await expect(page.locator('header')).toContainText('Milestone');
-    await expect(page.locator('header')).toContainText('Brand-site Redesign & Launch');
-    await expect(page.locator('header')).toContainText('PayPal Sandbox Active');
+    const header = page.locator('header');
+    await expect(header).toBeVisible({ timeout: 15000 });
+    await expect(header).toContainText('Milestone');
+    await expect(header).toContainText('Brand-site Redesign & Launch');
+    await expect(header).toContainText('PayPal Sandbox Active');
     await expect(page.locator('#balance-chip')).toContainText('$1,200.00');
 
     // 2. Verify Funds Meter

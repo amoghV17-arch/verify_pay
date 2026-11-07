@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Gantt, ProjectModel, Model, TaskModel } from '@bryntum/gantt';
 import '@bryntum/gantt/gantt.css';
 import '@bryntum/gantt/stockholm-light.css';
@@ -35,28 +35,78 @@ export function formatStatusLabel(status?: string): string {
   return status.replace(/_/g, ' ');
 }
 
-interface GanttProps {
+export interface MilestoneGanttHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomToFit: () => void;
+  toggleDetails: (show: boolean) => void;
+  getTasks: () => MilestoneTaskModel[];
+}
+
+export interface GanttProps {
   projectId?: string;
   refreshKey?: number;
   tasksData?: unknown[];
   dependenciesData?: unknown[];
   readOnly?: boolean;
+  role?: 'client' | 'freelancer';
+  showDetails?: boolean;
   onTaskSelect?: (task: MilestoneTaskModel) => void;
   onSyncSuccess?: () => void;
 }
 
-export const MilestoneGantt: React.FC<GanttProps> = ({
+export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
   projectId = 'proj_brand_launch',
   refreshKey = 0,
   tasksData,
   dependenciesData,
   readOnly = false,
+  role = 'client',
+  showDetails = false,
   onTaskSelect,
   onSyncSuccess,
-}) => {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttInstanceRef = useRef<Gantt | null>(null);
 
+  // Helper to toggle column hidden state
+  const setDetailsVisible = (show: boolean) => {
+    if (ganttInstanceRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const columns = ganttInstanceRef.current.columns as any;
+      const startCol = columns.get ? columns.get('startdate') : columns.find?.((c: { id?: string; type?: string }) => c.id === 'startdate' || c.type === 'startdate');
+      const durCol = columns.get ? columns.get('duration') : columns.find?.((c: { id?: string; type?: string }) => c.id === 'duration' || c.type === 'duration');
+      if (startCol) startCol.hidden = !show;
+      if (durCol) durCol.hidden = !show;
+    }
+  };
+
+  // Expose imperative handle for toolbar controls
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      ganttInstanceRef.current?.zoomIn();
+    },
+    zoomOut: () => {
+      ganttInstanceRef.current?.zoomOut();
+    },
+    zoomToFit: () => {
+      ganttInstanceRef.current?.zoomToFit();
+    },
+    toggleDetails: (show: boolean) => {
+      setDetailsVisible(show);
+    },
+    getTasks: () => {
+      if (!ganttInstanceRef.current?.taskStore) return [];
+      return ganttInstanceRef.current.taskStore.allRecords as MilestoneTaskModel[];
+    },
+  }), []);
+
+  // Update column visibility when showDetails prop changes
+  useEffect(() => {
+    setDetailsVisible(showDetails);
+  }, [showDetails]);
+
+  // Handle data reload on refreshKey
   useEffect(() => {
     if (refreshKey > 0 && ganttInstanceRef.current?.project) {
       if (!tasksData) {
@@ -104,6 +154,11 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
       });
     }
 
+    // Role-scoped permissions:
+    // Client: tasks editable (names, dates, order), money & status protected
+    // Freelancer: task dates/resize disabled, only progress editable
+    const isFreelancer = role === 'freelancer';
+
     const gantt = new Gantt({
       appendTo: containerRef.current,
       project,
@@ -118,6 +173,8 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
           width: 440,
         },
       },
+      // Hide default Bryntum toolbar per UI_IMPLEMENTATION.md §9
+      tbar: undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       taskRenderer: ({ taskRecord, renderData }: { taskRecord: TaskModel; renderData: any }) => {
         const model = taskRecord as MilestoneTaskModel;
@@ -133,8 +190,8 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
         return '';
       },
       features: {
-        taskDrag: true,
-        taskResize: true,
+        taskDrag: !isFreelancer,
+        taskResize: !isFreelancer,
         dependencies: true,
         taskEdit: true,
         labels: {
@@ -174,13 +231,17 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
         },
         {
           type: 'startdate',
+          id: 'startdate',
           text: 'Start',
           width: 105,
+          hidden: !showDetails,
         },
         {
           type: 'duration',
+          id: 'duration',
           text: 'Duration',
           width: 85,
+          hidden: !showDetails,
         },
         {
           text: 'Payment Status',
@@ -212,37 +273,6 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
           },
         },
       ],
-      tbar: [
-        {
-          type: 'button',
-          text: 'Zoom In',
-          icon: 'b-fa-search-plus',
-          onClick: (): void => {
-            ganttInstanceRef.current?.zoomIn();
-          },
-        },
-        {
-          type: 'button',
-          text: 'Zoom Out',
-          icon: 'b-fa-search-minus',
-          onClick: (): void => {
-            ganttInstanceRef.current?.zoomOut();
-          },
-        },
-        {
-          type: 'button',
-          text: 'Fit Timeline',
-          icon: 'b-fa-compress',
-          onClick: (): void => {
-            ganttInstanceRef.current?.zoomToFit();
-          },
-        },
-        '->',
-        {
-          type: 'widget',
-          html: '<span style="font-size: 0.8125rem; color: var(--slate); font-weight: 500;">Milestone holding balance protected by PayPal Sandbox</span>',
-        },
-      ],
     });
 
     gantt.on('taskClick', ({ taskRecord }: { taskRecord: TaskModel }) => {
@@ -269,54 +299,13 @@ export const MilestoneGantt: React.FC<GanttProps> = ({
       gantt.destroy();
       ganttInstanceRef.current = null;
     };
-  }, [projectId]);
+  }, [projectId, role]);
 
   return (
-    <div className="milestone-gantt-wrapper">
-      <div className="milestone-legend-bar">
-        <span className="milestone-legend-title">Milestone Lifecycle Legend:</span>
-        <div className="milestone-legend-items">
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{ border: '2px solid var(--settled)', background: 'var(--settled)' }}
-            />
-            <span>Paid (✓)</span>
-          </div>
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{
-                border: '2px solid var(--brass)',
-                background: 'repeating-linear-gradient(45deg, var(--brass), var(--brass) 2px, #cf972a 2px, #cf972a 4px)',
-              }}
-            />
-            <span>In review (◷)</span>
-          </div>
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{ border: '2px solid var(--tide)', background: 'rgba(31, 122, 140, 0.25)' }}
-            />
-            <span>Funded (●)</span>
-          </div>
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{ border: '2px solid var(--flag)', background: 'rgba(200, 64, 47, 0.2)' }}
-            />
-            <span>Changes req (⚐)</span>
-          </div>
-          <div className="milestone-legend-item">
-            <span
-              className="milestone-legend-dot"
-              style={{ border: '2px dashed var(--slate)', background: 'var(--paper)' }}
-            />
-            <span>Unfunded (○)</span>
-          </div>
-        </div>
-      </div>
+    <div className="milestone-gantt-wrapper" data-testid="bryntum-gantt-wrapper">
       <div className="milestone-gantt-container" ref={containerRef} />
     </div>
   );
-};
+});
+
+MilestoneGantt.displayName = 'MilestoneGantt';

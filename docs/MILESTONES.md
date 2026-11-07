@@ -226,11 +226,11 @@ Acceptance: all backend states map correctly; Paid never shows early; injection 
 ## M8h P7 Schedule (Bryntum Gantt)
 Estimate: 3 h
 Goal: visual centerpiece schedule page, inspector panel, mobile List view.
-- [ ] Dedicated full-width schedule page with context bar (zoom, fit, view toggle)
-- [ ] Restyle Bryntum Gantt with editorial fintech CSS tokens
-- [ ] Build slide-over task inspector panel
-- [ ] Implement responsive mobile fallback (List view below 768px)
-- [ ] Implement code-splitting and lazy-loading for Bryntum bundle
+- [x] Dedicated full-width schedule page with context bar (zoom, fit, view toggle)
+- [x] Restyle Bryntum Gantt with editorial fintech CSS tokens
+- [x] Build slide-over task inspector panel
+- [x] Implement responsive mobile fallback (List view below 768px)
+- [x] Implement code-splitting and lazy-loading for Bryntum bundle
 Acceptance: Gantt fully functional; role restrictions enforced server-side; no truncated text.
 
 ## M8i P8 Demo mode, split view, seeds

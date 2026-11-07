@@ -60,10 +60,9 @@ test.describe('M10 Accessibility Audit Suite (axe-core)', () => {
     await page.goto('/?workspace=true');
 
     const newPlanBtn = page.locator('#new-plan-btn');
-    if (await newPlanBtn.isVisible()) {
-      await newPlanBtn.click();
-      await page.waitForTimeout(400);
-    }
+    await expect(newPlanBtn).toBeVisible({ timeout: 15000 });
+    await newPlanBtn.click();
+    await page.waitForTimeout(400);
 
     const startHeading = page.locator('h1, h2:has-text("Describe the work")');
     await expect(startHeading.first()).toBeVisible({ timeout: 10000 });

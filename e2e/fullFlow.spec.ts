@@ -43,6 +43,7 @@ test.describe('M10 Full End-to-End Journey: Brief to Paid (All 3 Autonomy Modes)
   test('Mode 1 (Manual): Brief entry → Plan Review → Workspace → Manual Release → Settle', async ({
     page,
   }) => {
+    test.setTimeout(60000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/?workspace=true');
 
@@ -72,8 +73,10 @@ test.describe('M10 Full End-to-End Journey: Brief to Paid (All 3 Autonomy Modes)
 
     // Return to workspace to preserve seed milestones for manual release
     const editBriefBtn = page.locator('#back-brief-btn');
+    await expect(editBriefBtn).toBeVisible({ timeout: 10000 });
     await editBriefBtn.click();
     const backToWorkspaceBtn = page.locator('button:has-text("Back to Workspace")');
+    await expect(backToWorkspaceBtn).toBeVisible({ timeout: 10000 });
     await backToWorkspaceBtn.click();
 
     // 4. Returned to Workspace with Gantt

@@ -422,3 +422,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** Completed milestones generate settlement receipts showing PayPal sandbox payout batch IDs and ledger entries. While clients and freelancers may share receipts externally to prove delivery and settlement, receipts must not leak sensitive data or remain accessible indefinitely if revoked.
 - **Decision:** Implemented `SharedReceiptPage` (`/receipt/:shareId` and `/receipts/shared/:shareId`) which is private by default. Access requires a valid unrevoked share token from `receipt_shares`. If invalid or revoked, the page renders a calm, polite message ("This receipt share link is invalid or has been revoked.") with a clean return button, strictly without error stacks or red banners.
 - **Why:** Complies with privacy-by-default principles and provides a calm, polished public proof of settlement for external stakeholders.
+
+## M8h Phase P7 Schedule (Bryntum Gantt) Architecture & UI Decisions
+
+### Isolated Bryntum Gantt Bundle Code-Splitting
+- **Context:** Bryntum Gantt is a comprehensive charting engine with enterprise dependencies, resulting in a ~4.7MB JavaScript chunk. Loading this chunk on all routes would severely degrade initial load times for landing, marketing, and overview pages.
+- **Decision:** Implemented dynamic import code-splitting (`React.lazy` and `Suspense`) in `router.tsx` for `SchedulePage`, backed by a dedicated skeleton component (`ScheduleSkeleton.tsx`). The 4.7MB chunk is isolated strictly to the `/schedule` route and the legacy workspace, reducing the main app bundle to ~611kB.
+- **Why:** Keeps initial page load light and fast across public, client, and freelancer routes while ensuring the Gantt engine loads smoothly when needed.
+
+### Slim Context Bar and Non-Destructive View Toggling
+- **Context:** The schedule view needs zoom controls, fit-to-timeline, column visibility controls (Details toggle for Start Date and Duration), and layout toggles without cluttering the screen or relying on default Bryntum toolbars.
+- **Decision:** Built a bespoke slim context bar above the Gantt chart with project breadcrumbs, a segmented view toggle (Gantt vs. List), zoom out/in, fit timeline, Details toggle (dynamically showing/hiding Start Date and Duration columns via Bryntum's ColumnStore), and an Inspector slide-over toggle.
+- **Why:** Delivers an editorial fintech aesthetic that harmonizes with Milestone's design language, replacing dense standard Gantt toolbars with purposeful, clear controls.
+
+### Slide-Over Task Inspector and Responsive Mobile Fallback
+- **Context:** Gantt charts are visual representations of project timelines but require inspecting task acceptance criteria, milestone amounts, and review links on both desktop and mobile devices. Viewing wide interactive Gantt charts on narrow viewports (< 768px) leads to severe horizontal scrolling and poor usability.
+- **Decision:** Created a 380px right-anchored `TaskInspectorPanel` for deep milestone inspection, linked to task clicks and context bar actions. For mobile viewports (< 768px), the schedule defaults automatically to an accessible `ScheduleListView` with sequential milestone cards, progress bars, and an advisory banner offering a quick one-click toggle to view the full Gantt if desired.
+- **Why:** Ensures full access to timeline and milestone data across all device sizes, giving desktop users rich Gantt interaction and mobile users an optimized touch-friendly experience.
