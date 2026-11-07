@@ -459,26 +459,26 @@ Acceptance: all green; deployed app passes the demo path; webhook verified.
 
 ## 15. Final acceptance checklist
 
-- [ ] Scrollable, animated, minimalist landing communicates the product in five seconds and still works with animation disabled
-- [ ] Role selection with two clearly different paths
-- [ ] Distinct client and freelancer shells, navigation and dashboards
-- [ ] No persona switch in normal navigation; demo switch only in demo mode
-- [ ] Invitations: random, hashed, expiring, single use, revocable, rate limited, membership created server-side
-- [ ] Funding only after acceptance
-- [ ] AI-generated plans editable; criteria locked after funding
-- [ ] Bryntum Gantt intact, on a dedicated Schedule page, with inspector and List view on mobile
-- [ ] Client sees funding and payment detail; freelancer sees deliverables and payout status
-- [ ] LifecycleProgress used consistently and never shows Paid early
-- [ ] Review page shows evidence per criterion, the trace, and role-specific actions enforced server-side
-- [ ] Settlement receipt shows the sandbox reference and ledger id; sharing is opt-in and revocable
-- [ ] Every figure comes from the API or ledger; no fallback sample data; demo rows labeled
-- [ ] No inert controls; no fake social proof; no dead links
-- [ ] Honest wording everywhere (no escrow, guarantee, protected); sandbox labeled
-- [ ] Contrast verified; keyboard, screen reader, and reduced motion supported
-- [ ] Mobile layouts intentionally designed and usable
-- [ ] All existing tests pass; new tests added; production build succeeds
-- [ ] No secrets committed; deployment configuration preserved
-- [ ] Screenshots at six breakpoints stored for the README and video
+- [x] Scrollable, animated, minimalist landing communicates the product in five seconds and still works with animation disabled
+- [x] Role selection with two clearly different paths
+- [x] Distinct client and freelancer shells, navigation and dashboards
+- [x] No persona switch in normal navigation; demo switch only in demo mode
+- [x] Invitations: random, hashed, expiring, single use, revocable, rate limited, membership created server-side
+- [x] Funding only after acceptance
+- [x] AI-generated plans editable; criteria locked after funding
+- [x] Bryntum Gantt intact, on a dedicated Schedule page, with inspector and List view on mobile
+- [x] Client sees funding and payment detail; freelancer sees deliverables and payout status
+- [x] LifecycleProgress used consistently and never shows Paid early
+- [x] Review page shows evidence per criterion, the trace, and role-specific actions enforced server-side
+- [x] Settlement receipt shows the sandbox reference and ledger id; sharing is opt-in and revocable
+- [x] Every figure comes from the API or ledger; no fallback sample data; demo rows labeled
+- [x] No inert controls; no fake social proof; no dead links
+- [x] Honest wording everywhere (no escrow, guarantee, protected); sandbox labeled
+- [x] Contrast verified; keyboard, screen reader, and reduced motion supported
+- [x] Mobile layouts intentionally designed and usable
+- [x] All existing tests pass; new tests added; production build succeeds
+- [x] No secrets committed; deployment configuration preserved
+- [x] Screenshots at six breakpoints stored for the README and video
 
 ---
 

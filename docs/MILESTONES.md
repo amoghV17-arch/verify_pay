@@ -255,10 +255,10 @@ Acceptance: three clean runs of the demo path; every item in section 15 checked.
 ## M8k P10 Regression and deployment
 Estimate: 3 h
 Goal: full regression, sandbox verification, production deploy to Render.
-- [ ] Run full verification suite (lint, typecheck, unit, failure drills, E2E)
-- [ ] Execute real sandbox funding and payout smoke test
-- [ ] Deploy updated build to Render and run health checks
-- [ ] Verify production webhook delivery and private-window demo flow
+- [x] Run full verification suite (lint, typecheck, unit, failure drills, E2E)
+- [x] Execute real sandbox funding and payout smoke test
+- [x] Deploy updated build to Render and run health checks
+- [x] Verify production webhook delivery and private-window demo flow
 Acceptance: all green; deployed app passes the demo path; webhook verified.
 
 ## M9 The settle moment and polish (feature freeze)

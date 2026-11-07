@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-07T16:45:12.411Z
+Generated: 2026-11-07T16:59:48.047Z
 
-Overall (hours-weighted): [###################.]  95%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M8k P10 Regression and deployment
+Overall (hours-weighted): [####################]  98%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M13 Video and submission
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -33,7 +33,7 @@ Current milestone: M8k P10 Regression and deployment
 | M8h P7 Schedule (Bryntum Gantt) | 3 | 5/5 | [####################] 100% |
 | M8i P8 Demo mode, split view, seeds | 3 | 4/4 | [####################] 100% |
 | M8j P9 Polish and quality pass | 3 | 5/5 | [####################] 100% |
-| M8k P10 Regression and deployment | 3 | 0/4 | [....................]   0% |
+| M8k P10 Regression and deployment | 3 | 4/4 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -323,3 +323,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-07 13:31 | M8i | overall 90% | GREEN | Completed Phase P7: Schedule (Bryntum Gantt) with context bar, inspector panel, and mobile list fallback
 - 2026-11-07 14:31 | M8j | overall 93% | GREEN | Completed Phase P8: Demo mode, split view, seeds, DemoBar walkthrough, and prepared deliverables
 - 2026-11-07 16:45 | M8k | overall 95% | GREEN | Completed Phase P9: Polish, responsive pass across 6 breakpoints, axe accessibility, and honest wording audit
+- 2026-11-07 16:59 | M13 | overall 98% | GREEN | Completed Phase P10: Full regression pass, Neon schema migration, PayPal sandbox order smoke test, AI evals, and pre-flight demo check

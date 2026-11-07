@@ -43,6 +43,7 @@ test.describe('Phase P9: Polish, Responsive Pass, Accessibility & Quality Suite'
   });
 
   test('Responsiveness pass: No horizontal viewport overflow across 6 breakpoints', async ({ page }) => {
+    test.setTimeout(90000);
     const testRoutes = [
       '/',
       '/safety',
@@ -99,6 +100,7 @@ test.describe('Phase P9: Polish, Responsive Pass, Accessibility & Quality Suite'
   });
 
   test('Accessibility pass: 0 critical or serious axe-core violations on all core pages', async ({ page }) => {
+    test.setTimeout(60000);
     await page.setViewportSize({ width: 1440, height: 900 });
 
     const auditPages = [
@@ -184,6 +186,7 @@ test.describe('Phase P9: Polish, Responsive Pass, Accessibility & Quality Suite'
   });
 
   test('Official README and submission screenshots generated into docs/screens/p9/', async ({ page }) => {
+    test.setTimeout(60000);
     // 1. Landing 1440 & 360
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');

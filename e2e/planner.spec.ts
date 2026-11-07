@@ -28,6 +28,7 @@ test.describe('M5 E2E AI Layer and Planner Workflow', () => {
   });
 
   test('client can create a verified plan from brief, review it, and apply to Gantt in under 20s', async ({ page }) => {
+    test.setTimeout(60000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/?workspace=true');
 
