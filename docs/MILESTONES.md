@@ -236,10 +236,10 @@ Acceptance: Gantt fully functional; role restrictions enforced server-side; no t
 ## M8i P8 Demo mode, split view, seeds
 Estimate: 3 h
 Goal: guided demo walkthrough, /demo/split dual-iframe view, prepared deliverables.
-- [ ] Build dismissible DemoBar with step-by-step guided walkthrough
-- [ ] Build /demo/split dual-iframe view synchronizing client and freelancer over SSE
-- [ ] Update seed scripts and pnpm demo:reset with is_demo flag and prepared deliverables
-- [ ] Verify complete demo path in under 3 minutes
+- [x] Build dismissible DemoBar with step-by-step guided walkthrough
+- [x] Build /demo/split dual-iframe view synchronizing client and freelancer over SSE
+- [x] Update seed scripts and pnpm demo:reset with is_demo flag and prepared deliverables
+- [x] Verify complete demo path in under 3 minutes
 Acceptance: complete demo path in about three minutes; /demo/split updates both sides live.
 
 ## M8j P9 Polish and quality pass

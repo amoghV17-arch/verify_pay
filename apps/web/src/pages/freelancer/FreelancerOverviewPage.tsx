@@ -184,6 +184,21 @@ export const FreelancerOverviewPage: React.FC = () => {
             {project.title}
           </h1>
           <StatusBadge state={mapStatusToMoneyState(project.status)} />
+          {project.isDemo && (
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                color: 'var(--ink-2)',
+                backgroundColor: 'var(--paper-warm)',
+                padding: '0.15rem 0.5rem',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid var(--line)',
+              }}
+            >
+              Demo project
+            </span>
+          )}
         </div>
         <p style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--ink-2)', lineHeight: 1.5, maxWidth: '680px' }}>
           {project.brief}

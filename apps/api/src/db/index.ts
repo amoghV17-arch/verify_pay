@@ -115,4 +115,4 @@ export async function applyMigrations(db: AppDatabase): Promise<void> {
 
 export { schema };
 
-export { seedDatabase, resetDemoDatabase } from './seed.js';
+export { seedDatabase, resetDemoDatabase, PREPARED_DELIVERABLES } from './seed.js';

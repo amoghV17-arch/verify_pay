@@ -21,6 +21,7 @@ import { FreelancerDeliverablesPage } from './pages/freelancer/FreelancerDeliver
 import { FreelancerPaymentsPage } from './pages/freelancer/FreelancerPaymentsPage.js';
 import { ReviewPage } from './pages/ReviewPage.js';
 import { SharedReceiptPage } from './pages/SharedReceiptPage.js';
+import { SplitDemoPage } from './pages/demo/SplitDemoPage.js';
 import { ScheduleSkeleton } from './components/schedule/ScheduleSkeleton.js';
 
 // Lazy-loaded Legacy Workspace App (for ?workspace=true)
@@ -119,6 +120,10 @@ export const router = createBrowserRouter([
         element: <SharedReceiptPage />,
       },
     ],
+  },
+  {
+    path: '/demo/split',
+    element: <SplitDemoPage />,
   },
 
   // Client Area Shell (Section 6)

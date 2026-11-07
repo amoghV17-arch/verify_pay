@@ -439,3 +439,20 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** Gantt charts are visual representations of project timelines but require inspecting task acceptance criteria, milestone amounts, and review links on both desktop and mobile devices. Viewing wide interactive Gantt charts on narrow viewports (< 768px) leads to severe horizontal scrolling and poor usability.
 - **Decision:** Created a 380px right-anchored `TaskInspectorPanel` for deep milestone inspection, linked to task clicks and context bar actions. For mobile viewports (< 768px), the schedule defaults automatically to an accessible `ScheduleListView` with sequential milestone cards, progress bars, and an advisory banner offering a quick one-click toggle to view the full Gantt if desired.
 - **Why:** Ensures full access to timeline and milestone data across all device sizes, giving desktop users rich Gantt interaction and mobile users an optimized touch-friendly experience.
+
+## M8i Phase P8 Demo Mode, Split View & Seeds Decisions
+
+### Dual-Iframe Same-Origin Split View Architecture (`/demo/split`)
+- **Context:** Judging and demonstration videos require showing both client and freelancer perspectives simultaneously to highlight autonomous payments and instant state synchronization without constantly opening incognito windows or re-authenticating.
+- **Decision:** Built `SplitDemoPage` (`/demo/split`) containing two same-origin iframes with independent persona session headers (`X-Persona: client` vs `X-Persona: freelancer`) and cookies (`ms_client` and `ms_freelancer`). Added quick preset view toggles (Overview, Deliverables & Review, Schedule, Payments & Ledger) and a mobile viewport switcher that enables comfortable tabbed viewing below 1024px.
+- **Why:** Allows judges and viewers to watch both sides of the agreement update simultaneously in real time over SSE without UI collision or authentication friction.
+
+### 8-Step Walkthrough DemoBar with Quick Reset and Credential Drawer
+- **Context:** Judges need immediate guidance on how to navigate the 5-beat product story (Plan -> Invite -> Accept -> Fund -> Submit -> AI Review -> Injection Defense -> Payout & Audit) without reading extensive documentation.
+- **Decision:** Created a persistent floating `DemoBar` displaying exact sandbox prototype wording, an 8-step clickable walkthrough with route jump links, a 1-click database reset button (`/api/demo/reset`), and a credentials popover detailing prepopulated client/freelancer identities and sandbox emails. Implemented a restorable pill button so judges can minimize and restore the bar freely.
+- **Why:** Delivers an intuitive, self-guided experience for hackathon evaluators, ensuring any user can complete the entire demo path in under 3 minutes.
+
+### Prepared One-Click Deliverables (Good, Weak, Prompt Injection)
+- **Context:** Demonstrating AI evaluation and prompt injection defenses manually requires typing or copying long payloads, which is error-prone and slows down live video recording.
+- **Decision:** Seeded real review records for Milestone 1 in `apps/api/src/db/seed.ts` and added three 1-click demo preset buttons directly into `SubmitSlideOver.tsx`: "Good Delivery" (Figma wireframes with design tokens), "Weak Delivery" (incomplete draft lacking criteria), and "Prompt Injection" (adversarial override attempt).
+- **Why:** Enables instant, repeatable live testing of the AI Reviewer agent's criteria evaluation and adversarial prompt injection defenses during judging and video demos.

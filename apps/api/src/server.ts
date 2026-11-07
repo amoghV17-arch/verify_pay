@@ -17,8 +17,7 @@ import { registerReceiptShareRoutes } from './routes/receiptShares.js';
 import { createPayPalAdapter } from './paypal/index.js';
 import { createLlmPort } from './ai/llmFactory.js';
 import { createSessionToken, setRoleSessionCookie } from './auth/index.js';
-import { getDb } from './db/index.js';
-import { seedDatabase } from './db/seed.js';
+import { getDb, resetDemoDatabase, PREPARED_DELIVERABLES } from './db/index.js';
 
 export interface BuildServerOptions {
   paypalAdapter?: PayPalPort;
@@ -100,7 +99,7 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   server.register(registerReceiptShareRoutes);
 
   // Demo Mode Endpoints (Section 10.4)
-  if (process.env.DEMO_MODE === 'true' || config.NODE_ENV === 'test') {
+  if (process.env.DEMO_MODE === 'true' || config.NODE_ENV === 'test' || config.NODE_ENV === 'development') {
     server.post<{ Body: { persona?: 'client' | 'freelancer' } }>(
       '/api/demo/login-as',
       async (request, reply) => {
@@ -126,8 +125,34 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
 
     server.post('/api/demo/reset', async (_request, reply) => {
       const db = getDb();
-      await seedDatabase(db);
+      await resetDemoDatabase(db);
       return reply.send({ success: true, message: 'Demo environment reset successfully.' });
+    });
+
+    server.get('/api/demo/prepared-deliverables', async () => {
+      return { success: true, deliverables: PREPARED_DELIVERABLES };
+    });
+
+    server.get('/api/demo/status', async () => {
+      return {
+        success: true,
+        demoMode: true,
+        personas: {
+          client: {
+            id: 'user_client_01',
+            name: 'Sarah Lin (Acme Corp)',
+            email: 'sarah@acme-corp.com',
+            role: 'client',
+          },
+          freelancer: {
+            id: 'user_freelancer_01',
+            name: 'Arjun Mehta',
+            email: 'arjun@freelance.dev',
+            paypalEmail: 'arjun-sandbox@freelance.dev',
+            role: 'freelancer',
+          },
+        },
+      };
     });
   }
 

@@ -320,6 +320,7 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                     {/* Action button */}
                     {isFunded && (
                       <Button
+                        id={`submit-milestone-${milestone.id}-btn`}
                         variant="primary"
                         size="sm"
                         leftIcon={<Upload size={16} />}

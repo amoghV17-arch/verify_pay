@@ -376,7 +376,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: 'var(--tide)',
+                          color: 'var(--forest)',
                           fontSize: '0.6875rem',
                           fontWeight: 600,
                           cursor: 'pointer',
@@ -430,7 +430,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
               style={{
                 fontSize: '0.6875rem',
                 backgroundColor: 'rgba(31, 122, 140, 0.1)',
-                color: 'var(--tide)',
+                color: 'var(--forest)',
                 padding: '0.15rem 0.4rem',
                 borderRadius: '4px',
                 fontWeight: 600,
@@ -527,7 +527,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: 'var(--tide)',
+                        color: 'var(--forest)',
                         fontSize: '0.6875rem',
                         fontWeight: 600,
                         cursor: 'pointer',
