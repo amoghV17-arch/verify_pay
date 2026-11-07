@@ -195,3 +195,20 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Next phase is P3 (`M8d Backend: invites, sessions, roles`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P3`).
 - 2026-11-07 06:14 | M8e | overall 73% | GREEN | Completed Phase P3: backend invites, dual session cookies, X-Persona routing, and server-side role authorization matrix.
+- Handoff (P3 -> P4):
+  - What was built:
+    - Invites infrastructure: `invites` table (`0001_invites_sessions_roles.sql`) storing HMAC-SHA-256 hashes of 128-bit CSPRNG tokens and Crockford Base32 human-readable short codes (`MILE-XXXXXXXXXX` excluding ambiguous chars I, L, O, U).
+    - Invite service & routes: `apps/api/src/services/invite.ts` and `apps/api/src/routes/invites.ts` with constant-time verification (`timingSafeEqual`), in-memory sliding-window IP rate limiting (10 attempts / 10 minutes), invite creation (`POST /api/projects/:id/invites`), preview (`GET /api/invites/:tokenOrCode`), acceptance (`POST /api/invites/:tokenOrCode/accept`), and revocation (`POST /api/invites/:id/revoke`), returning uniform `"This invitation is no longer valid."` error for invalid, expired, or non-existent invites.
+    - Dual session cookies & persona routing: `apps/api/src/auth/index.ts` supporting `ms_client` and `ms_freelancer` cookies with `X-Persona` header checking in Fastify `preHandler` to enable simultaneous client and freelancer sessions in `/demo/split` without cookie collision.
+    - Receipt share links: `receipt_shares` table and routes in `apps/api/src/routes/receiptShares.ts` allowing clients to generate public read-only receipt URLs (`/receipts/shared/:shareId`) and revoke them.
+    - Role authorization matrix & data scoping: Server-side route authorization rules strictly enforcing client vs freelancer capabilities across all project, milestone, task, and review endpoints; project DTO filters out client autonomy settings when requested by freelancers.
+    - Funding gate: `POST /api/projects/:id/fund/order` and `/capture` strictly enforce that `project.freelancer_id` must be set via an accepted invite before funding can proceed.
+    - Database schema & seed additions: Added `projects.is_demo` (seeded true for demo project) and made `freelancer_id` nullable in `apps/api/src/db/schema.ts`.
+    - Automated test suites: Added 10 tests in `invites.test.ts` and 17 tests in `authMatrix.test.ts` verifying all cells of the authorization matrix, token crypto, rate limiting, and dual cookie routing.
+    - Full verification: `pnpm verify` passed with 0 errors (Secret scan, ESLint, TypeScript `tsc --build`, Vite build, 217 Vitest tests across 20 files, 43 Playwright tests).
+  - What is deliberately unfinished:
+    - Phase P4: Client area (`apps/web/src/pages/client/`): Client shell with persistent left rail, client projects overview (`/client`), 4-step project wizard (`/client/new`: Brief, Plan, Invite, Fund), deliverables review tab, payments tab, and audit JSON export.
+  - Next session must know:
+    - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
+    - Next phase is P4 (`M8e Client area`).
+    - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P4`).
