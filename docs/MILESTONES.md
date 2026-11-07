@@ -216,11 +216,11 @@ Acceptance: freelancer accepts, sees funding status, submits, and watches the re
 ## M8g P6 Lifecycle, review, settlement
 Estimate: 5 h
 Goal: LifecycleProgress, 3-zone review, settlement receipt, share links.
-- [ ] Build signature LifecycleProgress component mapping all backend states cleanly
-- [ ] Build 3-zone Review screen (Deliverable, AI Verification, Payment/Action)
-- [ ] Implement injection warnings and expandable AI reasoning tool trace
-- [ ] Build settlement receipt card and private-by-default share links (/receipt/:shareId)
-- [ ] Verify settlement animation and count-up chip with reduced-motion support
+- [x] Build signature LifecycleProgress component mapping all backend states cleanly
+- [x] Build 3-zone Review screen (Deliverable, AI Verification, Payment/Action)
+- [x] Implement injection warnings and expandable AI reasoning tool trace
+- [x] Build settlement receipt card and private-by-default share links (/receipt/:shareId)
+- [x] Verify settlement animation and count-up chip with reduced-motion support
 Acceptance: all backend states map correctly; Paid never shows early; injection state displayed correctly; receipts private by default.
 
 ## M8h P7 Schedule (Bryntum Gantt)

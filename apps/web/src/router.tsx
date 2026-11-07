@@ -20,6 +20,8 @@ import { FreelancerProjectsPage } from './pages/freelancer/FreelancerProjectsPag
 import { FreelancerOverviewPage } from './pages/freelancer/FreelancerOverviewPage.js';
 import { FreelancerDeliverablesPage } from './pages/freelancer/FreelancerDeliverablesPage.js';
 import { FreelancerPaymentsPage } from './pages/freelancer/FreelancerPaymentsPage.js';
+import { ReviewPage } from './pages/ReviewPage.js';
+import { SharedReceiptPage } from './pages/SharedReceiptPage.js';
 
 const RootRoute: React.FC = () => {
   const [params] = useSearchParams();
@@ -86,6 +88,26 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: '/receipt/:shareId',
+    element: <PublicShell />,
+    children: [
+      {
+        index: true,
+        element: <SharedReceiptPage />,
+      },
+    ],
+  },
+  {
+    path: '/receipts/shared/:shareId',
+    element: <PublicShell />,
+    children: [
+      {
+        index: true,
+        element: <SharedReceiptPage />,
+      },
+    ],
+  },
 
   // Client Area Shell (Section 6)
   {
@@ -114,7 +136,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/deliverables/:milestoneId',
-        element: <ClientDeliverablesPage />,
+        element: <ReviewPage role="client" />,
       },
       {
         path: 'projects/:id/payments',
@@ -146,7 +168,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/deliverables/:milestoneId',
-        element: <FreelancerDeliverablesPage />,
+        element: <ReviewPage role="freelancer" />,
       },
       {
         path: 'projects/:id/schedule',

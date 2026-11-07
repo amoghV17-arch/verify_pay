@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-07T08:16:09.416Z
+Generated: 2026-11-07T11:45:33.461Z
 
-Overall (hours-weighted): [################....]  82%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M8g P6 Lifecycle, review, settlement
+Overall (hours-weighted): [#################...]  87%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M8h P7 Schedule (Bryntum Gantt)
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -29,7 +29,7 @@ Current milestone: M8g P6 Lifecycle, review, settlement
 | M8d P3 Backend: invites, sessions, roles | 4 | 5/5 | [####################] 100% |
 | M8e P4 Client area | 5 | 5/5 | [####################] 100% |
 | M8f P5 Freelancer area | 4 | 5/5 | [####################] 100% |
-| M8g P6 Lifecycle, review, settlement | 5 | 0/5 | [....................]   0% |
+| M8g P6 Lifecycle, review, settlement | 5 | 5/5 | [####################] 100% |
 | M8h P7 Schedule (Bryntum Gantt) | 3 | 0/5 | [....................]   0% |
 | M8i P8 Demo mode, split view, seeds | 3 | 0/4 | [....................]   0% |
 | M8j P9 Polish and quality pass | 3 | 0/5 | [....................]   0% |
@@ -285,3 +285,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Next phase is P6 (`M8g P6 Lifecycle, review, settlement`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P6`).
 
+- 2026-11-07 11:45 | M8h | overall 87% | GREEN | Completed Phase P6: Lifecycle, review, settlement with 3-zone review screen, LifecycleProgress mapping, SettlementReceiptCard, SharedReceiptPage, and 12 responsive screenshots across 1440, 1024, 768, and 390 px

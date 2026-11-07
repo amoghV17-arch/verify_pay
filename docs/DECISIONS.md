@@ -404,3 +404,21 @@ Format for judgment calls: Context, Decision, Why.
 
 
 
+
+
+## M8g Phase P6 Lifecycle, Review & Settlement Architecture Decisions
+
+### Paid Early Invariant and LifecycleProgress Mapping
+- **Context:** The milestone lifecycle encompasses 10 distinct backend states (`not_accepted`, `unfunded`, `funded`, `submitted`, `in_review`, `changes_requested`, `appealed`, `awaiting_client`, `approved`, `releasing`, `paid`). A critical trust invariant is that stage 5 ("Paid") must NEVER show as complete or display a green checkmark early while funds are still releasing or awaiting payout.
+- **Decision:** Implemented `LifecycleProgress` with strict 5-stage mapping (Agreed, Funded, Submitted, Verified, Paid). Stage 5 Paid only renders a filled checkmark if and only if `backendStatus === 'paid' || backendStatus === 'closed'`. For intermediate states like `releasing` or `approved`, stage 4 displays an active teal spinner and sub-status text ("Ready to release" / "Releasing"), while `changes_requested` displays an amber alert icon and problem tone sub-status.
+- **Why:** Preserves absolute truth in financial reporting; users and judges can always trust that a checkmark on Paid strictly means the PayPal sandbox payout batch has confirmed settlement.
+
+### 3-Zone Desktop Review Screen Architecture
+- **Context:** Design §8 mandates a structured 3-zone review screen for both client and freelancer personas (`/client/projects/:id/deliverables/:milestoneId` and `/freelancer/projects/:id/deliverables/:milestoneId`), replacing ad-hoc modals with a unified review hub.
+- **Decision:** Built `ReviewPage` with 3 side-by-side zones that stack on viewports below 1280px: Zone 1 (Left, 340px) displays deliverable metadata, submitted artifact link/excerpt, and milestone event audit trail; Zone 2 (Center, flex) displays AI criteria evaluations (Pass/Fail/Unclear), observable evidence, confidence percentage, overall verdict badge, and expandable "How the AI checked this" tool execution trace; Zone 3 (Right, 320px sticky) displays settlement status, amount, `LifecycleProgress`, release window policy, and server-enforced role actions.
+- **Why:** Provides clear separation of concerns, keeping deliverable proof, AI reasoning, and financial release controls visible simultaneously on desktop while collapsing cleanly on mobile.
+
+### Private-by-Default Settlement Receipts and Revocable Links
+- **Context:** Completed milestones generate settlement receipts showing PayPal sandbox payout batch IDs and ledger entries. While clients and freelancers may share receipts externally to prove delivery and settlement, receipts must not leak sensitive data or remain accessible indefinitely if revoked.
+- **Decision:** Implemented `SharedReceiptPage` (`/receipt/:shareId` and `/receipts/shared/:shareId`) which is private by default. Access requires a valid unrevoked share token from `receipt_shares`. If invalid or revoked, the page renders a calm, polite message ("This receipt share link is invalid or has been revoked.") with a clean return button, strictly without error stacks or red banners.
+- **Why:** Complies with privacy-by-default principles and provides a calm, polished public proof of settlement for external stakeholders.
