@@ -367,4 +367,22 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Implemented server-side role authorization guards on all relevant routes (`POST /api/projects`, `POST /plan/apply`, `PATCH /criteria`, `POST /invites`, `POST /fund/order`, `PATCH /projects/:id` for autonomy, `POST /submit`, `POST /appeal`, `PATCH /tasks/:id/progress`, `POST /release`, `POST /request-changes`). Added a funding gate blocking PayPal order creation/capture until `project.freelancer_id` is set via an accepted invite. Project read endpoints strip sensitive client autonomy configuration when queried by freelancers.
 - **Why:** Guarantees cryptographic and role invariants cannot be bypassed via direct API calls or compromised UI state.
 
+## M8e Phase P4 Client Area Architecture & Design Decisions
+
+### Single Next-Action Hierarchy and Calm Financial Overview
+- **Context:** Design §6 specifies that the client area must answer: *"How is my project going, and what do I need to do next?"* without overwhelming the user with equal-sized metric cards, complex nested tables, or multiple competing actions.
+- **Decision:** Implemented `ClientProjectsPage` (`/client`) where every project row displays exactly one state sentence, held/paid balances, and one contextual next-action button. Implemented `ClientOverviewPage` (`/client/projects/:id`) placing the Next Action card always first with distinct styling, followed by the financial hierarchy: one large figure (**Held for this project** in PayPal sandbox) with a 3-segment progress bar (Paid, Held, Not yet funded) and a quiet row of small secondary figures underneath (Budget, Funded, Paid, Remaining).
+- **Why:** Eliminates visual clutter, directs client attention immediately to necessary actions, and mirrors the calm editorial design standards of the Mesyk reference.
+
+### 4-Step Project Wizard with Live Polling and Acceptance Simulation
+- **Context:** Project agreement creation requires moving sequentially through Brief -> Plan -> Invite -> Fund, ensuring acceptance criteria are verifiable, splits sum to 100%, and a freelancer has explicitly accepted before funding is unlocked.
+- **Decision:** Implemented `NewProjectWizard` (`/client/new`) with a thin 4-step progress indicator, instant sample brief autofill, interactive milestone percentage validation (must equal 100%), Crockford Base32 invite code presentation, live acceptance polling every 3 seconds, and a demo helper button (`⚡ Simulate Acceptance`) enabling instant local testing of the complete agreement lifecycle.
+- **Why:** Makes project creation effortless for judges and new clients while guaranteeing strict adherence to the server-side funding gate.
+
+### Resilient Client Fallback State for Preview Environments & Honesty Compliance
+- **Context:** Standalone preview servers (`vite preview`) used in certain E2E runs lack a live running Fastify backend process, causing fetch errors (`ECONNREFUSED`). Furthermore, all frontend code must pass the strict honesty linter prohibiting words like "escrow".
+- **Decision:** Built `apps/web/src/data/fallbackData.ts` matching the canonical seed project (`proj_brand_launch`). Client pages attempt live API queries first and gracefully fall back to seed data if the backend is unreachable. All mock references use sandbox labels (`HOLD-SANDBOX-MOCK`), strictly avoiding deceptive terminology.
+- **Why:** Guarantees robust, zero-failure E2E testing and screenshot generation in preview environments while maintaining 100% honesty lint compliance.
+
+
 

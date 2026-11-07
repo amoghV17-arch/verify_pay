@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useParams } from 'react-router-dom';
 import {
+  FolderKanban,
   LayoutDashboard,
   Calendar,
   PackageCheck,
@@ -23,8 +24,15 @@ export const ClientShell: React.FC = () => {
 
   const navItems = [
     {
+      label: 'Projects',
+      path: '/client',
+      exact: true,
+      icon: <FolderKanban size={18} />,
+    },
+    {
       label: 'Overview',
       path: `/client/projects/${currentProjectId}`,
+      exact: true,
       icon: <LayoutDashboard size={18} />,
     },
     {
@@ -180,9 +188,10 @@ export const ClientShell: React.FC = () => {
           }}
         >
           {navItems.map((item) => {
-            const isActive =
-              location.pathname === item.path ||
-              (item.label !== 'Overview' && location.pathname.startsWith(item.path));
+            const isActive = item.exact
+              ? location.pathname === item.path
+              : location.pathname === item.path ||
+                (item.label !== 'Overview' && location.pathname.startsWith(item.path));
 
             return (
               <Link

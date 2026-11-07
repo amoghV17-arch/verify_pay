@@ -9,6 +9,12 @@ import { GetStartedPage } from './pages/GetStartedPage.js';
 import { SafetyPage } from './pages/SafetyPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { App as LegacyWorkspaceApp } from './App.js';
+import { ClientProjectsPage } from './pages/client/ClientProjectsPage.js';
+import { NewProjectWizard } from './pages/client/NewProjectWizard.js';
+import { ClientOverviewPage } from './pages/client/ClientOverviewPage.js';
+import { ClientDeliverablesPage } from './pages/client/ClientDeliverablesPage.js';
+import { ClientPaymentsPage } from './pages/client/ClientPaymentsPage.js';
+import { ClientActivityPage } from './pages/client/ClientActivityPage.js';
 
 const RootRoute: React.FC = () => {
   const [params] = useSearchParams();
@@ -101,20 +107,15 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/client/projects/proj_brand_launch" replace />,
+        element: <ClientProjectsPage />,
       },
       {
         path: 'new',
-        element: (
-          <div style={{ padding: '1rem' }}>
-            <h2 className="font-display" style={{ fontSize: '2rem' }}>New Project Agreement</h2>
-            <p style={{ color: 'var(--ink-2)' }}>Brief, Plan, Invite, Fund wizard (Phase P4).</p>
-          </div>
-        ),
+        element: <NewProjectWizard />,
       },
       {
         path: 'projects/:id',
-        element: <LegacyWorkspaceApp />,
+        element: <ClientOverviewPage />,
       },
       {
         path: 'projects/:id/schedule',
@@ -122,19 +123,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id/deliverables',
-        element: <LegacyWorkspaceApp />,
+        element: <ClientDeliverablesPage />,
       },
       {
         path: 'projects/:id/deliverables/:milestoneId',
-        element: <LegacyWorkspaceApp />,
+        element: <ClientDeliverablesPage />,
       },
       {
         path: 'projects/:id/payments',
-        element: <LegacyWorkspaceApp />,
+        element: <ClientPaymentsPage />,
       },
       {
         path: 'projects/:id/activity',
-        element: <LegacyWorkspaceApp />,
+        element: <ClientActivityPage />,
       },
     ],
   },

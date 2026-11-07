@@ -196,11 +196,11 @@ Acceptance: authorization matrix tests green; invite flow works through the API;
 ## M8e P4 Client area
 Estimate: 5 h
 Goal: client shell, projects overview, 4-step wizard, deliverables, payments.
-- [ ] Build client application shell with persistent left sidebar
-- [ ] Build client projects list (/client) with next-action buttons
-- [ ] Build 4-step project creation wizard (/client/new: Brief, Plan, Invite, Fund)
-- [ ] Build client project overview (/client/projects/:id) with financial hierarchy and next action
-- [ ] Build client deliverables list, payments view with audit export, and activity log
+- [x] Build client application shell with persistent left sidebar
+- [x] Build client projects list (/client) with next-action buttons
+- [x] Build 4-step project creation wizard (/client/new: Brief, Plan, Invite, Fund)
+- [x] Build client project overview (/client/projects/:id) with financial hierarchy and next action
+- [x] Build client deliverables list, payments view with audit export, and activity log
 Acceptance: a new person creates a plan, invites, and funds without instructions; all figures match the ledger.
 
 ## M8f P5 Freelancer area
