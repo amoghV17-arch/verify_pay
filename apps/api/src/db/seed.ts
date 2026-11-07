@@ -34,6 +34,7 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
     freelancerId: freelancerUser.id,
     freelancerPaypalEmail: 'arjun-sandbox@freelance.dev',
     planPromptVersion: 'planner.v1',
+    isDemo: true,
     version: 1,
   };
 

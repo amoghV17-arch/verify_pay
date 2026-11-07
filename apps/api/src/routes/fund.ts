@@ -45,6 +45,13 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
         return reply.status(404).send({ error: 'Project not found' });
       }
 
+      if (!project.freelancerId) {
+        return reply.status(400).send({
+          error: 'BadRequest',
+          message: 'Project must have an accepted freelancer before funding.',
+        });
+      }
+
       const clientRequestId =
         (request.headers['paypal-request-id'] as string) ||
         `fund:${projectId}:${Date.now()}`;
@@ -90,6 +97,24 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
 
       if (!paypal) {
         return reply.status(500).send({ error: 'PayPal adapter not initialized' });
+      }
+
+      const db = getDb();
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+
+      if (!project) {
+        return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      if (!project.freelancerId) {
+        return reply.status(400).send({
+          error: 'BadRequest',
+          message: 'Project must have an accepted freelancer before funding.',
+        });
       }
 
       const clientRequestId =

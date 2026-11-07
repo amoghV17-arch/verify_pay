@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-06T19:59:19.061Z
+Generated: 2026-11-07T06:14:15.931Z
 
-Overall (hours-weighted): [##############......]  69%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M8d P3 Backend: invites, sessions, roles
+Overall (hours-weighted): [###############.....]  73%   Day 4/5, 2 day(s) left   Schedule: GREEN
+Current milestone: M8e P4 Client area
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -26,7 +26,7 @@ Current milestone: M8d P3 Backend: invites, sessions, roles
 | M8a P0 UI Audit and plan | 2 | 5/5 | [####################] 100% |
 | M8b P1 Design foundation | 4 | 6/6 | [####################] 100% |
 | M8c P2 Public landing and entry | 5 | 5/5 | [####################] 100% |
-| M8d P3 Backend: invites, sessions, roles | 4 | 0/5 | [....................]   0% |
+| M8d P3 Backend: invites, sessions, roles | 4 | 5/5 | [####################] 100% |
 | M8e P4 Client area | 5 | 0/5 | [....................]   0% |
 | M8f P5 Freelancer area | 4 | 0/5 | [....................]   0% |
 | M8g P6 Lifecycle, review, settlement | 5 | 0/5 | [....................]   0% |
@@ -173,3 +173,25 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Next phase is P3 (`M8d Backend: invites, sessions, roles`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P3`).
 - 2026-11-06 19:59 | M8d | overall 69% | GREEN | Handoff Phase P2 complete. Documentation and decisions updated for Phase P3.
+- Handoff (P2 -> P3):
+  - What was built:
+    - 7-section vertical landing page (`/`) in `apps/web/src/pages/LandingPage.tsx` with:
+      - Pure CSS layered `ProductPreview.tsx` cycling through 4 states (Funded, Submitted, Verified, Paid) with hover-pause, reduced-motion fallback, and keyboard accessibility without any canvas or heavy chart dependencies.
+      - SVG connecting line `TimelineSection.tsx` with milestone diamonds summing to $8,000.
+      - Pinned 5-stage Proof-to-Payment scroll scene `ProofToPaymentScene.tsx` (Agreed, Funded, Submitted, Verified, Paid) with `LifecycleProgress`, high-contrast WCAG AAA typography on forest background, and automatic mobile/reduced-motion fallback to stacked cards.
+      - Interactive two-roles preview toggle `TwoRolesSection.tsx` (Client Workspace vs. Freelancer Workspace).
+      - Section 5 proof before payment breakdown with prompt injection defense architecture.
+      - Section 6 built for trust 4-fact grid with sample immutable ledger.
+      - Section 7 final call to action and honest footer with zero prohibited claims.
+    - Split-screen role selection screen (`/get-started`) in `apps/web/src/pages/GetStartedPage.tsx` routing "I'm hiring" to `/client/new` and "I'm delivering work" to `/join`.
+    - Honest `/safety` disclosures page in `apps/web/src/pages/SafetyPage.tsx` covering PayPal sandbox holding, AI reviewer boundaries, injection defenses, autonomy modes, audit trails, and prototype limitations.
+    - Backward-compatible routing in `apps/web/src/router.tsx` (`/?workspace=true` mounts legacy workspace for existing M1-M8 test suites; `/` mounts public landing).
+    - Playwright E2E test suite in `e2e/landing.spec.ts` with 15 test cases, axe-core audits (0 violations), and multi-resolution screenshots at 1440, 1024, 768, and 390 px saved to `docs/screens/p2/`.
+    - Full verification suite (`pnpm verify`) 100% green: Secret Scan, ESLint, TypeScript `tsc --build`, Vite build, 190 Vitest unit/integration tests, 43 Playwright tests.
+  - What is deliberately unfinished:
+    - Phase P3: Backend invites table, HMAC token/code verification, dual session cookies (`ms_client`, `ms_freelancer`), `X-Persona` header validation, `projects.is_demo`, and server-side role authorization matrix (`docs/UI_IMPLEMENTATION.md` §10 & §14).
+  - Next session must know:
+    - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
+    - Next phase is P3 (`M8d Backend: invites, sessions, roles`).
+    - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P3`).
+- 2026-11-07 06:14 | M8e | overall 73% | GREEN | Completed Phase P3: backend invites, dual session cookies, X-Persona routing, and server-side role authorization matrix.

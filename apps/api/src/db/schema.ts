@@ -30,8 +30,9 @@ export const projects = pgTable('projects', {
   autonomyMode: text('autonomy_mode').default('assisted').notNull(), // 'manual' | 'assisted' | 'auto'
   releaseWindowSeconds: integer('release_window_seconds').default(20).notNull(),
   clientId: text('client_id').references(() => users.id).notNull(),
-  freelancerId: text('freelancer_id').references(() => users.id).notNull(),
+  freelancerId: text('freelancer_id').references(() => users.id),
   freelancerPaypalEmail: text('freelancer_paypal_email'),
+  isDemo: boolean('is_demo').default(false).notNull(),
   planJson: jsonb('plan_json'),
   planPromptVersion: text('plan_prompt_version'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -168,6 +169,32 @@ export const activity = pgTable('activity', {
   ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// --- Invites ---
+export const invites = pgTable('invites', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  tokenHash: text('token_hash').notNull(),
+  codeHash: text('code_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  maxUses: integer('max_uses').default(1).notNull(),
+  usedCount: integer('used_count').default(0).notNull(),
+  acceptedBy: text('accepted_by').references(() => users.id, { onDelete: 'set null' }),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Receipt Shares ---
+export const receiptShares = pgTable('receipt_shares', {
+  id: text('id').primaryKey(),
+  milestoneId: text('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }).notNull(),
+  shareIdHash: text('share_id_hash').notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // --- Relations ---
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   client: one(users, { fields: [projects.clientId], references: [users.id] }),
@@ -177,6 +204,18 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   milestones: many(milestones),
   ledgerEntries: many(ledgerEntries),
   activity: many(activity),
+  invites: many(invites),
+}));
+
+export const invitesRelations = relations(invites, ({ one }) => ({
+  project: one(projects, { fields: [invites.projectId], references: [projects.id] }),
+  creator: one(users, { fields: [invites.createdBy], references: [users.id] }),
+  acceptor: one(users, { fields: [invites.acceptedBy], references: [users.id] }),
+}));
+
+export const receiptSharesRelations = relations(receiptShares, ({ one }) => ({
+  milestone: one(milestones, { fields: [receiptShares.milestoneId], references: [milestones.id] }),
+  creator: one(users, { fields: [receiptShares.createdBy], references: [users.id] }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -197,5 +236,6 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
   deliverables: many(deliverables),
   reviews: many(reviews),
   ledgerEntries: many(ledgerEntries),
+  receiptShares: many(receiptShares),
 }));
 

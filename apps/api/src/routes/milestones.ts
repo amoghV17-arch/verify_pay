@@ -251,6 +251,52 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
     }
   );
 
+  // POST /api/milestones/:id/request-changes (Client requests changes on milestone)
+  server.post<{ Params: { id: string }; Body?: { reason?: string } }>(
+    '/api/milestones/:id/request-changes',
+    { preHandler: [requireRole(['client'])] },
+    async (request, reply) => {
+      const { id: milestoneIdParam } = request.params;
+      const { reason } = request.body || {};
+      const db = getDb();
+
+      const [milestone] = await db
+        .select()
+        .from(milestones)
+        .where(or(eq(milestones.id, milestoneIdParam), eq(milestones.taskId, milestoneIdParam)))
+        .limit(1);
+
+      if (!milestone) {
+        return reply.status(404).send({ error: 'Milestone not found' });
+      }
+
+      const [updated] = await db
+        .update(milestones)
+        .set({ status: 'changes_requested', releaseAt: null, updatedAt: new Date() })
+        .where(eq(milestones.id, milestone.id))
+        .returning();
+
+      await db.insert(activity).values({
+        id: randomUUID(),
+        projectId: milestone.projectId,
+        actor: 'client',
+        kind: 'changes_requested',
+        text: `Client requested changes for "${milestone.name}": ${reason || 'Changes requested.'}`,
+        meta: { milestoneId: milestone.id, reason },
+        ts: new Date(),
+      });
+
+      sseHub.broadcast(milestone.projectId, 'milestone.status', {
+        milestoneId: milestone.id,
+        status: 'changes_requested',
+        reason,
+        requestedBy: 'client',
+      });
+
+      return reply.send({ success: true, status: 'changes_requested', milestone: updated });
+    }
+  );
+
   // POST /api/milestones/:id/appeal (Freelancer appeals a changes_requested verdict)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/appeal',

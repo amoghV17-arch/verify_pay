@@ -12,8 +12,13 @@ import { registerGanttRoutes } from './routes/gantt.js';
 import { registerFundRoutes } from './routes/fund.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerMilestoneRoutes } from './routes/milestones.js';
+import { registerInviteRoutes } from './routes/invites.js';
+import { registerReceiptShareRoutes } from './routes/receiptShares.js';
 import { createPayPalAdapter } from './paypal/index.js';
 import { createLlmPort } from './ai/llmFactory.js';
+import { createSessionToken, setRoleSessionCookie } from './auth/index.js';
+import { getDb } from './db/index.js';
+import { seedDatabase } from './db/seed.js';
 
 export interface BuildServerOptions {
   paypalAdapter?: PayPalPort;
@@ -91,6 +96,40 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   server.register(registerFundRoutes, { paypalAdapter });
   server.register(registerWebhookRoutes, { paypalAdapter });
   server.register(registerMilestoneRoutes, { paypalAdapter });
+  server.register(registerInviteRoutes);
+  server.register(registerReceiptShareRoutes);
+
+  // Demo Mode Endpoints (Section 10.4)
+  if (process.env.DEMO_MODE === 'true' || config.NODE_ENV === 'test') {
+    server.post<{ Body: { persona?: 'client' | 'freelancer' } }>(
+      '/api/demo/login-as',
+      async (request, reply) => {
+        const persona = request.body?.persona || 'client';
+        const isClient = persona === 'client';
+        const userId = isClient ? 'user_client_01' : 'user_freelancer_01';
+        const name = isClient ? 'Sarah Lin (Acme Corp)' : 'Arjun Mehta';
+
+        const token = await createSessionToken({
+          userId,
+          role: isClient ? 'client' : 'freelancer',
+          name,
+        });
+
+        setRoleSessionCookie(reply, isClient ? 'client' : 'freelancer', token);
+
+        return reply.send({
+          success: true,
+          user: { id: userId, role: persona, name },
+        });
+      }
+    );
+
+    server.post('/api/demo/reset', async (_request, reply) => {
+      const db = getDb();
+      await seedDatabase(db);
+      return reply.send({ success: true, message: 'Demo environment reset successfully.' });
+    });
+  }
 
   // Health check endpoint for Render and local checks per ARCHITECTURE.md
   server.get('/healthz', async () => {

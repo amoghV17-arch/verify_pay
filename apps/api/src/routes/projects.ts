@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { getDb, schema } from '../db/index.js';
 import { requireRole } from '../auth/index.js';
@@ -13,10 +13,24 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews } = schema;
 
   // List all projects accessible to current user
-  server.get('/api/projects', async (_request: FastifyRequest, reply: FastifyReply) => {
+  server.get('/api/projects', async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDb();
     const allProjects = await db.select().from(projects).orderBy(desc(projects.createdAt));
-    return reply.send({ success: true, projects: allProjects });
+
+    const isFreelancer =
+      request.user?.role === 'freelancer' ||
+      (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
+
+    const scopedProjects = isFreelancer
+      ? allProjects.map((p) => {
+          const rest = { ...p };
+          delete (rest as { autonomyMode?: string }).autonomyMode;
+          delete (rest as { releaseWindowSeconds?: number }).releaseWindowSeconds;
+          return rest;
+        })
+      : allProjects;
+
+    return reply.send({ success: true, projects: scopedProjects });
   });
 
   // Get project by ID with milestones and ledger summary
@@ -51,11 +65,26 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         .reduce((sum, l) => sum + l.amountCents, 0);
 
       const [client] = await db.select().from(users).where(eq(users.id, proj.clientId));
-      const [freelancer] = await db.select().from(users).where(eq(users.id, proj.freelancerId));
+      const [freelancer] = proj.freelancerId
+        ? await db.select().from(users).where(eq(users.id, proj.freelancerId))
+        : [null];
+
+      // Role-scoped DTO: Freelancer endpoints never include autonomy settings, client notes, or invite data
+      const isFreelancer =
+        request.user?.role === 'freelancer' ||
+        (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
+
+      const projectDto = isFreelancer
+        ? {
+            ...proj,
+            autonomyMode: undefined,
+            releaseWindowSeconds: undefined,
+          }
+        : proj;
 
       return reply.send({
         success: true,
-        project: proj,
+        project: projectDto,
         client,
         freelancer,
         milestones: projMilestones,
@@ -95,9 +124,9 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
           status: 'draft',
           autonomyMode: 'assisted',
           releaseWindowSeconds: 20,
-          clientId: 'user_client_01',
-          freelancerId: 'user_freelancer_01',
-          freelancerPaypalEmail: process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'freelancer-sandbox@milestone.local',
+          clientId: request.user?.userId || 'user_client_01',
+          freelancerId: null,
+          isDemo: false,
         })
         .returning();
 
@@ -222,7 +251,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // Planner Endpoints (M5)
   // ==========================================
 
-  // Generate an AI project plan from brief
+  // Generate an AI project plan from brief (Role: client only)
   server.post<{
     Body: {
       brief: string;
@@ -230,7 +259,10 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
       durationHint?: string;
       currency?: 'USD';
     };
-  }>('/api/projects/plan', async (request, reply) => {
+  }>(
+    '/api/projects/plan',
+    { preHandler: [requireRole(['client'])] },
+    async (request, reply) => {
     const { brief, totalBudget, durationHint, currency } = request.body || {};
     if (!brief || typeof brief !== 'string' || brief.trim().length === 0) {
       return reply.status(400).send({
@@ -459,6 +491,84 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         tasksCount: scheduledTasks.length,
         milestonesCount: scheduledMilestones.length,
       });
+    }
+  );
+
+  // Edit milestone acceptance criteria before funding (Role: client only)
+  server.patch<{
+    Params: { id: string; milestoneId: string };
+    Body: { criteria: Array<{ id: string; description: string; passed?: boolean }> };
+  }>(
+    '/api/projects/:id/milestones/:milestoneId/criteria',
+    { preHandler: [requireRole(['client'])] },
+    async (request, reply) => {
+      const db = getDb();
+      const { id, milestoneId } = request.params;
+      const { criteria } = request.body || {};
+
+      if (!Array.isArray(criteria) || criteria.length === 0) {
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: 'Criteria must be a non-empty array.',
+        });
+      }
+
+      const [proj] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+      if (!proj) {
+        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
+      }
+
+      if (proj.status !== 'draft' && proj.status !== 'planned') {
+        return reply.status(400).send({
+          error: 'CriteriaLockedError',
+          message: 'Acceptance criteria are locked after project funding.',
+        });
+      }
+
+      const [updated] = await db
+        .update(milestones)
+        .set({ criteria, updatedAt: new Date() })
+        .where(and(eq(milestones.id, milestoneId), eq(milestones.projectId, id)))
+        .returning();
+
+      if (!updated) {
+        return reply.status(404).send({ error: 'NotFound', message: `Milestone "${milestoneId}" not found.` });
+      }
+
+      return reply.send({ success: true, milestone: updated });
+    }
+  );
+
+  // Update task execution progress (Role: freelancer only)
+  server.patch<{
+    Params: { id: string; taskId: string };
+    Body: { percentDone: number };
+  }>(
+    '/api/projects/:id/tasks/:taskId/progress',
+    { preHandler: [requireRole(['freelancer'])] },
+    async (request, reply) => {
+      const db = getDb();
+      const { id, taskId } = request.params;
+      const { percentDone } = request.body || {};
+
+      if (typeof percentDone !== 'number' || percentDone < 0 || percentDone > 100) {
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: 'percentDone must be a number between 0 and 100.',
+        });
+      }
+
+      const [updated] = await db
+        .update(tasks)
+        .set({ percentDone, updatedAt: new Date() })
+        .where(and(eq(tasks.id, taskId), eq(tasks.projectId, id)))
+        .returning();
+
+      if (!updated) {
+        return reply.status(404).send({ error: 'NotFound', message: `Task "${taskId}" not found.` });
+      }
+
+      return reply.send({ success: true, task: updated });
     }
   );
 }

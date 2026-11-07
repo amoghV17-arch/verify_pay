@@ -186,11 +186,11 @@ Acceptance: scroll through at six breakpoints; reduced-motion version reads well
 ## M8d P3 Backend: invites, sessions, roles
 Estimate: 4 h
 Goal: HMAC invites, dual session cookies, role authorization matrix.
-- [ ] Create invites table with token_hash and code_hash HMAC verification
-- [ ] Implement rate-limited invite creation, preview, and acceptance endpoints
-- [ ] Implement dual cookies (ms_client, ms_freelancer) and X-Persona header validation
-- [ ] Add projects.is_demo column and enforce server-side role authorization matrix
-- [ ] Add unit and integration tests for all authorization matrix cells
+- [x] Create invites table with token_hash and code_hash HMAC verification
+- [x] Implement rate-limited invite creation, preview, and acceptance endpoints
+- [x] Implement dual cookies (ms_client, ms_freelancer) and X-Persona header validation
+- [x] Add projects.is_demo column and enforce server-side role authorization matrix
+- [x] Add unit and integration tests for all authorization matrix cells
 Acceptance: authorization matrix tests green; invite flow works through the API; no payment logic changes.
 
 ## M8e P4 Client area

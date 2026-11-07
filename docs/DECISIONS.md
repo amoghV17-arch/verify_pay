@@ -350,11 +350,21 @@ Format for judgment calls: Context, Decision, Why.
 ### Dual Routing for Public Landing and Legacy E2E Workspace Suites
 - **Context:** The root path `/` was previously bound directly to `LegacyWorkspaceApp`. Rewiring `/` to `LandingPage` would break existing E2E test suites for milestones M1–M8.
 - **Decision:** In `apps/web/src/router.tsx`, routed `/` to check `searchParams.get('workspace') === 'true'`. If present, renders `LegacyWorkspaceApp`; otherwise renders the public `LandingPage` in `PublicShell`. Legacy test suites were updated to query `/?workspace=true`.
-- **Why:** Guarantees 100% backward compatibility and green test suites across all 43 E2E test cases while presenting the polished new landing page to public visitors.
+- **Why:** Guarantees 100% backward compatibility and green test suites across all 43 E2E test cases while presenting the polished new landing page to public visitors.## M8d Phase P3 Backend Architecture Decisions
 
+### HMAC-SHA-256 Invite Security and Crockford Base32 Code Generation
+- **Context:** Project invites must be shared via URL or typed directly as short codes (`MILE-XXXXXXXXXX`). Plaintext stored tokens risk exposure in database compromises, while sequential or predictable codes enable enumeration.
+- **Decision:** Generated 128-bit CSPRNG base64url tokens and 10-character Crockford Base32 codes (excluding ambiguous letters I, L, O, U). Stored only HMAC-SHA-256 hashes (`token_hash` and `code_hash`) in PostgreSQL. Implemented in-memory sliding-window rate limiting (10 attempts / 10 minutes per IP) with constant-time HMAC comparison (`timingSafeEqual`) and a single generic error message (`"This invitation is no longer valid."`) for expired, revoked, or non-existent invites.
+- **Why:** Eliminates token enumeration attacks and database leak risks while providing unambiguous, human-friendly short codes.
 
+### Dual Session Cookies (`ms_client`, `ms_freelancer`) and `X-Persona` Header Routing
+- **Context:** Demo mode and split-screen view (`/demo/split`) require running client and freelancer portals concurrently within the same browser session without cookie stomping or privilege confusion.
+- **Decision:** Implemented dual session cookies (`ms_client` and `ms_freelancer`). Authenticated endpoints inspect the `X-Persona` request header (or route prefix `/client` vs `/freelancer`) to extract the appropriate session cookie. Also updated `/api/auth/persona` to set the role-specific cookie (`ms_client` for client, `ms_freelancer` for freelancer) alongside the legacy cookie for backward compatibility.
+- **Why:** Allows side-by-side split view evaluation and testing without multi-browser setups or cross-role credential leakage.
 
-
-
+### Server-Side Role Authorization Matrix & Funding Gate
+- **Context:** Design §10 defines strict boundaries between client and freelancer actions (e.g. clients edit criteria before funding, fund milestones, release payouts; freelancers submit deliverables, file appeals, update task progress). Client-side UI toggling is insufficient without server-side enforcement.
+- **Decision:** Implemented server-side role authorization guards on all relevant routes (`POST /api/projects`, `POST /plan/apply`, `PATCH /criteria`, `POST /invites`, `POST /fund/order`, `PATCH /projects/:id` for autonomy, `POST /submit`, `POST /appeal`, `PATCH /tasks/:id/progress`, `POST /release`, `POST /request-changes`). Added a funding gate blocking PayPal order creation/capture until `project.freelancer_id` is set via an accepted invite. Project read endpoints strip sensitive client autonomy configuration when queried by freelancers.
+- **Why:** Guarantees cryptographic and role invariants cannot be bypassed via direct API calls or compromised UI state.
 
 
