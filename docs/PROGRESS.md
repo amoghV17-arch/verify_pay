@@ -213,3 +213,31 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Next phase is P4 (`M8e Client area`).
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P4`).
 - 2026-11-07 07:09 | M8f | overall 78% | GREEN | Completed Phase P4: Client area (shell, projects overview, 4-step wizard, deliverables, payments, activity) and verified responsive screenshots at 1440, 1024, 768, and 390 px.
+- Handoff (P4 -> P5):
+  - What was built:
+    - Client application shell (`ClientShell.tsx`) with persistent left navigation rail (Projects, Overview, Schedule, Deliverables, Payments, Activity), collapsible sidebar, and PayPal Sandbox status indicator.
+    - Client projects list (`ClientProjectsPage.tsx`) at `/client`: calm project list displaying title, status sentence, held/paid amounts, and a single next-action button per row; empty state with "Create project agreement" CTA.
+    - 4-step project agreement wizard (`NewProjectWizard.tsx`) at `/client/new`:
+      - Step 1 Brief with instant sample brief helpers, title, description, budget, and duration.
+      - Step 2 Plan with interactive editable milestone cards, live percentage validator (must equal 100%), criteria list, deliverable types, and apply plan flow.
+      - Step 3 Invite with Crockford Base32 short code (`MILE-XXXXXXXXXX`), direct URL, copy actions, live acceptance polling every 3s, and simulated acceptance demo button.
+      - Step 4 Fund with PayPal sandbox holding authorization, sandbox disclaimers, and capture transitions to project overview.
+    - Client project overview (`ClientOverviewPage.tsx`) at `/client/projects/:id`:
+      - Prominent Next Action card answering *"What do I need to do next?"* (Fund project, Release payout, Object, View review).
+      - Financial hierarchy: large **Held for this project** figure in PayPal Sandbox with a 3-segment progress bar (Paid, Held, Not yet funded) and 4 secondary figures (Budget, Funded, Paid, Remaining).
+      - Active milestone with 5-stage `LifecycleProgress`.
+      - Compact milestone schedule table.
+      - Recent activity log with actor glyphs.
+      - Autonomy mode selector (Manual, Assisted 30s auto-release, Instant auto).
+    - Client deliverables page (`ClientDeliverablesPage.tsx`) at `/client/projects/:id/deliverables`: milestone deliverable list, submission dates, AI verdicts with confidence scores, prompt injection shield badges, evidence chips, and inspect modal.
+    - Client payments page (`ClientPaymentsPage.tsx`) at `/client/projects/:id/payments`: financial summary totals, per-milestone settlement breakdown, complete immutable ledger table with PayPal sandbox IDs, Export Audit JSON, and shareable public receipt links.
+    - Client activity page (`ClientActivityPage.tsx`) at `/client/projects/:id/activity`: vertical timeline of project events with actor icons and expandable JSON metadata.
+    - Resilient seed fallback data (`apps/web/src/data/fallbackData.ts`) ensuring flawless offline and preview execution.
+    - Playwright E2E suite (`e2e/clientArea.spec.ts`) with 5 tests and 20 responsive screenshots across 1440, 1024, 768, and 390 px viewports in `docs/screens/p4/`.
+    - Full verification (`pnpm verify`) passed 100%: Secret scan, ESLint, TypeScript `tsc --build`, Vite build, 217 Vitest tests, 48 Playwright tests.
+  - What is deliberately unfinished:
+    - Phase P5: Freelancer area (`apps/web/src/pages/freelancer/`): Join project screens (`/join` and `/join/:token`), freelancer shell, projects overview with "Locked for you" and Next Up action, deliverables slide-over, and freelancer payouts.
+  - Next session must know:
+    - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
+    - Next phase is P5 (`M8f Freelancer area`).
+    - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P5`).
