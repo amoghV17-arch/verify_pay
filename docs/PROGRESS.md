@@ -286,3 +286,37 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P6`).
 
 - 2026-11-07 11:45 | M8h | overall 87% | GREEN | Completed Phase P6: Lifecycle, review, settlement with 3-zone review screen, LifecycleProgress mapping, SettlementReceiptCard, SharedReceiptPage, and 12 responsive screenshots across 1440, 1024, 768, and 390 px
+
+- Handoff (P6 -> P7):
+  - What was built:
+    - Signature LifecycleProgress component (`LifecycleProgress.tsx`):
+      - Cleanly maps all 10 backend states (`not_accepted`, `unfunded`, `funded`, `submitted`, `in_review`, `changes_requested`, `appealed`, `awaiting_client`, `approved`, `releasing`, `paid`) to the 5 visual stages (Agreed, Funded, Submitted, Verified, Paid).
+      - Strict Invariant Enforced: Stage 5 (Paid) never shows complete or displays a green checkmark early. It renders solid teal with checkmark strictly when `backendStatus === 'paid' || backendStatus === 'closed'`.
+      - Added problem tone styling (`isProblemTone: true`, amber alert icon) when status is `changes_requested`.
+    - 3-Zone Desktop Review Screen (`ReviewPage.tsx`) at `/client/projects/:id/deliverables/:milestoneId` and `/freelancer/projects/:id/deliverables/:milestoneId`:
+      - Zone 1 (Left, 340px): Submitted Deliverable details, submitted artifact link/excerpt, payload preview, delivery notes, and vertical milestone event audit trail (hashing, timestamping, AI review completion, settlement).
+      - Zone 2 (Center, flex): AI Verification & Reasoning, confidence meter (94%), observable criteria evaluation breakdown (Pass badges, evidence citations, reasoning), prompt injection warning banner when detected, and expandable "How the AI checked this" tool execution trace (`ssrfFetch`, `inspectTokens`, `checkLighthouseScore`, `evaluateCriteria`).
+      - Zone 3 (Right, 320px sticky): Settlement & Actions sidebar, milestone amount, `LifecycleProgress` bar, release window policy notice, and role-enforced action buttons:
+        - Client: Release payment ($2,000.00), Request changes (with reason dialog), Object.
+        - Freelancer: Resubmit deliverable (opens `SubmitSlideOver`), Appeal verdict (opens `AppealModal`).
+      - Responds responsively: 3 zones side-by-side on desktop (>=1280px), stacking gracefully on tablets and mobile screens (<1280px).
+    - Settlement Receipt Card (`SettlementReceiptCard.tsx`):
+      - Displays verified deliverable badge, count-up animation with reduced-motion fallback, recipient details, PayPal sandbox payout batch ID, cryptographic ledger hash confirmation, and one-click share link generator.
+    - Public Shared Receipt Page (`SharedReceiptPage.tsx`) at `/receipt/:shareId` and `/receipts/shared/:shareId`:
+      - Private by default: unrevoked share token required.
+      - Polite, calm error state when token is invalid or revoked ("This receipt share link is invalid or has been revoked.") without error stacks or red banners.
+      - Official settlement proof details: settlement amount, project title, milestone name, client name, recipient freelancer name, timestamp, PayPal sandbox batch ID with one-click copy, and autonomous AI verification protocol footer.
+    - Router integration (`router.tsx`):
+      - Connected `/client/projects/:id/deliverables/:milestoneId` to `<ReviewPage role="client" />`.
+      - Connected `/freelancer/projects/:id/deliverables/:milestoneId` to `<ReviewPage role="freelancer" />`.
+      - Connected `/receipt/:shareId` and `/receipts/shared/:shareId` to `<SharedReceiptPage />`.
+    - Verification:
+      - Dedicated Playwright E2E suite (`e2e/lifecycleReview.spec.ts`) with 6 comprehensive tests passing.
+      - Responsive screenshot capture across 1440, 1024, 768, and 390 px into `docs/screens/p6/` (12 screenshots total).
+      - Full verification suite (`pnpm verify`) passed 100%: secret scan passed, ESLint passed, TypeScript build passed, Vite production build passed, 217 Vitest tests passed, 60 Playwright E2E tests passed.
+  - What is deliberately unfinished:
+    - Phase P7 (`M8h Schedule (Bryntum Gantt)`): Dedicated full-width schedule page with context bar (zoom, fit, view toggle), Bryntum Gantt restyling with editorial fintech tokens, slide-over task inspector panel, responsive mobile List view fallback, and bundle code-splitting.
+  - Next session must know:
+    - Single branch rule: Continue all work on `ui-redesign`. Do not create or switch branches.
+    - Next phase is P7 (`M8h Schedule (Bryntum Gantt)`).
+    - Ready to proceed immediately upon user command (`/next` or `proceed to Phase P7`).
