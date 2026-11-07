@@ -164,7 +164,7 @@ export const FreelancerProjectsPage: React.FC = () => {
           Freelancer Projects
         </h1>
         <p style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--ink-2)' }}>
-          Work agreements with protected milestone holding balances and automated AI delivery evaluations.
+          Work agreements with verified milestone holding balances and automated AI delivery evaluations.
         </p>
       </div>
 

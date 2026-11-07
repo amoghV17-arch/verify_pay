@@ -245,11 +245,11 @@ Acceptance: complete demo path in about three minutes; /demo/split updates both 
 ## M8j P9 Polish and quality pass
 Estimate: 3 h
 Goal: micro-interactions, responsive pass across 6 breakpoints, copy review.
-- [ ] Polish micro-interactions, loading skeletons, and empty states
-- [ ] Comprehensive responsiveness pass at 1440, 1280, 1024, 768, 390, 360 px
-- [ ] Accessibility pass with axe-core and keyboard navigation verification
-- [ ] Copy and honesty audit across all screens
-- [ ] Update README and docs/DEMO_AND_SUBMISSION.md with new screenshots and script
+- [x] Polish micro-interactions, loading skeletons, and empty states
+- [x] Comprehensive responsiveness pass at 1440, 1280, 1024, 768, 390, 360 px
+- [x] Accessibility pass with axe-core and keyboard navigation verification
+- [x] Copy and honesty audit across all screens
+- [x] Update README and docs/DEMO_AND_SUBMISSION.md with new screenshots and script
 Acceptance: three clean runs of the demo path; every item in section 15 checked.
 
 ## M8k P10 Regression and deployment

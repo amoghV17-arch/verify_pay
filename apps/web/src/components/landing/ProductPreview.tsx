@@ -107,6 +107,7 @@ export const ProductPreview: React.FC = () => {
         outline: 'none',
         maxWidth: '540px',
         width: '100%',
+        boxSizing: 'border-box',
         margin: '0 auto',
         transition: 'border-color var(--duration-fast)',
       }}

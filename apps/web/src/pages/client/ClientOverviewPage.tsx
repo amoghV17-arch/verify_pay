@@ -128,7 +128,17 @@ export const ClientOverviewPage: React.FC = () => {
         if (isMounted && projData.success) {
           setProject(projData.project);
           setFreelancer(projData.freelancer);
-          setMilestones(projData.milestones || []);
+          const normalized = (projData.milestones || []).map(
+            (m: MilestoneData & { criteria?: Array<{ id?: string; description?: string } | string> }) => ({
+              ...m,
+              acceptanceCriteria: Array.isArray(m.acceptanceCriteria)
+                ? m.acceptanceCriteria
+                : Array.isArray(m.criteria)
+                  ? m.criteria.map((c) => (typeof c === 'string' ? c : c.description || ''))
+                  : [],
+            })
+          );
+          setMilestones(normalized);
           if (projData.project.autonomyMode) {
             setAutonomyMode(projData.project.autonomyMode);
           }

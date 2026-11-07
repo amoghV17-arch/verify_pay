@@ -267,18 +267,30 @@ export const FreelancerShell: React.FC = () => {
                 fontSize: '0.875rem',
                 color: 'var(--ink-2)',
                 textDecoration: 'none',
+                whiteSpace: 'nowrap',
               }}
             >
               My Projects
             </Link>
             <span style={{ color: 'var(--line)' }}>/</span>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>
+            <span
+              style={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'var(--ink)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '140px',
+              }}
+            >
               Brand-site Redesign & Launch
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span
+              className="hide-on-mobile"
               style={{
                 fontSize: '0.75rem',
                 padding: '0.2rem 0.55rem',

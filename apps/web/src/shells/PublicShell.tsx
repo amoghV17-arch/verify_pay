@@ -96,6 +96,7 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
           {/* Nav Links */}
           <nav
             aria-label="Public marketing navigation"
+            className="hide-on-mobile"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -135,7 +136,7 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
 
           {/* Action CTAs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Link to="/join" style={{ textDecoration: 'none' }}>
+            <Link to="/join" className="hide-on-mobile" style={{ textDecoration: 'none' }}>
               <Button variant="quiet" size="sm">
                 Join a project
               </Button>

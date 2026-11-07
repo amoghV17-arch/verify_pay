@@ -144,6 +144,10 @@ export const router = createBrowserRouter([
         element: <ClientOverviewPage />,
       },
       {
+        path: 'projects/:id/overview',
+        element: <ClientOverviewPage />,
+      },
+      {
         path: 'projects/:id/schedule',
         element: (
           <React.Suspense fallback={<ScheduleSkeleton />}>
@@ -181,6 +185,10 @@ export const router = createBrowserRouter([
       },
       {
         path: 'projects/:id',
+        element: <FreelancerOverviewPage />,
+      },
+      {
+        path: 'projects/:id/overview',
         element: <FreelancerOverviewPage />,
       },
       {

@@ -95,7 +95,17 @@ export const FreelancerOverviewPage: React.FC = () => {
         const data = await res.json();
         if (isMounted && data.success) {
           setProject(data.project);
-          setMilestones(data.milestones || []);
+          const normalized = (data.milestones || []).map(
+            (m: MilestoneData & { criteria?: Array<{ id?: string; description?: string } | string> }) => ({
+              ...m,
+              acceptanceCriteria: Array.isArray(m.acceptanceCriteria)
+                ? m.acceptanceCriteria
+                : Array.isArray(m.criteria)
+                  ? m.criteria.map((c) => (typeof c === 'string' ? c : c.description || ''))
+                  : [],
+            })
+          );
+          setMilestones(normalized);
           if (data.ledger) {
             setLedger({
               totalCents: data.ledger.totalCents || data.project.totalCents,
@@ -163,6 +173,7 @@ export const FreelancerOverviewPage: React.FC = () => {
         padding: '2.5rem 1.5rem',
         width: '100%',
         boxSizing: 'border-box',
+        overflowX: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         gap: '2rem',
@@ -170,7 +181,7 @@ export const FreelancerOverviewPage: React.FC = () => {
     >
       {/* Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.35rem' }}>
           <h1
             className="font-display"
             style={{
@@ -318,7 +329,7 @@ export const FreelancerOverviewPage: React.FC = () => {
               Acceptance Criteria to Pass Review:
             </span>
             <ul style={{ margin: '0.4rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--ink)', lineHeight: 1.5 }}>
-              {nextUpMilestone.acceptanceCriteria.map((c, i) => (
+              {(nextUpMilestone.acceptanceCriteria || []).map((c, i) => (
                 <li key={i}>{c}</li>
               ))}
             </ul>
@@ -330,7 +341,7 @@ export const FreelancerOverviewPage: React.FC = () => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
           gap: '1.25rem',
         }}
       >
@@ -421,6 +432,7 @@ export const FreelancerOverviewPage: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
                 padding: '0.875rem 1rem',
                 border: '1px solid var(--line)',
                 borderRadius: 'var(--radius-btn)',
@@ -437,7 +449,7 @@ export const FreelancerOverviewPage: React.FC = () => {
                     {m.name}
                   </span>
                   <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.75rem', color: 'var(--ink-2)' }}>
-                    Criteria: {m.acceptanceCriteria.length} checks
+                    Criteria: {(m.acceptanceCriteria || []).length} checks
                   </p>
                 </div>
               </div>

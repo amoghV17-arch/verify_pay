@@ -166,6 +166,7 @@ export const GetStartedPage: React.FC = () => {
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
             <div
+              id="role-card-client"
               tabIndex={0}
               style={{
                 backgroundColor: 'var(--surface)',
@@ -242,6 +243,7 @@ export const GetStartedPage: React.FC = () => {
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
             <div
+              id="role-card-freelancer"
               tabIndex={0}
               style={{
                 backgroundColor: 'var(--surface)',

@@ -239,6 +239,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
           >
             <button
               type="button"
+              id="view-gantt-btn"
               onClick={() => setView('gantt')}
               data-testid="view-toggle-gantt"
               style={{
@@ -261,6 +262,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
             </button>
             <button
               type="button"
+              id="view-list-btn"
               onClick={() => setView('list')}
               data-testid="view-toggle-list"
               style={{

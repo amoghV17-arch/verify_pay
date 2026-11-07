@@ -360,6 +360,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
             <StatusBadge state={mapStatusToMoneyState(milestone.status)} />
           </div>
           <h1
+            id="review-heading"
             className="font-display"
             style={{
               fontSize: '1.75rem',

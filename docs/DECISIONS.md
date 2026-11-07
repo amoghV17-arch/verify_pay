@@ -456,3 +456,21 @@ Format for judgment calls: Context, Decision, Why.
 - **Context:** Demonstrating AI evaluation and prompt injection defenses manually requires typing or copying long payloads, which is error-prone and slows down live video recording.
 - **Decision:** Seeded real review records for Milestone 1 in `apps/api/src/db/seed.ts` and added three 1-click demo preset buttons directly into `SubmitSlideOver.tsx`: "Good Delivery" (Figma wireframes with design tokens), "Weak Delivery" (incomplete draft lacking criteria), and "Prompt Injection" (adversarial override attempt).
 - **Why:** Enables instant, repeatable live testing of the AI Reviewer agent's criteria evaluation and adversarial prompt injection defenses during judging and video demos.
+
+## M8j Phase P9 Polish, Accessibility, Responsive Pass & Copy Audit Decisions
+
+### 6-Breakpoint Responsive Architecture & Zero Horizontal Overflow
+- **Context:** Hackathon judges review across varied devices (desktop 1440px, laptop 1280px, tablet 1024px & 768px, mobile 390px & 360px). Unbounded flex rows, large desktop navigations, and rigid grid layouts cause horizontal viewport scrolling.
+- **Decision:** Implemented `.hide-on-mobile` utilities in `tokens.css`, collapsed marketing navigation on narrow viewports in `PublicShell`, wrapped project headers with `flexWrap: 'wrap'`, added text truncation on shell breadcrumbs, normalized criteria structures in overview loaders, and enforced zero overflow across all 6 breakpoints via automated Playwright testing (`e2e/polish.spec.ts`).
+- **Why:** Ensures clean visual presentation and zero horizontal scroll across mobile and desktop devices without breaking readability or touch targets.
+
+### Strict Copy Honesty & Prohibited Words Automated Enforcement
+- **Context:** Hackathon compliance and fintech regulatory honesty require avoiding misleading terms like "escrow", "guarantee", "protected", "insured", or "secure payments".
+- **Decision:** Audited all user-facing strings across client and freelancer views. Replaced "protected" with honest descriptions ("Funds held for this project in PayPal Sandbox" and "verified milestone holding balances"), and added `'protected'` to the automated `honestyLint.test.ts` test suite.
+- **Why:** Eliminates regulatory ambiguity, builds genuine trust with judges, and guarantees automated prevention of dishonest marketing claims.
+
+### Automated Axe-Core Accessibility & Touch Target Verification
+- **Context:** Accessible design requires WCAG 2.1 AA compliance (contrast, visible focus, ARIA live announcements, touch target sizes >= 44px, and `prefers-reduced-motion` honoring).
+- **Decision:** Conducted automated Axe-core scans across all core pages (`/`, `/safety`, `/get-started`, `/client/...`, `/freelancer/...`, `/demo/split`) in `e2e/polish.spec.ts`, tuned contrast ratios on the Trust Panel to > 8:1 (WCAG AAA), and verified mobile button bounding boxes.
+- **Why:** Proves high software craftsmanship and ensures full keyboard and screen-reader accessibility for all evaluators.
+

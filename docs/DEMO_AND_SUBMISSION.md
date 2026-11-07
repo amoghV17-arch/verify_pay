@@ -16,9 +16,10 @@ Judges see hundreds of entries. These are the things that make Milestone stand o
 ## 2. Demo data
 
 `pnpm demo:reset` creates:
-- Project "Brand site rebuild" ($600), client Maya, freelancer Arjun, autonomy mode assisted with a 20-second window.
-- A sample brief the Start screen can fill in with one click.
-- Three prepared deliverables: a **good** one (passes), a **weak** one (fails one criterion), and an **injection** one.
+- Project "Brand-site Redesign & Launch" ($8,000), client Sarah Lin (Acme Corp), freelancer Arjun Mehta, autonomy mode assisted with a 20-second window.
+- A sample brief the Start screen and wizard can fill in with one click.
+- Three prepared deliverables: a **good** one (Figma wireframes with design tokens, passes), a **weak** one (incomplete draft, fails one criterion), and an **injection** one (adversarial prompt injection payload).
+- `/demo/split`: live side-by-side split screen showing Sarah's client portal on the left and Arjun's freelancer workspace on the right, updating simultaneously over SSE.
 - Pre-warmed: Render instance awake, browser profile logged into the sandbox buyer, recording resolution fixed at 1920x1080 with a clean desktop.
 
 ## 3. Video script (target 2:30, hard limit under 3:00)
@@ -28,15 +29,15 @@ Speak in plain, confident sentences. Show the real app, not slides. Subtitles on
 | Time | On screen | Voice-over |
 |---|---|---|
 | 0:00 to 0:12 | Black frame, then a message thread: "Final payment?" "Soon!" | "Freelancers get ghosted at the final payment. Clients fear paying for work they can't see yet." |
-| 0:12 to 0:20 | Milestone logo and the empty Start screen | "Milestone makes the plan, the money, and the proof one thing." |
-| 0:20 to 0:40 | Click the sample brief, press Create plan; the Gantt fills in with tasks, dependencies, and four milestone diamonds with amounts | "I paste a brief. The AI planner turns it into a real Bryntum Gantt with dependencies, and four milestones, each with a payment and checkable acceptance criteria." |
-| 0:40 to 0:52 | Edit a percentage, the total stays at 100; open the assumptions list | "Everything is editable, and the AI shows its assumptions." |
-| 0:52 to 1:10 | Fund screen, PayPal sandbox checkout, bars turn funded, the funds meter updates live | "Maya funds the project through PayPal. The money is held for the project, and the freelancer can see every milestone is funded before starting." |
-| 1:10 to 1:22 | Switch persona to Arjun; drag a task, progress moves | "Arjun does the work on the same Gantt. Schedule changes update dependencies." |
-| 1:22 to 1:55 | Submit the good deliverable (a GitHub repo link); Trust Panel shows live steps ("Reading the repo tree", "Checking the README setup section"); per-criterion marks appear with evidence and confidence | "He submits a repo. The AI reviewer doesn't just read his description. It calls tools, reads the repo, and checks each criterion with evidence and a confidence score." |
-| 1:55 to 2:08 | Quick cut: submit the injection deliverable; the panel shows the warning "The AI found instructions inside the deliverable and ignored them" and escalates | "If someone tries to talk the AI into approving, it's flagged and a human decides. The server never lets the AI move money by itself." |
-| 2:08 to 2:25 | Back to the good milestone: countdown ring "Releases in 14 seconds unless you object", then the settle moment: bar fills, coin flies to Arjun's balance, ledger entry appears with the PayPal reference; cut to the PayPal sandbox account showing the payout | "Assisted mode gives Maya a window to object. Then Payouts releases the money, and it lands in Arjun's sandbox account." |
-| 2:25 to 2:35 | Trust Panel ledger and audit export; end card with the hosted URL and repo | "Every decision is auditable. Milestone: work is done when the bar turns green, and the money moves when it does." |
+| 0:12 to 0:20 | Milestone logo and the clean landing screen | "Milestone makes the plan, the money, and the proof one thing." |
+| 0:20 to 0:40 | Click "Start a project", paste sample brief, press Create plan; the Bryntum Gantt fills in with tasks, dependencies, and four milestone diamonds with amounts | "I paste a brief. The AI planner turns it into a real Bryntum Gantt with topological dependencies, and four milestones, each with money attached and observable acceptance criteria." |
+| 0:40 to 0:52 | Edit milestone percentages, total stays at 100; create invite link | "Everything is editable, and Sarah generates an expiring, hashed invite code for the freelancer." |
+| 0:52 to 1:10 | Switch to `/demo/split`; Arjun accepts invite, Sarah funds via PayPal Sandbox capture, diamonds turn green, funds meter locks $8,000 live | "In our live split view, Arjun accepts the agreement. Sarah funds the project through PayPal Sandbox. Funds are held for the project, and Arjun can verify every milestone is funded before starting." |
+| 1:10 to 1:22 | Arjun's side: opens Milestone 2, reviews acceptance criteria | "Arjun does the work on the same interactive Gantt. Schedule changes update dependencies without altering payment terms." |
+| 1:22 to 1:55 | Click "Good Delivery" preset in the slide-over; Trust Panel and Review screen show live AI verification steps ("Fetching Figma file", "Inspecting design tokens JSON"); per-criterion checks pass with evidence excerpts and 94% confidence | "He submits his wireframes and design tokens. The AI reviewer calls bounded tools, inspects the deliverable, and evaluates each criterion independently with verifiable evidence." |
+| 1:55 to 2:08 | Quick cut: submit the prompt injection deliverable; the Review screen displays the security badge "Adversarial instructions detected and delimited. Verdict escalated to human" | "If someone tries to trick the AI with prompt injection, the attack is isolated in delimiters and escalated to human review. The server never lets the LLM move money by itself." |
+| 2:08 to 2:25 | Back to the good milestone: assisted mode countdown "Releases in 20s unless you object", then the settle moment: balance pulses, payout batch confirms via PayPal Sandbox API, and ledger entry logs with the PayPal reference | "Assisted mode gives Sarah a window to object. Then PayPal Payouts releases the money directly into Arjun's sandbox account." |
+| 2:25 to 2:35 | Review page settlement receipt, revocable public share link, and audit trail export; end card with the hosted URL and repo | "Every transaction is backed by an append-only ledger and verifiable PayPal proof. Milestone: work is agreed upfront, and money moves when the proof checks out." |
 
 Notes:
 - If running long, trim the injection cut to 8 seconds and the edit step to 6 seconds.

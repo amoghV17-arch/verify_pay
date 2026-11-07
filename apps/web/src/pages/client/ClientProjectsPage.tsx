@@ -109,7 +109,7 @@ export const ClientProjectsPage: React.FC = () => {
       return 'Project agreement accepted. Fund holding balance to start.';
     }
     if (project.status === 'funded' || project.status === 'active') {
-      return 'Milestone in progress. Work protected in PayPal sandbox.';
+      return 'Milestone in progress. Funds held for this project in PayPal Sandbox.';
     }
     if (project.status === 'closed') {
       return 'All milestones completed and paid.';

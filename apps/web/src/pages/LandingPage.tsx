@@ -20,7 +20,7 @@ import {
 
 export const LandingPage: React.FC = () => {
   return (
-    <div style={{ backgroundColor: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)' }}>
+    <div style={{ backgroundColor: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)', overflowX: 'hidden' }}>
       {/* ========================================================= */}
       {/* SECTION 1: HERO (Above the fold)                          */}
       {/* ========================================================= */}
@@ -29,8 +29,9 @@ export const LandingPage: React.FC = () => {
           padding: '4.5rem 1.5rem 5rem 1.5rem',
           maxWidth: '1200px',
           margin: '0 auto',
+          boxSizing: 'border-box',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
           gap: '3.5rem',
           alignItems: 'center',
         }}
@@ -162,8 +163,9 @@ export const LandingPage: React.FC = () => {
           style={{
             maxWidth: '1200px',
             margin: '0 auto',
+            boxSizing: 'border-box',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
             gap: '3.5rem',
             alignItems: 'center',
           }}
@@ -395,9 +397,10 @@ export const LandingPage: React.FC = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
               gap: '3rem',
               alignItems: 'start',
+              boxSizing: 'border-box',
             }}
           >
             {/* 4-Fact Quiet Grid */}

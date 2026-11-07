@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const PROHIBITED_WORDS = ['escrow', 'guarantee', 'insured', 'secure payments'];
+const PROHIBITED_WORDS = ['escrow', 'guarantee', 'protected', 'insured', 'secure payments'];
 
 function findFiles(dir: string, extensions: string[]): string[] {
   let results: string[] = [];
