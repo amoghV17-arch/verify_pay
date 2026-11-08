@@ -333,3 +333,16 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-08 06:39 | M8m | overall 81% | AMBER | L0 hardcode audit complete: classified hits across web and api, audited Render env vs section 8, inspected live runtime and mock seeds, listed affected tables and endpoints, documented decisions and plan in DECISIONS.md
 - 2026-11-08 11:23 | M8n | overall 85% | AMBER | M8m L1 complete: hardcode purged, live backend wiring verified, CI guard and canary green
 - 2026-11-08 12:45 | M8o | overall 88% | AMBER | M8n L2 complete: isolated visitor demo sessions, sandbox buyer card, abuse guards active, verified with full test suite
+- Handoff (M8n L2 -> M8o L3):
+  - What was built:
+    - Per-visitor isolated demo sessions via `POST /api/demo/session` creating private client (`client_vis_<id>`), freelancer (`freelancer_vis_<id>`), and demo project (`proj_demo_<id>`) with pre-seeded tasks and milestones, setting dual-cookie sessions.
+    - `/demo` landing page (`DemoLandingPage.tsx`) with 1-click isolated demo launcher, interactive sandbox buyer credentials card (email + password copy button, toggle), freelancer payout destination info, prepared deliverable presets (good, weak, injection), and public safeguards disclosure.
+    - Updated `/demo/split` and `DemoBar` to dynamically reflect visitor session projects and sandbox credentials without hardcoded fallbacks.
+    - Layered abuse guardrails (`abuseGuards.ts`): sliding-window IP rate limiting (10 req/min for plan, 20 req/min for submits, invites, demo sessions), 5,000 character maximum brief length enforcement, daily LLM cap (`DAILY_LLM_CAP`, default 200 calls) with calm 429 response, $500 USD demo budget ceiling, 24-hour cleanup of expired demo projects and users, and mock email adapter safety.
+    - Full test suite: 15 unit/integration tests in `abuseGuards.test.ts`, 2 Playwright isolation tests in `e2e/demoIsolation.spec.ts` proving concurrent independent visitor sessions, and Vitest child-process fork pool configuration (`pool: 'forks'`).
+  - What is deliberately unfinished:
+    - Phase L3 (`M8o Instrumentation`): `external_calls` database table, call duration and debug ID logging wrappers around PayPalPort and LLMPort (zero secrets/bodies logged), `GET /api/system/mode` truth endpoint, UI red banner when simulation is active, and read-only webhook receipt log from `paypal_events`.
+  - Next session must know:
+    - Milestone M8n L2 is complete and pushed to origin on `main` and `live-l2-sessions`, tagged `live-l2-done` and `m8n-done`.
+    - Next milestone is M8o L3 Instrumentation.
+
