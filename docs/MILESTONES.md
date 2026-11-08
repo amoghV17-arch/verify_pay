@@ -261,6 +261,66 @@ Goal: full regression, sandbox verification, production deploy to Render.
 - [x] Verify production webhook delivery and private-window demo flow
 Acceptance: all green; deployed app passes the demo path; webhook verified.
 
+## M8l L0 Hardcode audit and plan
+Estimate: 2 h
+Goal: audit hardcoded literals, classify hits, verify Render environment, list affected tables/endpoints, and establish proof plan.
+- [x] Run section 1.3 audit commands across web and api
+- [x] Classify every hit as allowed (labeled), test-only, or remove
+- [x] Check Render environment variables against section 8
+- [x] Verify whether deployed app is using mock or fixture
+- [x] List all database tables and API endpoints affected
+- [x] Record classified hit table and proof plan in docs/DECISIONS.md
+Acceptance: complete classified list; owner approval.
+
+## M8m L1 Purge hardcoded data
+Estimate: 5 h
+Goal: typed hooks, loading/error/empty states, server-derived money values, canary test, CI guard, removal of fallbacks.
+- [ ] Remove all fallbackData and sampleProject references from frontend
+- [ ] Replace hardcoded IDs, names, and amounts with typed API hooks and empty states
+- [ ] Implement server-derived money values in DTOs
+- [ ] Build automated Canary test (unusual inputs: 1337.42, Zebra Co, Quill)
+- [ ] Implement CI guard banning currency literals and demo names in apps/web/src
+Acceptance: canary test passes in mock mode; CI guard is green; manual check in 1.7 passes.
+
+## M8n L2 Live demo sessions and abuse guards
+Estimate: 4 h
+Goal: isolated visitor demo sessions, sandbox buyer card, rate limits, daily caps, demo cleanup.
+- [ ] Per-visitor isolated demo sessions on /demo
+- [ ] Sandbox buyer login credentials card on /demo and DemoBar
+- [ ] Configure freelancer payout recipient to personal sandbox account
+- [ ] Implement rate limiting, daily LLM cap, demo budget cap, and 24h session cleanup
+- [ ] Prepared deliverables (good, weak, injection) in demo guide
+Acceptance: two browsers run two independent demo projects at once without interfering.
+
+## M8o L3 Instrumentation
+Estimate: 4 h
+Goal: external_calls table, call logging without secrets/bodies, mode truth API, red banner on simulation.
+- [ ] Create external_calls table and migration
+- [ ] Wrap PayPal adapter and LLM port with call duration and debug ID logging
+- [ ] Implement GET /api/system/mode truth endpoint
+- [ ] Implement mode truth banner in UI (red banner when mock/fixture in demo mode)
+- [ ] Expose read-only webhook receipt log from paypal_events
+Acceptance: after one run, call log lists real PayPal and LLM calls with debug IDs and durations.
+
+## M8p L4 Proof API and UI
+Estimate: 5 h
+Goal: proof reconciliation API, three-pane split view, /status page, settlement receipt verification.
+- [ ] Build GET /api/proof/projects/:id with environment and money reconciliation checks
+- [ ] Build /demo/proof page and client Proof tab with reconciliation table and call tape
+- [ ] Upgrade /demo/split to three-pane view (Client | Freelancer | PayPal truth)
+- [ ] Build public /status health page (cached 10s, zero secrets)
+- [ ] Enhance settlement receipt with live PayPal reconciliation timestamp and debug IDs
+Acceptance: every reconciliation row matches; artificially introduced mismatch detected.
+
+## M8q L5 Live acceptance and runbook rehearsal
+Estimate: 4 h
+Goal: automated live acceptance script and manual 4-window side-by-side verification runbook.
+- [ ] Implement pnpm acceptance:live Playwright script
+- [ ] Execute 4-window side-by-side runbook (Client, Freelancer, Freelancer Sandbox, Business Sandbox)
+- [ ] Verify balance changes on PayPal sandbox accounts
+- [ ] Save acceptance run results and evidence screenshots
+Acceptance: acceptance:live passes twice in a row against deployed app; manual runbook matches all steps.
+
 ## M9 The settle moment and polish (feature freeze)
 Estimate: 3 h
 Goal: one memorable interaction and a clean finish.
