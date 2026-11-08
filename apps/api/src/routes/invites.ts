@@ -5,6 +5,7 @@ import { getDb } from '../db/index.js';
 import { projects, users, milestones, invites } from '../db/schema.js';
 import { requireRole, createSessionToken, setRoleSessionCookie } from '../auth/index.js';
 import { InviteService, checkInviteRateLimit } from '../services/invite.js';
+import { createRateLimitHandler } from '../services/abuseGuards.js';
 
 const AcceptBodySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -21,7 +22,7 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
     Body?: { expiryDays?: number; maxUses?: number };
   }>(
     '/api/projects/:id/invites',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireRole(['client']), createRateLimitHandler('invite', 20, 60_000)] },
     async (request, reply) => {
       const { id: projectId } = request.params;
       const db = getDb();

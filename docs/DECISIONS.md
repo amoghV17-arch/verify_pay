@@ -664,5 +664,23 @@ flowchart TD
 
 - **Why:** Delivers incontrovertible proof to judges that Milestone is a live, honest, production-ready system where money moves strictly through PayPal Sandbox API calls and AI reviews are verified in real time.
 
+## Phase L2 Live Demo Sessions and Abuse Guards Decisions
+
+### Per-Visitor Demo Session Isolation and Dual-Cookie Architecture
+- **Context:** If two evaluators or judges test the live demo at the same time, sharing a single static demo project would cause race conditions, milestone state mutations colliding across browsers, and cookie overwrite clashes.
+- **Decision:** Built `POST /api/demo/session` which issues a cryptographically random visitor ID (`vis_<nanoid>`), creates isolated client (`client_vis_<id>`) and freelancer (`freelancer_vis_<id>`) accounts, and provisions a private demo project (`proj_demo_<id>`) pre-seeded with starter tasks, milestones, and dependencies. Set up dual cookie sessions (`milestone_client_session`, `milestone_freelancer_session`) and updated `/demo/split` to accept `?projectId=` and load independent client and freelancer frames referencing the isolated project. Added 24-hour cleanup (`purgeOldDemoProjectsAndUsers`) to purge expired visitor sessions.
+- **Why:** Completely isolates concurrent evaluator sessions so judges never interfere with each other, while still delivering instant, frictionless zero-signup exploration.
+
+### Multi-Tiered Public Abuse Guardrails and Resource Ceilings
+- **Context:** The public web application exposes LLM generation endpoints (project planning and deliverable evaluation) and payment sandbox operations to the public internet, opening attack vectors for denial-of-service, excessive API token consumption, or runaway storage.
+- **Decision:** Implemented layered defense in `apps/api/src/services/abuseGuards.ts`: (1) sliding-window IP rate limiting (10 req/min on `/api/projects/plan`, 20 req/min on deliverable submissions, invite generation, and demo session creation); (2) strict brief payload ceiling (maximum 5,000 characters); (3) daily LLM call tracking (`DAILY_LLM_CAP`, default 200 calls/day) returning HTTP 429 with a calm message; (4) demo budget ceiling ($500 USD max per demo project); (5) strict mock email adapter ensuring no real outbound emails are ever dispatched.
+- **Why:** Protects hosting infrastructure, API keys, and LLM rate limits against malicious scrapers or runaway scripts without compromising judge experience.
+
+### Vitest Child-Process Fork Pool for WebAssembly PGlite on Windows
+- **Context:** During parallel Vitest execution with Node.js on Windows, multiple test suites invoking PGlite (WebAssembly PostgreSQL) in shared worker threads triggered native V8 runtime assertion crashes (`Check failed: jit_page_->allocations_.erase(addr) == 1`).
+- **Decision:** Configured `pool: 'forks'` in `vitest.config.ts`.
+- **Why:** Isolates memory allocations for each test file into a dedicated Node.js child process, completely eliminating WebAssembly memory management collisions and stabilizing the local verification pipeline.
+
+
 
 

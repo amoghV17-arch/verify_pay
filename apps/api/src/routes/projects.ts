@@ -7,6 +7,12 @@ import { createLlmPort } from '../ai/llmFactory.js';
 import { PlannerService } from '../ai/planner.js';
 import { validatePlanGraph, computeSchedule } from '../ai/scheduler.js';
 import { sseHub } from '../services/sse.js';
+import {
+  createRateLimitHandler,
+  validateBriefLength,
+  validateDemoBudget,
+  checkAndRecordLlmCall,
+} from '../services/abuseGuards.js';
 import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
@@ -119,12 +125,19 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     async (request, reply) => {
       const db = getDb();
       const { title, brief, totalBudget } = request.body;
-      if (!brief || brief.trim().length === 0) {
-        return reply.status(400).send({ error: 'ValidationError', message: 'Project brief is required.' });
+      const briefValidation = validateBriefLength(brief);
+      if (!briefValidation.valid) {
+        return reply.status(400).send({ error: 'ValidationError', message: briefValidation.error });
       }
 
       const id = `proj_${randomUUID().substring(0, 8)}`;
       const totalCents = Math.round((totalBudget ?? 2000) * 100);
+
+      const isDemo = Boolean(process.env.DEMO_MODE === 'true');
+      const budgetValidation = validateDemoBudget(totalCents, isDemo);
+      if (!budgetValidation.valid) {
+        return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });
+      }
 
       const [newProject] = await db
         .insert(projects)
@@ -380,15 +393,31 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     };
   }>(
     '/api/projects/plan',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireRole(['client']), createRateLimitHandler('planner', 10, 60_000)] },
     async (request, reply) => {
-    const { brief, totalBudget, durationHint, currency } = request.body || {};
-    if (!brief || typeof brief !== 'string' || brief.trim().length === 0) {
-      return reply.status(400).send({
-        error: 'ValidationError',
-        message: 'A project brief is required to generate a plan.',
-      });
-    }
+      const { brief, totalBudget, durationHint, currency } = request.body || {};
+      const briefValidation = validateBriefLength(brief || '');
+      if (!briefValidation.valid) {
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: briefValidation.error,
+        });
+      }
+
+      const totalCents = Math.round((totalBudget ?? 2000) * 100);
+      const isDemo = Boolean(process.env.DEMO_MODE === 'true');
+      const budgetValidation = validateDemoBudget(totalCents, isDemo);
+      if (!budgetValidation.valid) {
+        return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });
+      }
+
+      const llmCheck = checkAndRecordLlmCall();
+      if (!llmCheck.allowed) {
+        return reply.status(429).send({
+          error: 'DailyCapReached',
+          message: llmCheck.message,
+        });
+      }
 
     try {
       const llm =

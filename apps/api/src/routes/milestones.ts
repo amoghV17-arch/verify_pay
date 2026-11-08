@@ -7,6 +7,7 @@ import { ReconcilerService } from '../services/reconciler.js';
 import { ReviewerService } from '../services/reviewer.js';
 import { AutonomySchedulerService } from '../services/autonomyScheduler.js';
 import { sseHub } from '../services/sse.js';
+import { createRateLimitHandler, checkAndRecordLlmCall } from '../services/abuseGuards.js';
 import { getDb } from '../db/index.js';
 import { milestones, deliverables, activity, reviews } from '../db/schema.js';
 import { createLlmPort } from '../ai/llmFactory.js';
@@ -41,8 +42,16 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/submit (Freelancer submits a deliverable)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/submit',
-    { preHandler: [requireRole(['freelancer'])] },
+    { preHandler: [requireRole(['freelancer']), createRateLimitHandler('reviewer', 20, 60_000)] },
     async (request, reply) => {
+      const llmCheck = checkAndRecordLlmCall();
+      if (!llmCheck.allowed) {
+        return reply.status(429).send({
+          error: 'DailyCapReached',
+          message: llmCheck.message,
+        });
+      }
+
       const { id: milestoneIdParam } = request.params;
       const userId = request.user?.userId ?? 'user_freelancer_01';
 

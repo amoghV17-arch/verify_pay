@@ -285,11 +285,11 @@ Acceptance: canary test passes in mock mode; CI guard is green; manual check in 
 ## M8n L2 Live demo sessions and abuse guards
 Estimate: 4 h
 Goal: isolated visitor demo sessions, sandbox buyer card, rate limits, daily caps, demo cleanup.
-- [ ] Per-visitor isolated demo sessions on /demo
-- [ ] Sandbox buyer login credentials card on /demo and DemoBar
-- [ ] Configure freelancer payout recipient to personal sandbox account
-- [ ] Implement rate limiting, daily LLM cap, demo budget cap, and 24h session cleanup
-- [ ] Prepared deliverables (good, weak, injection) in demo guide
+- [x] Per-visitor isolated demo sessions on /demo
+- [x] Sandbox buyer login credentials card on /demo and DemoBar
+- [x] Configure freelancer payout recipient to personal sandbox account
+- [x] Implement rate limiting, daily LLM cap, demo budget cap, and 24h session cleanup
+- [x] Prepared deliverables (good, weak, injection) in demo guide
 Acceptance: two browsers run two independent demo projects at once without interfering.
 
 ## M8o L3 Instrumentation

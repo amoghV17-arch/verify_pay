@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   RotateCcw,
   RefreshCw,
@@ -49,6 +49,9 @@ const PRESETS: Record<
 
 export const SplitDemoPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId') || 'proj_brand_launch';
+
   const [activePreset, setActivePreset] = useState<PresetView>('overview');
   const [mobileTab, setMobileTab] = useState<'client' | 'freelancer'>('client');
   const [isResetting, setIsResetting] = useState(false);
@@ -57,7 +60,35 @@ export const SplitDemoPage: React.FC = () => {
   const clientIframeRef = useRef<HTMLIFrameElement>(null);
   const freelancerIframeRef = useRef<HTMLIFrameElement>(null);
 
-  const currentPreset = PRESETS[activePreset];
+  function getPresetPaths(presetKey: PresetView) {
+    switch (presetKey) {
+      case 'overview':
+        return {
+          clientPath: `/client/projects/${projectId}/overview`,
+          freelancerPath: `/freelancer/projects/${projectId}/overview`,
+        };
+      case 'deliverables':
+        return {
+          clientPath: `/client/projects/${projectId}/deliverables`,
+          freelancerPath: `/freelancer/projects/${projectId}/deliverables`,
+        };
+      case 'schedule':
+        return {
+          clientPath: `/client/projects/${projectId}/schedule`,
+          freelancerPath: `/freelancer/projects/${projectId}/schedule`,
+        };
+      case 'payments':
+        return {
+          clientPath: `/client/projects/${projectId}/payments`,
+          freelancerPath: `/freelancer/projects/${projectId}/payments`,
+        };
+    }
+  }
+
+  const currentPreset = {
+    ...PRESETS[activePreset],
+    ...getPresetPaths(activePreset),
+  };
 
   function handleRefreshBoth() {
     if (clientIframeRef.current) {
@@ -87,7 +118,7 @@ export const SplitDemoPage: React.FC = () => {
 
   function handleSelectPreset(presetKey: PresetView) {
     setActivePreset(presetKey);
-    const p = PRESETS[presetKey];
+    const p = getPresetPaths(presetKey);
     if (clientIframeRef.current) clientIframeRef.current.src = p.clientPath;
     if (freelancerIframeRef.current) freelancerIframeRef.current.src = p.freelancerPath;
   }
@@ -394,7 +425,9 @@ export const SplitDemoPage: React.FC = () => {
                 }}
               />
               <span style={{ fontWeight: 700, color: 'var(--ink)' }}>Client View</span>
-              <span style={{ color: 'var(--ink-3)' }}>— Sarah Lin (Acme Corp)</span>
+              <span style={{ color: 'var(--ink-3)' }}>
+                — {projectId === 'proj_brand_launch' ? 'Sarah Lin (Acme Corp)' : 'Judge Client'}
+              </span>
             </div>
 
             <a
@@ -462,7 +495,9 @@ export const SplitDemoPage: React.FC = () => {
                 }}
               />
               <span style={{ fontWeight: 700, color: 'var(--ink)' }}>Freelancer View</span>
-              <span style={{ color: 'var(--ink-3)' }}>— Arjun Mehta</span>
+              <span style={{ color: 'var(--ink-3)' }}>
+                — {projectId === 'proj_brand_launch' ? 'Arjun Mehta' : 'Judge Freelancer'}
+              </span>
             </div>
 
             <a

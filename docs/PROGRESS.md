@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-08T11:23:58.971Z
+Generated: 2026-11-08T12:45:22.408Z
 
-Overall (hours-weighted): [#################...]  85%   Day 5/5, 1 day(s) left   Schedule: AMBER
-Current milestone: M8n L2 Live demo sessions and abuse guards
+Overall (hours-weighted): [##################..]  88%   Day 5/5, 1 day(s) left   Schedule: AMBER
+Current milestone: M8o L3 Instrumentation
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -36,7 +36,7 @@ Current milestone: M8n L2 Live demo sessions and abuse guards
 | M8k P10 Regression and deployment | 3 | 4/4 | [####################] 100% |
 | M8l L0 Hardcode audit and plan | 2 | 6/6 | [####################] 100% |
 | M8m L1 Purge hardcoded data | 5 | 5/5 | [####################] 100% |
-| M8n L2 Live demo sessions and abuse guards | 4 | 0/5 | [....................]   0% |
+| M8n L2 Live demo sessions and abuse guards | 4 | 5/5 | [####################] 100% |
 | M8o L3 Instrumentation | 4 | 0/5 | [....................]   0% |
 | M8p L4 Proof API and UI | 5 | 0/5 | [....................]   0% |
 | M8q L5 Live acceptance and runbook rehearsal | 4 | 0/4 | [....................]   0% |
@@ -332,3 +332,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-07 16:59 | M13 | overall 98% | GREEN | Completed Phase P10: Full regression pass, Neon schema migration, PayPal sandbox order smoke test, AI evals, and pre-flight demo check
 - 2026-11-08 06:39 | M8m | overall 81% | AMBER | L0 hardcode audit complete: classified hits across web and api, audited Render env vs section 8, inspected live runtime and mock seeds, listed affected tables and endpoints, documented decisions and plan in DECISIONS.md
 - 2026-11-08 11:23 | M8n | overall 85% | AMBER | M8m L1 complete: hardcode purged, live backend wiring verified, CI guard and canary green
+- 2026-11-08 12:45 | M8o | overall 88% | AMBER | M8n L2 complete: isolated visitor demo sessions, sandbox buyer card, abuse guards active, verified with full test suite

@@ -114,7 +114,9 @@ test.describe('Phase P8: Demo Mode, Split View, and Seeds Suite', () => {
     await credBtn.click();
     await expect(demoBar).toContainText('sarah@acme-corp.com');
     await expect(demoBar).toContainText('arjun@freelance.dev');
-    await expect(demoBar).toContainText('arjun-sandbox@freelance.dev');
+    const expectedPayoutEmail =
+      process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com';
+    await expect(demoBar).toContainText(expectedPayoutEmail);
 
     // Toggle steps
     const stepsToggle = page.locator('#demobar-toggle-steps-btn');

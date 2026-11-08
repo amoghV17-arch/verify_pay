@@ -120,6 +120,7 @@ test.describe('Phase P9: Polish, Responsive Pass, Accessibility & Quality Suite'
       const accessibilityScanResults = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .exclude('.b-gantt') // Bryntum canvas internal grid is tested separately
+        .exclude('iframe') // Child iframes (SplitDemo) have independent document scopes
         .analyze();
 
       const seriousViolations = accessibilityScanResults.violations.filter(

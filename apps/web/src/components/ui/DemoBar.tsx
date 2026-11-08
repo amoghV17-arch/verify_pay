@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Sparkles, ChevronRight, RotateCcw, Split, Key, Check } from 'lucide-react';
+import { X, Sparkles, ChevronRight, RotateCcw, Split, Key, Check, Copy } from 'lucide-react';
 
 export interface DemoBarProps {
   currentStep?: number;
@@ -88,6 +88,19 @@ export const DemoBar: React.FC<DemoBarProps> = ({
   const [showCredentials, setShowCredentials] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [sandboxBuyer, setSandboxBuyer] = useState<{ email: string; password?: string } | null>(null);
+  const [payoutEmail, setPayoutEmail] = useState<string>('arjun-sandbox@freelance.dev');
+  const [copiedBuyerKey, setCopiedBuyerKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/demo/status')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.sandboxBuyer) setSandboxBuyer(d.sandboxBuyer);
+        if (d.freelancerPayoutEmail) setPayoutEmail(d.freelancerPayoutEmail);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSwitch(role: 'client' | 'freelancer') {
     if (onSwitchPersona) {
@@ -377,26 +390,59 @@ export const DemoBar: React.FC<DemoBarProps> = ({
       {/* Prepopulated Credentials Popover */}
       {showCredentials && (
         <div
+          id="demobar-credentials-card"
           style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            backgroundColor: 'rgba(0, 0, 0, 0.35)',
             borderRadius: 'var(--radius-input)',
-            padding: '0.5rem 0.65rem',
+            padding: '0.65rem 0.75rem',
             fontSize: '0.6875rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.35rem',
+            gap: '0.45rem',
             border: '1px solid var(--line-on-dark)',
           }}
         >
-          <div style={{ fontWeight: 600, color: 'var(--teal-on-dark)' }}>Prepopulated Demo Credentials:</div>
+          <div style={{ fontWeight: 700, color: 'var(--teal-on-dark)' }}>PayPal Sandbox Buyer Login:</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Email: <code style={{ color: 'var(--teal-on-dark)' }}>{sandboxBuyer?.email || 'sb-buyer@personal.example.com'}</code></span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(sandboxBuyer?.email || 'sb-buyer@personal.example.com');
+                setCopiedBuyerKey('email');
+                setTimeout(() => setCopiedBuyerKey(null), 1500);
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--paper-on-dark)', cursor: 'pointer', fontSize: '0.625rem', display: 'flex', alignItems: 'center', gap: '2px' }}
+            >
+              {copiedBuyerKey === 'email' ? <Check size={11} /> : <Copy size={11} />}
+              {copiedBuyerKey === 'email' ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Password: <code style={{ color: 'var(--teal-on-dark)' }}>{sandboxBuyer?.password || 'SandboxPass123!'}</code></span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(sandboxBuyer?.password || 'SandboxPass123!');
+                setCopiedBuyerKey('pass');
+                setTimeout(() => setCopiedBuyerKey(null), 1500);
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--paper-on-dark)', cursor: 'pointer', fontSize: '0.625rem', display: 'flex', alignItems: 'center', gap: '2px' }}
+            >
+              {copiedBuyerKey === 'pass' ? <Check size={11} /> : <Copy size={11} />}
+              {copiedBuyerKey === 'pass' ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <span style={{ fontSize: '0.625rem', opacity: 0.75, fontStyle: 'italic' }}>
+            Sandbox test account. No real money.
+          </span>
+
+          <div style={{ borderTop: '1px solid var(--line-on-dark)', paddingTop: '0.35rem', fontWeight: 600, color: 'var(--teal-on-dark)' }}>Demo Personas:</div>
           <div>
             <strong>Client:</strong> Sarah Lin (<code style={{ color: 'var(--teal-on-dark)' }}>sarah@acme-corp.com</code>)
           </div>
           <div>
-            <strong>Freelancer:</strong> Arjun Mehta (<code style={{ color: 'var(--teal-on-dark)' }}>arjun@freelance.dev</code>)
-          </div>
-          <div>
-            <strong>PayPal Sandbox:</strong> <code style={{ color: 'var(--teal-on-dark)' }}>arjun-sandbox@freelance.dev</code>
+            <strong>Freelancer:</strong> Arjun Mehta (<code style={{ color: 'var(--teal-on-dark)' }}>arjun@freelance.dev</code>) • Payout: <code style={{ color: 'var(--teal-on-dark)' }}>{payoutEmail}</code>
           </div>
         </div>
       )}
