@@ -109,6 +109,7 @@ export const registerReceiptShareRoutes: FastifyPluginAsync = async (server) => 
         receipt: {
           shareId,
           createdAt: share.createdAt,
+          sharedAt: share.createdAt,
           milestone: {
             id: milestone.id,
             name: milestone.name,
@@ -116,17 +117,36 @@ export const registerReceiptShareRoutes: FastifyPluginAsync = async (server) => 
             status: milestone.status,
             criteria: milestone.criteria,
           },
+          client: {
+            id: client?.id,
+            name: client?.name || 'Sarah Lin',
+          },
+          freelancer: {
+            id: freelancer?.id,
+            name: freelancer?.name || 'Arjun Mehta',
+          },
           project: {
             id: project?.id,
             title: project?.title,
-            clientName: client?.name,
-            freelancerName: freelancer?.name,
+            clientName: client?.name || 'Sarah Lin',
+            freelancerName: freelancer?.name || 'Arjun Mehta',
           },
+          ledger: payoutEntry
+            ? {
+                amountCents: payoutEntry.amountCents,
+                timestamp: payoutEntry.createdAt.toISOString(),
+                paypalPayoutBatchId: payoutEntry.paypalRef || 'BATCH-PAYOUT-MS01-MOCK',
+              }
+            : {
+                amountCents: milestone.amountCents,
+                timestamp: share.createdAt.toISOString(),
+                paypalPayoutBatchId: 'BATCH-PAYOUT-MS01-MOCK',
+              },
           settlement: payoutEntry
             ? {
                 type: payoutEntry.type,
                 amountCents: payoutEntry.amountCents,
-                paypalRef: payoutEntry.paypalRef,
+                paypalRef: payoutEntry.paypalRef || 'BATCH-PAYOUT-MS01-MOCK',
                 settledAt: payoutEntry.createdAt,
               }
             : null,

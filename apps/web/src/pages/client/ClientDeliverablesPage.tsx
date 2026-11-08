@@ -12,11 +12,6 @@ import { Button } from '../../components/ui/Button.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
 import { EvidenceChip, type DeliverableType } from '../../components/ui/EvidenceChip.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
-import {
-  FALLBACK_MILESTONES,
-  FALLBACK_DELIVERABLES,
-  FALLBACK_REVIEWS,
-} from '../../data/fallbackData.js';
 
 interface DeliverableItem {
   id: string;
@@ -110,10 +105,10 @@ export const ClientDeliverablesPage: React.FC = () => {
         }
       } catch (err) {
         if (isMounted) {
-          // Resilient preview fallback
-          setMilestones(FALLBACK_MILESTONES);
-          setDeliverables(FALLBACK_DELIVERABLES);
-          setReviews(FALLBACK_REVIEWS);
+          setError(err instanceof Error ? err.message : 'Failed to load deliverables');
+          setMilestones([]);
+          setDeliverables([]);
+          setReviews([]);
         }
       } finally {
         if (isMounted) {
@@ -432,9 +427,10 @@ export const ClientDeliverablesPage: React.FC = () => {
                 Agreed Acceptance Criteria
               </span>
               <ul style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--ink)' }}>
-                {selectedMilestone.acceptanceCriteria.map((c, i) => (
-                  <li key={i} style={{ marginBottom: '0.35rem' }}>{c}</li>
-                ))}
+                {(((selectedMilestone.acceptanceCriteria || (selectedMilestone as any).criteria) || []) as any[]).map((rawC: any, i: number) => {
+                  const c = typeof rawC === 'string' ? rawC : rawC?.description || rawC?.id || '';
+                  return <li key={i} style={{ marginBottom: '0.35rem' }}>{c}</li>;
+                })}
               </ul>
             </div>
 

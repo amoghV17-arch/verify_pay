@@ -14,13 +14,6 @@ import { Button } from '../../components/ui/Button.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
 import { Avatar } from '../../components/ui/Skeleton.js';
-import {
-  FALLBACK_PROJECT,
-  FALLBACK_FREELANCER,
-  FALLBACK_MILESTONES,
-  FALLBACK_LEDGER,
-  FALLBACK_ACTIVITY,
-} from '../../data/fallbackData.js';
 
 interface MilestoneData {
   id: string;
@@ -160,17 +153,7 @@ export const ClientOverviewPage: React.FC = () => {
         }
       } catch (err) {
         if (isMounted) {
-          // Resilient preview fallback
-          setProject(FALLBACK_PROJECT);
-          setFreelancer(FALLBACK_FREELANCER);
-          setMilestones(FALLBACK_MILESTONES);
-          setLedger({
-            totalCents: FALLBACK_LEDGER.totalCents,
-            fundedCents: FALLBACK_LEDGER.fundedCents,
-            paidCents: FALLBACK_LEDGER.paidCents,
-            heldCents: FALLBACK_LEDGER.heldCents,
-          });
-          setRecentActivity(FALLBACK_ACTIVITY.slice(0, 5));
+          setError(err instanceof Error ? err.message : 'Failed to load project');
         }
       } finally {
         if (isMounted) {

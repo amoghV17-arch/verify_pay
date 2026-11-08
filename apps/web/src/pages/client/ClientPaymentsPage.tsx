@@ -10,7 +10,6 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
-import { FALLBACK_MILESTONES, FALLBACK_LEDGER } from '../../data/fallbackData.js';
 
 interface LedgerEntry {
   id: string;
@@ -117,15 +116,9 @@ export const ClientPaymentsPage: React.FC = () => {
         }
       } catch (err) {
         if (isMounted) {
-          // Resilient preview fallback
-          setMilestones(FALLBACK_MILESTONES);
-          setLedgerEntries(FALLBACK_LEDGER.entries);
-          setTotals({
-            budget: FALLBACK_LEDGER.totalCents,
-            funded: FALLBACK_LEDGER.fundedCents,
-            released: FALLBACK_LEDGER.paidCents,
-            remaining: Math.max(0, FALLBACK_LEDGER.totalCents - FALLBACK_LEDGER.fundedCents),
-          });
+          setError(err instanceof Error ? err.message : 'Failed to load payments');
+          setMilestones([]);
+          setLedgerEntries([]);
         }
       } finally {
         if (isMounted) {

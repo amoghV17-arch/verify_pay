@@ -87,8 +87,8 @@ export const StyleguidePage: React.FC = () => {
               Badges, Avatars & Skeletons
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-              <Avatar name="Sarah Lin" roleBadge="client" size="md" />
-              <Avatar name="Arjun Mehta" roleBadge="freelancer" size="md" />
+              <Avatar name="Client User" roleBadge="client" size="md" />
+              <Avatar name="Freelancer Partner" roleBadge="freelancer" size="md" />
               <Badge variant="neutral">Neutral tag</Badge>
               <Badge variant="teal">Verified criteria</Badge>
               <Badge variant="amber">Pending review</Badge>
@@ -218,7 +218,7 @@ export const StyleguidePage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <ProjectRow
                 id="proj_1"
-                title="Brand-site Redesign & Launch"
+                title="Sample Project Schedule"
                 stateSentence="Milestone 3 passed review. Ready to release."
                 heldCents={420000}
                 paidCents={180000}

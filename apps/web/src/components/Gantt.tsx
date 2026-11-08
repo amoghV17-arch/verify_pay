@@ -6,7 +6,6 @@ import './Gantt.css';
 
 import { formatCents } from '@milestone/shared';
 import { MilestoneTaskModel } from '../models/MilestoneTaskModel.js';
-import { sampleTasks, sampleDependencies } from '../data/sampleProject.js';
 
 export function getStatusGlyph(status?: string): string {
   switch (status) {
@@ -56,7 +55,7 @@ export interface GanttProps {
 }
 
 export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
-  projectId = 'proj_brand_launch',
+  projectId = '',
   refreshKey = 0,
   tasksData,
   dependenciesData,
@@ -129,7 +128,7 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
       projectConfig.dependenciesData = dependenciesData || [];
       projectConfig.autoLoad = false;
       projectConfig.autoSync = false;
-    } else {
+    } else if (projectId) {
       projectConfig.transport = {
         load: {
           url: `/api/gantt/${projectId}/load`,
@@ -142,8 +141,9 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
       };
       projectConfig.autoLoad = true;
       projectConfig.autoSync = true;
-      projectConfig.tasksData = sampleTasks as unknown as Record<string, unknown>[];
-      projectConfig.dependenciesData = sampleDependencies as unknown as Record<string, unknown>[];
+    } else {
+      projectConfig.autoLoad = false;
+      projectConfig.autoSync = false;
     }
 
     const project = new ProjectModel(projectConfig);

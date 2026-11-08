@@ -4,7 +4,6 @@ import { Plus, FolderKanban } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
 import { ProjectRow } from '../../components/ui/ProjectRow.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
-import { FALLBACK_PROJECT } from '../../data/fallbackData.js';
 
 interface ProjectSummary {
   id: string;
@@ -79,14 +78,8 @@ export const ClientProjectsPage: React.FC = () => {
         }
       } catch (err) {
         if (isMounted) {
-          setProjectsList([FALLBACK_PROJECT]);
-          setLedgerMap({
-            [FALLBACK_PROJECT.id]: {
-              heldCents: 680000,
-              paidCents: 120000,
-              fundedCents: 800000,
-            },
-          });
+          setProjectsList([]);
+          setLedgerMap({});
         }
       } finally {
         if (isMounted) {

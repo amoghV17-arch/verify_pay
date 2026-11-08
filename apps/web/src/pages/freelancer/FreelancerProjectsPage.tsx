@@ -4,7 +4,6 @@ import { FolderKanban, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
 import { ProjectRow } from '../../components/ui/ProjectRow.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
-import { FALLBACK_PROJECT } from '../../data/fallbackData.js';
 
 interface ProjectSummary {
   id: string;
@@ -77,15 +76,8 @@ export const FreelancerProjectsPage: React.FC = () => {
         }
       } catch {
         if (isMounted) {
-          // Resilient preview fallback
-          setProjectsList([FALLBACK_PROJECT]);
-          setLedgerMap({
-            [FALLBACK_PROJECT.id]: {
-              heldCents: 680000,
-              paidCents: 120000,
-              fundedCents: 800000,
-            },
-          });
+          setProjectsList([]);
+          setLedgerMap({});
         }
       } finally {
         if (isMounted) {
@@ -241,7 +233,7 @@ export const FreelancerProjectsPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {projectsList.map((project) => {
             const nextAction = getNextAction(project);
-            const ledger = ledgerMap[project.id] || { heldCents: 680000, paidCents: 120000, fundedCents: 800000 };
+            const ledger = ledgerMap[project.id] || { heldCents: 0, paidCents: 0, fundedCents: 0 };
 
             return (
               <ProjectRow

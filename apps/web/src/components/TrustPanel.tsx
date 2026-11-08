@@ -95,10 +95,14 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
   const [showFullTrace, setShowFullTrace] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const milestoneId = milestone?.id || 'ms-01';
+  const milestoneId = milestone?.id;
 
   // Fetch reviews and activity trail
   useEffect(() => {
+    if (!milestoneId) {
+      setReviews([]);
+      return;
+    }
     let isMounted = true;
     const fetchData = async () => {
       setIsLoading(true);
@@ -117,7 +121,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
           setActivities(actData.activity || []);
         }
       } catch {
-        // offline fallback
+        // network failure
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -166,7 +170,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
 
   // Status and Next Step Summary Sentence per DESIGN.md
   let statusSummary = 'Waiting for freelancer to submit deliverable.';
-  let nextStep = 'Arjun needs to submit work matching the agreed criteria.';
+  let nextStep = 'Freelancer needs to submit work matching the agreed criteria.';
 
   if (milestone.paymentStatus === 'unfunded') {
     statusSummary = 'Milestone is planned but not yet funded.';
@@ -436,7 +440,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
                 fontWeight: 600,
               }}
             >
-              {latestReview.model || 'Fixture Replay'}
+              {latestReview.model || 'Reviewer'}
             </span>
           )}
         </div>
@@ -610,7 +614,7 @@ export const TrustPanel: React.FC<TrustPanelProps> = ({
                 >
                   <span style={{ textTransform: 'capitalize', color: 'var(--ink)' }}>{tx.type}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                    {formatCents(tx.amountCents)} ({tx.paypalRef || 'mock_ref'})
+                    {formatCents(tx.amountCents)}{tx.paypalRef ? ` (${tx.paypalRef})` : ''}
                   </span>
                 </div>
               ))}

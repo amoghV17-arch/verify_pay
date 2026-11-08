@@ -118,7 +118,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
         setResetMessage('Workspace reset');
       }
     } catch {
-      setResetMessage('Workspace reset (mock)');
+      setResetMessage('Workspace reset');
     } finally {
       setIsResetting(false);
       setTimeout(() => setResetMessage(null), 3000);

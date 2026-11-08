@@ -10,11 +10,6 @@ import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
-import {
-  FALLBACK_PROJECT,
-  FALLBACK_MILESTONES,
-  FALLBACK_LEDGER,
-} from '../../data/fallbackData.js';
 
 interface MilestoneData {
   id: string;
@@ -68,11 +63,12 @@ export const FreelancerOverviewPage: React.FC = () => {
 
   const [project, setProject] = useState<ProjectData | null>(null);
   const [milestones, setMilestones] = useState<MilestoneData[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [ledger, setLedger] = useState({
-    totalCents: 800000,
-    fundedCents: 800000,
-    paidCents: 120000,
-    heldCents: 680000,
+    totalCents: 0,
+    fundedCents: 0,
+    paidCents: 0,
+    heldCents: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -115,17 +111,9 @@ export const FreelancerOverviewPage: React.FC = () => {
             });
           }
         }
-      } catch {
+      } catch (err) {
         if (isMounted) {
-          // Resilient preview fallback
-          setProject(FALLBACK_PROJECT);
-          setMilestones(FALLBACK_MILESTONES);
-          setLedger({
-            totalCents: FALLBACK_LEDGER.totalCents,
-            fundedCents: FALLBACK_LEDGER.fundedCents,
-            paidCents: FALLBACK_LEDGER.paidCents,
-            heldCents: FALLBACK_LEDGER.heldCents,
-          });
+          setError(err instanceof Error ? err.message : 'Failed to load project');
         }
       } finally {
         if (isMounted) {
@@ -159,6 +147,28 @@ export const FreelancerOverviewPage: React.FC = () => {
     return (
       <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '2.5rem 1.5rem', width: '100%' }}>
         <div style={{ height: '240px', backgroundColor: 'var(--surface)', borderRadius: 'var(--radius-card)', animation: 'pulse 1.5s infinite' }} />
+      </div>
+    );
+  }
+
+  if (error && !project) {
+    return (
+      <div style={{ maxWidth: '1080px', margin: '3rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+        <p style={{ color: 'var(--ink-2)', marginBottom: '1rem' }}>{error}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/freelancer')}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: 'var(--forest)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+        >
+          Back to Projects
+        </button>
       </div>
     );
   }

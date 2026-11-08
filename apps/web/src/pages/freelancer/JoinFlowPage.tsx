@@ -10,7 +10,6 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Field, Input } from '../../components/ui/Field.js';
-import { FALLBACK_PROJECT, FALLBACK_MILESTONES } from '../../data/fallbackData.js';
 
 interface InvitePreview {
   project: {
@@ -48,9 +47,9 @@ export const JoinFlowPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Acceptance form state
-  const [name, setName] = useState('Arjun Mehta');
-  const [email, setEmail] = useState('arjun@example.com');
-  const [paypalEmail, setPaypalEmail] = useState('arjun-freelancer@sandbox.paypal.com');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [paypalEmail, setPaypalEmail] = useState('');
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptSuccess, setAcceptSuccess] = useState(false);
 
@@ -85,30 +84,6 @@ export const JoinFlowPage: React.FC = () => {
         throw new Error('This invitation is no longer valid.');
       }
     } catch (err) {
-      // In offline / preview fallback:
-      if (cleanCode.startsWith('MILE-') || cleanCode === 'sample') {
-        setPreview({
-          invite: {
-            id: 'inv_mock_01',
-            code: cleanCode,
-            expiresAt: new Date(Date.now() + 86400000 * 7).toISOString(),
-          },
-          client: {
-            id: 'usr_client_01',
-            name: 'Sarah Lin',
-          },
-          project: {
-            id: FALLBACK_PROJECT.id,
-            title: FALLBACK_PROJECT.title,
-            brief: FALLBACK_PROJECT.brief,
-            totalCents: FALLBACK_PROJECT.totalCents,
-            status: FALLBACK_PROJECT.status,
-          },
-          milestones: FALLBACK_MILESTONES,
-        });
-        setErrorMessage(null);
-        return;
-      }
       setErrorMessage(err instanceof Error ? err.message : 'This invitation is no longer valid.');
       setPreview(null);
     } finally {
@@ -152,12 +127,8 @@ export const JoinFlowPage: React.FC = () => {
       });
 
       if (!res.ok) {
-        // Fallback for preview
-        setAcceptSuccess(true);
-        setTimeout(() => {
-          navigate(`/freelancer/projects/${preview.project.id}`);
-        }, 800);
-        return;
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to accept invitation.');
       }
 
       const data = await res.json();
@@ -166,12 +137,8 @@ export const JoinFlowPage: React.FC = () => {
       setTimeout(() => {
         navigate(`/freelancer/projects/${data.project?.id || preview.project.id}`);
       }, 1200);
-    } catch {
-      // Preview fallback
-      setAcceptSuccess(true);
-      setTimeout(() => {
-        navigate(`/freelancer/projects/${preview.project.id}`);
-      }, 800);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to accept invitation.');
     } finally {
       setIsAccepting(false);
     }
@@ -337,7 +304,7 @@ export const JoinFlowPage: React.FC = () => {
               {preview.project.title}
             </h1>
             <p style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--ink-2)', lineHeight: 1.5 }}>
-              Invited by <strong>{preview.client.name}</strong> • Total Budget: <strong>{formatCents(preview.project.totalCents)}</strong>
+              Invited by <strong>{preview.client?.name || (preview.project as any)?.clientName || 'Client'}</strong> • Total Budget: <strong>{formatCents(preview.project.totalCents)}</strong>
             </p>
           </div>
 
@@ -391,7 +358,9 @@ export const JoinFlowPage: React.FC = () => {
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {preview.milestones.map((m, idx) => (
+              {(preview.milestones || (preview.project as any)?.milestones || []).map((m: any, idx: number) => {
+                const criteria = (m.acceptanceCriteria || m.criteria || []) as any[];
+                return (
                 <div
                   key={m.id}
                   style={{
@@ -414,12 +383,16 @@ export const JoinFlowPage: React.FC = () => {
                     Criteria Checked by AI Reviewer:
                   </span>
                   <ul style={{ margin: '0.35rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
-                    {m.acceptanceCriteria.map((c, cIdx) => (
-                      <li key={cIdx} style={{ marginBottom: '0.2rem' }}>{c}</li>
-                    ))}
+                    {criteria.map((rawC: any, cIdx: number) => {
+                      const c = typeof rawC === 'string' ? rawC : rawC?.description || rawC?.id || '';
+                      return (
+                        <li key={cIdx} style={{ marginBottom: '0.2rem' }}>{c}</li>
+                      );
+                    })}
                   </ul>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
 
@@ -446,7 +419,7 @@ export const JoinFlowPage: React.FC = () => {
                   {...props}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Arjun Mehta"
+                  placeholder="e.g. Alex Morgan"
                 />
               )}
             </Field>
@@ -458,7 +431,7 @@ export const JoinFlowPage: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="arjun@example.com"
+                  placeholder="alex@example.com"
                 />
               )}
             </Field>
@@ -473,7 +446,7 @@ export const JoinFlowPage: React.FC = () => {
                   type="email"
                   value={paypalEmail}
                   onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder="arjun-freelancer@sandbox.paypal.com"
+                  placeholder="alex.freelancer@sandbox.paypal.com"
                 />
               )}
             </Field>

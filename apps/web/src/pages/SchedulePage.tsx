@@ -12,7 +12,6 @@ import {
 import { MilestoneGantt, type MilestoneGanttHandle, getStatusGlyph } from '../components/Gantt.js';
 import { TaskInspectorPanel, type TaskInspectorData } from '../components/schedule/TaskInspectorPanel.js';
 import { ScheduleListView } from '../components/schedule/ScheduleListView.js';
-import { sampleTasks } from '../data/sampleProject.js';
 import type { MilestoneTaskModel } from '../models/MilestoneTaskModel.js';
 import { ScheduleSkeleton } from '../components/schedule/ScheduleSkeleton.js';
 
@@ -31,10 +30,12 @@ interface ProjectMetadata {
 
 export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) => {
   const { id: routeProjectId } = useParams<{ id: string }>();
-  const projectId = routeProjectId || 'proj_brand_launch';
+  const projectId = routeProjectId || '';
 
   const [project, setProject] = useState<ProjectMetadata | null>(null);
-  const [tasks, setTasks] = useState<TaskInspectorData[]>(sampleTasks as unknown as TaskInspectorData[]);
+  const [tasks, setTasks] = useState<TaskInspectorData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'gantt' | 'list'>('gantt');
   const [showDetails, setShowDetails] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
@@ -61,22 +62,30 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
 
   // Fetch project details
   useEffect(() => {
+    if (!projectId) {
+      setLoading(false);
+      setError('No project specified');
+      return;
+    }
     const fetchProject = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           if (data.project) {
             setProject(data.project);
+          } else {
+            setError('Project not found');
           }
+        } else {
+          setError('Project not found');
         }
       } catch {
-        // Fallback default
-        setProject({
-          id: projectId,
-          title: 'Brand-site Redesign & Launch',
-          status: 'active',
-        });
+        setError('Failed to load project schedule');
+      } finally {
+        setLoading(false);
       }
     };
     fetchProject();
@@ -84,6 +93,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
 
   // Fetch tasks for list view fallback
   const fetchTasksData = useCallback(async () => {
+    if (!projectId) return;
     try {
       const res = await fetch(`/api/gantt/${projectId}/load`, { credentials: 'include' });
       if (res.ok) {
@@ -93,10 +103,10 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
           return;
         }
       }
+      setTasks([]);
     } catch {
-      // Use sample data fallback
+      setTasks([]);
     }
-    setTasks(sampleTasks as unknown as TaskInspectorData[]);
   }, [projectId]);
 
   useEffect(() => {
@@ -156,6 +166,44 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
     setIsInspectorOpen((prev) => !prev);
   };
 
+  if (loading && !project) {
+    return <ScheduleSkeleton />;
+  }
+
+  if (error && !project) {
+    return (
+      <div
+        data-testid="schedule-error"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          padding: '2rem',
+          backgroundColor: 'var(--paper)',
+          color: 'var(--ink)',
+        }}
+      >
+        <p style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ink-2)' }}>{error}</p>
+        <button
+          type="button"
+          onClick={() => setRefreshKey((k) => k + 1)}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            backgroundColor: 'var(--forest)',
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="schedule-page"
@@ -198,7 +246,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
               color: 'var(--ink)',
             }}
           >
-            {project?.title || 'Brand-site Redesign & Launch'}
+            {project?.title || 'Project Schedule'}
           </h2>
           <span
             style={{

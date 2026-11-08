@@ -15,7 +15,6 @@ import { Button } from '../../components/ui/Button.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { Dialog } from '../../components/ui/Dialog.js';
-import { FALLBACK_MILESTONES, FALLBACK_LEDGER } from '../../data/fallbackData.js';
 
 interface LedgerEntry {
   id: string;
@@ -63,7 +62,7 @@ function mapStatusToMoneyState(status: string): MoneyState {
 
 export const FreelancerPaymentsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj_brand_launch';
+  const projectId = id || '';
 
   const [milestones, setMilestones] = useState<MilestoneSummary[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
@@ -78,6 +77,12 @@ export const FreelancerPaymentsPage: React.FC = () => {
 
   useEffect(() => {
     async function loadData() {
+      if (!projectId) {
+        setMilestones([]);
+        setLedgerEntries([]);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       try {
         const [msRes, ledgRes] = await Promise.all([
@@ -95,34 +100,18 @@ export const FreelancerPaymentsPage: React.FC = () => {
           const msData = (await msRes.json()) as MilestoneSummary[];
           setMilestones(msData);
         } else {
-          setMilestones(
-            FALLBACK_MILESTONES.map((m) => ({
-              id: m.id,
-              name: m.name,
-              amountCents: m.amountCents,
-              status: m.status,
-              deliverableType: m.deliverableType,
-            }))
-          );
+          setMilestones([]);
         }
 
         if (ledgRes && ledgRes.ok) {
           const ledgData = (await ledgRes.json()) as { entries: LedgerEntry[] };
           setLedgerEntries(ledgData.entries || []);
         } else {
-          setLedgerEntries(FALLBACK_LEDGER.entries as LedgerEntry[]);
+          setLedgerEntries([]);
         }
       } catch {
-        setMilestones(
-          FALLBACK_MILESTONES.map((m) => ({
-            id: m.id,
-            name: m.name,
-            amountCents: m.amountCents,
-            status: m.status,
-            deliverableType: m.deliverableType,
-          }))
-        );
-        setLedgerEntries(FALLBACK_LEDGER.entries as LedgerEntry[]);
+        setMilestones([]);
+        setLedgerEntries([]);
       } finally {
         setIsLoading(false);
       }
@@ -552,7 +541,7 @@ export const FreelancerPaymentsPage: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem' }}>
                 <span style={{ color: 'var(--ink-2)' }}>Batch Reference ID</span>
                 <code style={{ fontFamily: 'monospace', color: 'var(--ink)' }}>
-                  {selectedReceiptMilestone.ledger?.paypalPayoutBatchId || `BATCH-PAYOUT-${selectedReceiptMilestone.milestone.id.toUpperCase()}-MOCK`}
+                  {selectedReceiptMilestone.ledger?.paypalPayoutBatchId || 'Pending'}
                 </code>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem' }}>
@@ -560,12 +549,12 @@ export const FreelancerPaymentsPage: React.FC = () => {
                 <span style={{ color: 'var(--ink)' }}>
                   {selectedReceiptMilestone.ledger?.timestamp
                     ? new Date(selectedReceiptMilestone.ledger.timestamp).toUTCString()
-                    : new Date('2026-11-03T16:30:00Z').toUTCString()}
+                    : 'Pending'}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--ink-2)' }}>Recipient Account</span>
-                <span style={{ color: 'var(--ink)' }}>arjun.freelancer@example.com</span>
+                <span style={{ color: 'var(--ink)' }}>PayPal Sandbox Account</span>
               </div>
             </div>
 

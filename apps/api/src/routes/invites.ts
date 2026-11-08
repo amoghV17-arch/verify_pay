@@ -178,11 +178,27 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
         .from(milestones)
         .where(eq(milestones.projectId, project.id));
 
+      const formattedMilestones = projectMilestones.map((m) => {
+        const criteriaList: string[] = Array.isArray(m.criteria)
+          ? m.criteria.map((c: any) => (typeof c === 'string' ? c : c?.description || c?.id || ''))
+          : [];
+        return {
+          ...m,
+          title: m.name,
+          acceptanceCriteria: criteriaList,
+        };
+      });
+
       return reply.send({
+        success: true,
         valid: true,
         invite: {
           id: invite.id,
           expiresAt: invite.expiresAt,
+        },
+        client: {
+          id: client?.id || '',
+          name: client?.name || 'Client',
         },
         project: {
           id: project.id,
@@ -192,8 +208,9 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
           totalCents: project.totalCents,
           currency: project.currency,
           status: project.status,
-          milestones: projectMilestones,
+          milestones: formattedMilestones,
         },
+        milestones: formattedMilestones,
       });
     }
   );

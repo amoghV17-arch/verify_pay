@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { startTestServer, type TestServerContext } from './testServer.js';
 
 test.describe('M8 Trust Panel and Product UI Suite', () => {
+  let testEnv: TestServerContext;
+
+  test.beforeAll(async () => {
+    testEnv = await startTestServer();
+  });
+
+  test.afterAll(async () => {
+    await testEnv.stop();
+  });
   test('renders complete layout per DESIGN.md: left rail, funds meter, Gantt, and Trust Panel', async ({ page }) => {
     test.setTimeout(60000);
     // 1440px Desktop Viewport

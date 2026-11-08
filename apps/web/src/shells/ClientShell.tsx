@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useParams } from 'react-router-dom';
 import {
   FolderKanban,
@@ -20,7 +20,36 @@ export const ClientShell: React.FC = () => {
   const { id: routeProjectId } = useParams<{ id: string }>();
 
   // Active project ID or default route
-  const currentProjectId = routeProjectId || 'proj_brand_launch';
+  const currentProjectId = routeProjectId || '';
+
+  const [userName, setUserName] = useState<string>('Client');
+  const [projectTitle, setProjectTitle] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.name) {
+          setUserName(data.user.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!currentProjectId) {
+      setProjectTitle('');
+      return;
+    }
+    fetch(`/api/projects/${currentProjectId}`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.project?.title) {
+          setProjectTitle(data.project.title);
+        }
+      })
+      .catch(() => {});
+  }, [currentProjectId]);
 
   const navItems = [
     {
@@ -29,32 +58,36 @@ export const ClientShell: React.FC = () => {
       exact: true,
       icon: <FolderKanban size={18} />,
     },
-    {
-      label: 'Overview',
-      path: `/client/projects/${currentProjectId}`,
-      exact: true,
-      icon: <LayoutDashboard size={18} />,
-    },
-    {
-      label: 'Schedule',
-      path: `/client/projects/${currentProjectId}/schedule`,
-      icon: <Calendar size={18} />,
-    },
-    {
-      label: 'Deliverables',
-      path: `/client/projects/${currentProjectId}/deliverables`,
-      icon: <PackageCheck size={18} />,
-    },
-    {
-      label: 'Payments',
-      path: `/client/projects/${currentProjectId}/payments`,
-      icon: <CreditCard size={18} />,
-    },
-    {
-      label: 'Activity',
-      path: `/client/projects/${currentProjectId}/activity`,
-      icon: <Activity size={18} />,
-    },
+    ...(currentProjectId
+      ? [
+          {
+            label: 'Overview',
+            path: `/client/projects/${currentProjectId}`,
+            exact: true,
+            icon: <LayoutDashboard size={18} />,
+          },
+          {
+            label: 'Schedule',
+            path: `/client/projects/${currentProjectId}/schedule`,
+            icon: <Calendar size={18} />,
+          },
+          {
+            label: 'Deliverables',
+            path: `/client/projects/${currentProjectId}/deliverables`,
+            icon: <PackageCheck size={18} />,
+          },
+          {
+            label: 'Payments',
+            path: `/client/projects/${currentProjectId}/payments`,
+            icon: <CreditCard size={18} />,
+          },
+          {
+            label: 'Activity',
+            path: `/client/projects/${currentProjectId}/activity`,
+            icon: <Activity size={18} />,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -232,14 +265,14 @@ export const ClientShell: React.FC = () => {
             gap: '0.65rem',
           }}
         >
-          <Avatar name="Sarah Lin" roleBadge="client" size="sm" />
+          <Avatar name={userName} roleBadge="client" size="sm" />
           {!isSidebarCollapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Sarah Lin
+                {userName}
               </span>
               <span style={{ fontSize: '0.6875rem', color: 'var(--ink-2)' }}>
-                Client (Acme Corp)
+                Client Workspace
               </span>
             </div>
           )}
@@ -309,10 +342,10 @@ export const ClientShell: React.FC = () => {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                maxWidth: '140px',
+                maxWidth: '240px',
               }}
             >
-              Brand-site Redesign & Launch
+              {projectTitle || (currentProjectId ? 'Project' : 'Workspace')}
             </span>
           </div>
 

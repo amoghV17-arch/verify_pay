@@ -30,7 +30,7 @@ describe('Honesty Lint Test (docs/UI_IMPLEMENTATION.md §0.6 & §13)', () => {
   it('ensures no user-facing UI code uses prohibited deceptive wording', () => {
     const srcDir = path.resolve(__dirname, '..');
     const files = findFiles(srcDir, ['.tsx', '.ts', '.html']).filter(
-      (f) => !f.includes('honestyLint.test.ts') && !f.includes('sampleProject.ts')
+      (f) => !f.includes('honestyLint.test.ts')
     );
 
     const violations: Array<{ file: string; line: number; word: string; text: string }> = [];

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useParams } from 'react-router-dom';
 import {
   FolderKanban,
@@ -17,7 +17,36 @@ export const FreelancerShell: React.FC = () => {
   const location = useLocation();
   const { id: routeProjectId } = useParams<{ id: string }>();
 
-  const currentProjectId = routeProjectId || 'proj_brand_launch';
+  const currentProjectId = routeProjectId || '';
+
+  const [userName, setUserName] = useState<string>('Freelancer');
+  const [projectTitle, setProjectTitle] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.name) {
+          setUserName(data.user.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!currentProjectId) {
+      setProjectTitle('');
+      return;
+    }
+    fetch(`/api/projects/${currentProjectId}`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.project?.title) {
+          setProjectTitle(data.project.title);
+        }
+      })
+      .catch(() => {});
+  }, [currentProjectId]);
 
   // Section 7 navigation: Projects, Overview, My deliverables, Schedule, Payments (NO funding, autonomy, or invite controls)
   const navItems = [
@@ -26,26 +55,30 @@ export const FreelancerShell: React.FC = () => {
       path: '/freelancer',
       icon: <FolderKanban size={18} />,
     },
-    {
-      label: 'Overview',
-      path: `/freelancer/projects/${currentProjectId}`,
-      icon: <LayoutDashboard size={18} />,
-    },
-    {
-      label: 'My deliverables',
-      path: `/freelancer/projects/${currentProjectId}/deliverables`,
-      icon: <PackageCheck size={18} />,
-    },
-    {
-      label: 'Schedule',
-      path: `/freelancer/projects/${currentProjectId}/schedule`,
-      icon: <Calendar size={18} />,
-    },
-    {
-      label: 'Payments',
-      path: `/freelancer/projects/${currentProjectId}/payments`,
-      icon: <CreditCard size={18} />,
-    },
+    ...(currentProjectId
+      ? [
+          {
+            label: 'Overview',
+            path: `/freelancer/projects/${currentProjectId}`,
+            icon: <LayoutDashboard size={18} />,
+          },
+          {
+            label: 'My deliverables',
+            path: `/freelancer/projects/${currentProjectId}/deliverables`,
+            icon: <PackageCheck size={18} />,
+          },
+          {
+            label: 'Schedule',
+            path: `/freelancer/projects/${currentProjectId}/schedule`,
+            icon: <Calendar size={18} />,
+          },
+          {
+            label: 'Payments',
+            path: `/freelancer/projects/${currentProjectId}/payments`,
+            icon: <CreditCard size={18} />,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -204,11 +237,11 @@ export const FreelancerShell: React.FC = () => {
             gap: '0.65rem',
           }}
         >
-          <Avatar name="Arjun Mehta" roleBadge="freelancer" size="sm" />
+          <Avatar name={userName} roleBadge="freelancer" size="sm" />
           {!isSidebarCollapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Arjun Mehta
+                {userName}
               </span>
               <span style={{ fontSize: '0.6875rem', color: 'var(--ink-2)' }}>
                 Freelancer
@@ -281,10 +314,10 @@ export const FreelancerShell: React.FC = () => {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                maxWidth: '140px',
+                maxWidth: '240px',
               }}
             >
-              Brand-site Redesign & Launch
+              {projectTitle || (currentProjectId ? 'Project' : 'Workspace')}
             </span>
           </div>
 

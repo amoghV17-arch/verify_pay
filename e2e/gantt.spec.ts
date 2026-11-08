@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { startTestServer, type TestServerContext } from './testServer.js';
 
 test.describe('M1 Bryntum Gantt Spike Suite', () => {
+  let testEnv: TestServerContext;
+
+  test.beforeAll(async () => {
+    testEnv = await startTestServer();
+  });
+
+  test.afterAll(async () => {
+    await testEnv.stop();
+  });
   test('renders themed Gantt with 12 tasks, 4 milestones, custom columns, and money states', async ({ page }) => {
     // Set viewport to 1440x900 desktop
     await page.setViewportSize({ width: 1440, height: 900 });

@@ -3,7 +3,6 @@ import type { ComputedPlan } from '@milestone/shared';
 import { formatCents } from '@milestone/shared';
 import { MilestoneGantt } from './components/Gantt.js';
 import { MilestoneTaskModel } from './models/MilestoneTaskModel.js';
-import { sampleTasks } from './data/sampleProject.js';
 import { StartScreen } from './components/StartScreen.js';
 import { PlanReviewScreen } from './components/PlanReviewScreen.js';
 import { SubmitDeliverableModal, type DeliverableKind } from './components/SubmitDeliverableModal.js';
@@ -62,6 +61,24 @@ export function App(): React.ReactElement {
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [autonomyMode, setAutonomyMode] = useState<'manual' | 'assisted' | 'auto'>('assisted');
   const [notification, setNotification] = useState<string | null>(null);
+  const [milestones, setMilestones] = useState<Array<{
+    id: string;
+    name: string;
+    amountCents: number;
+    paymentStatus?: string;
+    deliverableType?: string;
+  }>>([]);
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/milestones`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setMilestones(data);
+        }
+      })
+      .catch(() => {});
+  }, [projectId, refreshKey]);
 
   // Settle moment state per DESIGN.md §2
   const [settleData, setSettleData] = useState<SettleEventData | null>(null);
@@ -73,7 +90,7 @@ export function App(): React.ReactElement {
         milestoneId: data.milestoneId,
         milestoneName: data.milestoneName,
         amountCents: data.amountCents,
-        recipientName: 'Arjun',
+        recipientName: 'Freelancer',
       });
 
       // Sweep animation on Gantt milestone diamond/row
@@ -82,7 +99,7 @@ export function App(): React.ReactElement {
 
       // Single aria-live announcement per DESIGN.md §2: surfaces in visible status notification
       const formattedAmount = formatCents(data.amountCents);
-      setNotification(`Payout released! ${data.milestoneName} paid, ${formattedAmount} to Arjun.`);
+      setNotification(`Payout released! ${data.milestoneName} paid, ${formattedAmount} to Freelancer.`);
     },
     []
   );
@@ -352,19 +369,12 @@ export function App(): React.ReactElement {
     }
   };
 
-  // Compute summary metrics from sample tasks or live ledger
-  const milestones = sampleTasks.filter((t) => t.milestone);
-  const sampleBudget = milestones.reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
-  const samplePaid = milestones
-    .filter((m) => m.paymentStatus === 'paid')
-    .reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
-  const sampleHeld = milestones
-    .filter((m) => m.paymentStatus === 'funded' || m.paymentStatus === 'in_review' || m.paymentStatus === 'approved')
-    .reduce((sum, m) => sum + (m.amountCents ?? 0), 0);
-
-  const totalBudget = sampleBudget;
-  const paidTotal = ledgerSummary ? ledgerSummary.releasedCents : samplePaid;
-  const heldTotal = ledgerSummary ? ledgerSummary.holdingBalanceCents : sampleHeld;
+  const currentProject = DEMO_PROJECTS.find((p) => p.id === projectId) || DEMO_PROJECTS[0];
+  const totalBudget = ledgerSummary
+    ? (ledgerSummary.holdingBalanceCents + ledgerSummary.releasedCents)
+    : milestones.reduce((sum: number, m: { amountCents?: number }) => sum + (m.amountCents ?? 0), 0);
+  const paidTotal = ledgerSummary ? ledgerSummary.releasedCents : 0;
+  const heldTotal = ledgerSummary ? ledgerSummary.holdingBalanceCents : 0;
 
   // Numerical eased counter for balance chip
   const countedPaidTotal = useCountUp(paidTotal, 700);
@@ -476,7 +486,7 @@ export function App(): React.ReactElement {
             </div>
             <span style={{ color: 'var(--slate)', fontSize: '0.875rem' }}>/</span>
             <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>
-              Brand-site Redesign & Launch
+              {currentProject?.title || 'Milestone Project'}
             </span>
           </div>
 
@@ -723,7 +733,7 @@ export function App(): React.ReactElement {
                     id: String(activeMilestone.id || (activeMilestone as unknown as { milestoneId?: string })?.milestoneId || 'ms-01'),
                     name: activeMilestone.name ?? 'Milestone',
                     amountCents: activeMilestone.amountCents ?? 0,
-                    paymentStatus: activeMilestone.paymentStatus ?? 'funded',
+                    paymentStatus: (activeMilestone as any).paymentStatus || (activeMilestone as any).status || 'funded',
                     acceptanceCriteria: activeMilestone.acceptanceCriteria,
                     deliverableType: activeMilestone.deliverableType,
                   }
@@ -748,7 +758,7 @@ export function App(): React.ReactElement {
       {showFundModal && (
         <FundModal
           projectId={projectId}
-          projectTitle="Brand-site Redesign & Launch"
+          projectTitle={currentProject?.title || 'Milestone Project'}
           milestones={milestones.map((m) => ({
             id: String(m.id || m.name),
             name: m.name ?? 'Milestone',
@@ -791,9 +801,9 @@ export function App(): React.ReactElement {
       {showCloseoutModal && (
         <CloseoutReceiptModal
           projectId={projectId}
-          projectTitle="Brand-site Redesign & Launch"
-          clientName="Acme Corp"
-          freelancerName="Arjun"
+          projectTitle={currentProject?.title || 'Milestone Project'}
+          clientName="Client"
+          freelancerName="Freelancer"
           totalBudget={totalBudget}
           paidTotal={paidTotal}
           heldTotal={heldTotal}

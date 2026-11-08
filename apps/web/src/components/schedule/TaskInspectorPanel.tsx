@@ -235,7 +235,7 @@ export const TaskInspectorPanel: React.FC<TaskInspectorPanelProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  {task.amountCents ? formatCents(task.amountCents) : '$0.00'}
+                  {formatCents(task.amountCents || 0)}
                 </div>
               </div>
               <div

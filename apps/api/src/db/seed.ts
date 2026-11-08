@@ -1,3 +1,4 @@
+import { createHash, createHmac } from 'node:crypto';
 import { AppDatabase, schema } from './index.js';
 
 export const PREPARED_DELIVERABLES = {
@@ -118,8 +119,9 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
       status: 'approved',
       approvedBy: 'ai',
       criteria: [
-        { id: 'c2-1', description: 'Wireframes cover landing, checkout, and account settings', passed: true, evidence: 'All 3 flows mapped in Figma file node 402:11' },
-        { id: 'c2-2', description: 'Design tokens export JSON with typography and color scale', passed: true, evidence: 'tokens.json committed with WCAG AA ratios' },
+        { id: 'c2-1', description: 'Figma tokens exported with color and typography scales', passed: true, evidence: 'Figma tokens verified.' },
+        { id: 'c2-2', description: 'Color tokens meet contrast accessibility targets', passed: true, evidence: 'WCAG AAA contrast verified on all text colors' },
+        { id: 'c2-3', description: 'At least 12 reusable UI components with interactive variants', passed: true, evidence: '12 reusable components verified with interactive variants' },
       ],
     },
     {
@@ -167,6 +169,18 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
       submittedBy: freelancerUser.id,
       submittedAt: new Date('2026-11-17T14:30:00Z'),
     },
+    {
+      id: 'deliv_02',
+      milestoneId: 'ms-02',
+      kind: 'document',
+      payload: {
+        documentUrl: 'https://figma.com/file/acme-design-system',
+        url: 'https://figma.com/file/acme-design-system',
+        notes: 'Figma design system published with primary and secondary tokens and 12 components.',
+      },
+      submittedBy: freelancerUser.id,
+      submittedAt: new Date('2026-11-20T11:00:00Z'),
+    },
   ];
 
   await db.insert(deliverables).values(deliverableRows).onConflictDoNothing();
@@ -203,6 +217,66 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
       latencyMs: 1420,
       tokens: { input: 820, output: 240 },
       createdAt: new Date('2026-11-17T14:32:00Z'),
+    },
+    {
+      id: 'rev_02',
+      milestoneId: 'ms-02',
+      deliverableId: 'deliv_02',
+      kind: 'initial',
+      model: 'claude-3-5-sonnet',
+      promptVersion: 'reviewer.v1',
+      verdict: 'request_changes',
+      minConfidence: 0.94,
+      criteriaResults: [
+        {
+          criterionId: 'c2-1',
+          passed: true,
+          evidence: 'Figma tokens verified.',
+          confidence: 0.95,
+        },
+        {
+          criterionId: 'c2-2',
+          passed: true,
+          evidence: 'WCAG AAA contrast verified on all text colors',
+          confidence: 0.94,
+        },
+        {
+          criterionId: 'c2-3',
+          passed: true,
+          evidence: '12 reusable components verified with interactive variants',
+          confidence: 0.93,
+        },
+      ],
+      trace: [
+        {
+          toolName: 'ssrfFetch',
+          summary: 'Fetched live DOM structure and assets with SSRF loopback protections (200 KB cap)',
+          durationMs: 184,
+          status: 'success',
+        },
+        {
+          toolName: 'inspectTokens',
+          summary: 'Verified WCAG AAA color contrast ratios and color token definitions against Figma schema',
+          durationMs: 312,
+          status: 'success',
+        },
+        {
+          toolName: 'checkLighthouseScore',
+          summary: 'Audited mobile performance, accessibility, best practices, and SEO benchmarks (Score: 94/100)',
+          durationMs: 420,
+          status: 'success',
+        },
+        {
+          toolName: 'evaluateCriteria',
+          summary: 'Matched observable criteria against extracted AST evidence using Claude 3.5 Sonnet',
+          durationMs: 540,
+          status: 'success',
+        },
+      ],
+      injectionSuspected: false,
+      latencyMs: 1620,
+      tokens: { input: 950, output: 280 },
+      createdAt: new Date('2026-11-20T11:15:00Z'),
     },
   ];
 
@@ -247,7 +321,7 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
       milestoneId: 'ms-01',
       type: 'released',
       amountCents: 120000,
-      paypalRef: 'PAYOUT-991204-MOCK',
+      paypalRef: 'BATCH-PAYOUT-MS01-MOCK',
       idempotencyKey: 'idemp_release_ms_01',
       meta: { note: 'Milestone 1 payout released to Arjun' },
     },
@@ -288,13 +362,47 @@ export async function seedDatabase(db: AppDatabase): Promise<void> {
   ];
 
   await db.insert(activity).values(activityRows).onConflictDoNothing();
+
+  // 9. Seed Sample Invite for join flow
+  const { invites, receiptShares } = schema;
+  const mockCode = 'MILE-MOCKINVITE';
+  const inviteSecret = process.env.INVITE_SECRET || process.env.SESSION_SECRET || 'milestone-hackathon-invite-secret-32b!';
+  const inviteHash = createHmac('sha256', inviteSecret).update(mockCode).digest('hex');
+  await db
+    .insert(invites)
+    .values({
+      id: 'inv_mock_01',
+      projectId: project.id,
+      createdBy: clientUser.id,
+      tokenHash: inviteHash,
+      codeHash: inviteHash,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      maxUses: 100,
+      usedCount: 0,
+    })
+    .onConflictDoNothing();
+
+  // 10. Seed Sample Receipt Share for verified view
+  const rawShareId = 'mock-share-token';
+  const shareIdHash = createHash('sha256').update(rawShareId).digest('hex');
+  await db
+    .insert(receiptShares)
+    .values({
+      id: 'rcpt_mock_01',
+      milestoneId: 'ms-01',
+      shareIdHash,
+      createdBy: clientUser.id,
+    })
+    .onConflictDoNothing();
 }
 
 /**
  * Completely resets and reseeds demo project data in under 10 seconds.
  */
 export async function resetDemoDatabase(db: AppDatabase): Promise<void> {
-  const { activity, payoutBatches, ledgerEntries, reviews, deliverables, dependencies, milestones, tasks, projects } = schema;
+  const { activity, payoutBatches, ledgerEntries, reviews, deliverables, dependencies, milestones, tasks, projects, invites, receiptShares } = schema;
+  await db.delete(receiptShares);
+  await db.delete(invites);
   await db.delete(activity);
   await db.delete(payoutBatches);
   await db.delete(ledgerEntries);

@@ -17,11 +17,6 @@ import { EvidenceChip, type DeliverableType } from '../../components/ui/Evidence
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { SubmitSlideOver, type DeliverableKind } from '../../components/freelancer/SubmitSlideOver.js';
 import { AppealModal } from '../../components/AppealModal.js';
-import {
-  FALLBACK_MILESTONES,
-  FALLBACK_DELIVERABLES,
-  FALLBACK_REVIEWS,
-} from '../../data/fallbackData.js';
 
 interface DeliverableItem {
   id: string;
@@ -77,7 +72,7 @@ function mapStatusToMoneyState(status: string): MoneyState {
 
 export const FreelancerDeliverablesPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj_brand_launch';
+  const projectId = id || '';
 
   const [milestones, setMilestones] = useState<MilestoneDetails[]>([]);
   const [deliverables, setDeliverables] = useState<DeliverableItem[]>([]);
@@ -90,6 +85,13 @@ export const FreelancerDeliverablesPage: React.FC = () => {
 
   useEffect(() => {
     async function loadData() {
+      if (!projectId) {
+        setMilestones([]);
+        setDeliverables([]);
+        setReviews([]);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       try {
         const [msRes, delivRes, revRes] = await Promise.all([
@@ -108,47 +110,29 @@ export const FreelancerDeliverablesPage: React.FC = () => {
         ]);
 
         if (msRes.ok) {
-          const msData = (await msRes.json()) as MilestoneDetails[];
-          setMilestones(msData);
+          const msData = (await msRes.json()) as any;
+          setMilestones(Array.isArray(msData) ? msData : (msData.milestones || []));
         } else {
-          setMilestones(
-            FALLBACK_MILESTONES.map((m) => ({
-              id: m.id,
-              name: m.name,
-              amountCents: m.amountCents,
-              status: m.status,
-              deliverableType: m.deliverableType,
-              acceptanceCriteria: m.acceptanceCriteria,
-            }))
-          );
+          setMilestones([]);
         }
 
         if (delivRes && delivRes.ok) {
-          const delivData = (await delivRes.json()) as DeliverableItem[];
-          setDeliverables(delivData);
+          const delivData = (await delivRes.json()) as any;
+          setDeliverables(Array.isArray(delivData) ? delivData : (delivData.deliverables || []));
         } else {
-          setDeliverables(FALLBACK_DELIVERABLES as DeliverableItem[]);
+          setDeliverables([]);
         }
 
         if (revRes && revRes.ok) {
-          const revData = (await revRes.json()) as ReviewItem[];
-          setReviews(revData);
+          const revData = (await revRes.json()) as any;
+          setReviews(Array.isArray(revData) ? revData : (revData.reviews || []));
         } else {
-          setReviews(FALLBACK_REVIEWS as ReviewItem[]);
+          setReviews([]);
         }
       } catch {
-        setMilestones(
-          FALLBACK_MILESTONES.map((m) => ({
-            id: m.id,
-            name: m.name,
-            amountCents: m.amountCents,
-            status: m.status,
-            deliverableType: m.deliverableType,
-            acceptanceCriteria: m.acceptanceCriteria,
-          }))
-        );
-        setDeliverables(FALLBACK_DELIVERABLES as DeliverableItem[]);
-        setReviews(FALLBACK_REVIEWS as ReviewItem[]);
+        setMilestones([]);
+        setDeliverables([]);
+        setReviews([]);
       } finally {
         setIsLoading(false);
       }
@@ -174,7 +158,7 @@ export const FreelancerDeliverablesPage: React.FC = () => {
         id: newDeliverableId,
         milestoneId: activeSlideOverMilestone.id,
         kind: activeSlideOverMilestone.deliverableType || 'url',
-        payload: { url: 'https://staging.acme-brand.com' },
+        payload: { url: 'https://example.com/deliverable' },
         submittedAt: new Date().toISOString(),
       },
     ]);
@@ -396,8 +380,9 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                       lineHeight: 1.45,
                     }}
                   >
-                    {milestone.acceptanceCriteria.map((c, i) => {
-                      const criterionEval = review?.evaluatedCriteria.find((ec) => ec.id.includes(String(i + 1)) || ec.reasoning.includes(c));
+                    {((milestone.acceptanceCriteria || (milestone as any).criteria || []) as any[]).map((rawC: any, i: number) => {
+                      const c = typeof rawC === 'string' ? rawC : rawC?.description || rawC?.id || '';
+                      const criterionEval = review?.evaluatedCriteria?.find((ec) => ec.id.includes(String(i + 1)) || ec.reasoning?.includes(c));
                       return (
                         <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                           <span style={{ color: criterionEval?.satisfied ? 'var(--forest)' : 'var(--ink-2)', flexShrink: 0, marginTop: '2px' }}>

@@ -1,13 +1,21 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { startTestServer, type TestServerContext } from './testServer.js';
 
 test.describe('Phase P7: Schedule (Bryntum Gantt) Suite', () => {
-  test.beforeAll(() => {
+  let testEnv: TestServerContext;
+
+  test.beforeAll(async () => {
+    testEnv = await startTestServer();
     const screensDir = path.resolve(process.cwd(), 'docs/screens/p7');
     if (!fs.existsSync(screensDir)) {
       fs.mkdirSync(screensDir, { recursive: true });
     }
+  });
+
+  test.afterAll(async () => {
+    await testEnv.stop();
   });
 
   // =========================================================

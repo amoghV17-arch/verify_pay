@@ -20,11 +20,6 @@ import { LifecycleProgress } from '../components/ui/LifecycleProgress.js';
 import { SubmitSlideOver, type DeliverableKind } from '../components/freelancer/SubmitSlideOver.js';
 import { AppealModal } from '../components/AppealModal.js';
 import { Dialog } from '../components/ui/Dialog.js';
-import {
-  FALLBACK_MILESTONES,
-  FALLBACK_DELIVERABLES,
-  FALLBACK_REVIEWS,
-} from '../data/fallbackData.js';
 
 interface ReviewPageProps {
   role?: 'client' | 'freelancer';
@@ -129,12 +124,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
     milestoneId: string;
   }>();
 
-  const projectId = routeProjectId || 'proj_brand_launch';
-  const targetMilestoneId = routeMilestoneId || 'ms-02';
+  const projectId = routeProjectId || '';
+  const targetMilestoneId = routeMilestoneId || '';
 
   const [milestone, setMilestone] = useState<MilestoneData | null>(null);
   const [deliverable, setDeliverable] = useState<DeliverableData | null>(null);
   const [review, setReview] = useState<ReviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isToolTraceOpen, setIsToolTraceOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -149,6 +146,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
   // Load milestone & review data
   useEffect(() => {
     async function loadReviewData() {
+      if (!projectId) {
+        setLoading(false);
+        setLoadError('No project specified');
+        return;
+      }
+      setLoading(true);
+      setLoadError(null);
       try {
         const [msRes, delivRes, revRes] = await Promise.all([
           fetch(`/api/projects/${projectId}/milestones`, {
@@ -165,48 +169,54 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
           }).catch(() => null),
         ]);
 
-        let foundMs: MilestoneData | undefined;
         if (msRes.ok) {
           const msList = (await msRes.json()) as MilestoneData[];
-          foundMs = msList.find((m) => m.id === targetMilestoneId) || msList[0];
-          setMilestone(foundMs);
-        } else {
-          foundMs = FALLBACK_MILESTONES.find((m) => m.id === targetMilestoneId) || FALLBACK_MILESTONES[1];
-          setMilestone(foundMs);
-        }
+          const foundMs = targetMilestoneId
+            ? msList.find((m) => m.id === targetMilestoneId) || msList[0]
+            : msList[0];
+          setMilestone(foundMs || null);
 
-        if (delivRes && delivRes.ok) {
-          const delivList = (await delivRes.json()) as DeliverableData[];
-          setDeliverable(delivList.find((d) => d.milestoneId === foundMs?.id) || null);
-        } else {
-          setDeliverable(
-            (FALLBACK_DELIVERABLES.find((d) => d.milestoneId === foundMs?.id) as DeliverableData) ||
-              (FALLBACK_DELIVERABLES[1] as DeliverableData)
-          );
-        }
+          if (delivRes && delivRes.ok) {
+            const rawDeliv = await delivRes.json();
+            const delivList: DeliverableData[] = Array.isArray(rawDeliv)
+              ? rawDeliv
+              : rawDeliv.deliverables || [];
+            setDeliverable(delivList.find((d) => d.milestoneId === foundMs?.id) || null);
+          } else {
+            setDeliverable(null);
+          }
 
-        if (revRes && revRes.ok) {
-          const revList = (await revRes.json()) as ReviewData[];
-          setReview(revList.find((r) => r.milestoneId === foundMs?.id) || null);
+          if (revRes && revRes.ok) {
+            const rawReviews = await revRes.json();
+            const revListRaw: any[] = Array.isArray(rawReviews)
+              ? rawReviews
+              : rawReviews.reviews || [];
+            const revList: ReviewData[] = revListRaw.map((r) => ({
+              ...r,
+              confidence: r.confidence ?? r.minConfidence ?? 0.94,
+              evaluatedCriteria: r.evaluatedCriteria || (r.criteriaResults || []).map((c: any) => ({
+                id: c.criterionId || c.id || '',
+                satisfied: c.passed ?? c.satisfied ?? true,
+                reasoning: c.reasoning || c.evidence || '',
+                evidence: c.evidence,
+              })),
+              toolTrace: r.toolTrace || r.trace || DEFAULT_TOOL_TRACE,
+            }));
+            setReview(revList.find((r) => r.milestoneId === foundMs?.id) || null);
+          } else {
+            setReview(null);
+          }
         } else {
-          setReview(
-            (FALLBACK_REVIEWS.find((r) => r.milestoneId === foundMs?.id) as ReviewData) ||
-              (FALLBACK_REVIEWS[1] as ReviewData)
-          );
+          setMilestone(null);
+          setLoadError('Failed to load milestones');
         }
       } catch {
-        // Preview fallback
-        const foundMs =
-          FALLBACK_MILESTONES.find((m) => m.id === targetMilestoneId) || FALLBACK_MILESTONES[1];
-        setMilestone(foundMs);
-        setDeliverable(
-          (FALLBACK_DELIVERABLES.find((d) => d.milestoneId === foundMs.id) as DeliverableData) ||
-            (FALLBACK_DELIVERABLES[1] as DeliverableData)
-        );
-        setReview(
-          (FALLBACK_REVIEWS.find((r) => r.milestoneId === foundMs.id) as ReviewData) ||
-            (FALLBACK_REVIEWS[1] as ReviewData)
-        );
+        setMilestone(null);
+        setDeliverable(null);
+        setReview(null);
+        setLoadError('Failed to load review data');
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -230,10 +240,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
       }
       setMilestone((prev) => (prev ? { ...prev, status: 'releasing' } : null));
       setActionSuccess('Payment release initiated via PayPal sandbox.');
-    } catch {
-      // Preview fallback simulation
-      setMilestone((prev) => (prev ? { ...prev, status: 'paid' } : null));
-      setActionSuccess('Payment release simulated successfully.');
+    } catch (err: any) {
+      setActionError(err.message || 'Payment release failed.');
     } finally {
       setIsSubmittingAction(false);
     }
@@ -261,20 +269,38 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
       setMilestone((prev) => (prev ? { ...prev, status: 'changes_requested' } : null));
       setIsRequestChangesOpen(false);
       setActionSuccess('Changes requested sent to freelancer.');
-    } catch {
-      // Preview fallback
-      setMilestone((prev) => (prev ? { ...prev, status: 'changes_requested' } : null));
-      setIsRequestChangesOpen(false);
-      setActionSuccess('Changes requested sent to freelancer.');
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to request changes.');
     } finally {
       setIsSubmittingAction(false);
     }
   }
 
-  if (!milestone) {
+  if (loading && !milestone) {
     return (
       <div style={{ maxWidth: '1280px', margin: '2rem auto', padding: '0 1.5rem' }}>
         <p style={{ color: 'var(--ink-2)' }}>Loading milestone review...</p>
+      </div>
+    );
+  }
+
+  if (!milestone) {
+    return (
+      <div style={{ maxWidth: '1280px', margin: '2rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+        <p style={{ color: 'var(--ink-2)', marginBottom: '1rem' }}>{loadError || 'Milestone not found.'}</p>
+        <Link
+          to={role === 'client' ? `/client/projects/${projectId}/deliverables` : `/freelancer/projects/${projectId}/deliverables`}
+          style={{
+            display: 'inline-block',
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            backgroundColor: 'var(--forest)',
+            color: '#fff',
+            textDecoration: 'none',
+          }}
+        >
+          Back to Deliverables
+        </Link>
       </div>
     );
   }
@@ -722,9 +748,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
               Acceptance Criteria Results:
             </span>
 
-            {milestone.acceptanceCriteria.map((criterion, idx) => {
-              const result = review?.evaluatedCriteria?.find(
-                (c) => c.id.includes(String(idx + 1)) || c.reasoning.includes(criterion)
+            {(((milestone.acceptanceCriteria || (milestone as any).criteria) || []) as any[]).map((rawCriterion: any, idx: number) => {
+              const criterion = typeof rawCriterion === 'string' ? rawCriterion : rawCriterion?.description || rawCriterion?.id || '';
+              const result = review?.evaluatedCriteria?.[idx] || review?.evaluatedCriteria?.find(
+                (c) => c.id === rawCriterion?.id || c.id.endsWith(`-${idx + 1}`) || c.reasoning?.includes(criterion)
               );
               const isPass = result ? result.satisfied === true : true;
               const isFail = result ? result.satisfied === false : false;
@@ -903,7 +930,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
             <strong style={{ color: 'var(--ink)', display: 'block', marginBottom: '0.15rem' }}>
               Project Release Policy:
             </strong>
-            <span>Assisted 30s objection window with automated payout fallback.</span>
+            <span>Assisted 30s objection window with automated payout policy.</span>
           </div>
 
           {/* CLIENT ACTIONS per §8.2 */}

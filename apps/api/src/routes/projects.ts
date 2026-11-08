@@ -12,6 +12,19 @@ import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
   const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews } = schema;
 
+  function formatMilestoneRecord(m: any) {
+    const criteriaList: string[] = Array.isArray(m.criteria)
+      ? m.criteria.map((c: any) => (typeof c === 'string' ? c : c?.description || c?.id || ''))
+      : [];
+    return {
+      ...m,
+      title: m.title || m.name,
+      name: m.name || m.title,
+      paymentStatus: m.paymentStatus || m.status,
+      acceptanceCriteria: criteriaList,
+    };
+  }
+
   // List all projects accessible to current user
   server.get('/api/projects', async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDb();
@@ -87,7 +100,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         project: projectDto,
         client,
         freelancer,
-        milestones: projMilestones,
+        milestones: projMilestones.map(formatMilestoneRecord),
         ledger: {
           entries: projLedger,
           totalCents: proj.totalCents,
@@ -179,8 +192,114 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         success: true,
         tasks: taskRows,
         dependencies: depRows,
-        milestones: milestoneRows,
+        milestones: milestoneRows.map(formatMilestoneRecord),
       });
+    }
+  );
+
+  // List milestones for a project
+  server.get<{ Params: { id: string } }>(
+    '/api/projects/:id/milestones',
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+      const projMilestones = await db
+        .select()
+        .from(milestones)
+        .where(eq(milestones.projectId, id))
+        .orderBy(milestones.createdAt);
+      return reply.send(projMilestones.map(formatMilestoneRecord));
+    }
+  );
+
+  // List deliverables and associated reviews/milestones for a project
+  server.get<{ Params: { id: string } }>(
+    '/api/projects/:id/deliverables',
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+
+      const projMilestones = await db
+        .select()
+        .from(milestones)
+        .where(eq(milestones.projectId, id))
+        .orderBy(milestones.createdAt);
+
+      const projDeliverables = await db
+        .select({
+          id: deliverables.id,
+          milestoneId: deliverables.milestoneId,
+          kind: deliverables.kind,
+          payload: deliverables.payload,
+          submittedBy: deliverables.submittedBy,
+          submittedAt: deliverables.submittedAt,
+        })
+        .from(deliverables)
+        .innerJoin(milestones, eq(deliverables.milestoneId, milestones.id))
+        .where(eq(milestones.projectId, id))
+        .orderBy(desc(deliverables.submittedAt));
+
+      const projReviews = await db
+        .select({
+          id: reviews.id,
+          milestoneId: reviews.milestoneId,
+          deliverableId: reviews.deliverableId,
+          kind: reviews.kind,
+          model: reviews.model,
+          promptVersion: reviews.promptVersion,
+          trace: reviews.trace,
+          criteriaResults: reviews.criteriaResults,
+          verdict: reviews.verdict,
+          minConfidence: reviews.minConfidence,
+          injectionSuspected: reviews.injectionSuspected,
+          latencyMs: reviews.latencyMs,
+          tokens: reviews.tokens,
+          createdAt: reviews.createdAt,
+        })
+        .from(reviews)
+        .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
+        .where(eq(milestones.projectId, id))
+        .orderBy(desc(reviews.createdAt));
+
+      return reply.send({
+        success: true,
+        deliverables: projDeliverables,
+        milestones: projMilestones.map(formatMilestoneRecord),
+        reviews: projReviews,
+      });
+    }
+  );
+
+  // List reviews for a project
+  server.get<{ Params: { id: string } }>(
+    '/api/projects/:id/reviews',
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+
+      const projReviews = await db
+        .select({
+          id: reviews.id,
+          milestoneId: reviews.milestoneId,
+          deliverableId: reviews.deliverableId,
+          kind: reviews.kind,
+          model: reviews.model,
+          promptVersion: reviews.promptVersion,
+          trace: reviews.trace,
+          criteriaResults: reviews.criteriaResults,
+          verdict: reviews.verdict,
+          minConfidence: reviews.minConfidence,
+          injectionSuspected: reviews.injectionSuspected,
+          latencyMs: reviews.latencyMs,
+          tokens: reviews.tokens,
+          createdAt: reviews.createdAt,
+        })
+        .from(reviews)
+        .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
+        .where(eq(milestones.projectId, id))
+        .orderBy(desc(reviews.createdAt));
+
+      return reply.send(projReviews);
     }
   );
 

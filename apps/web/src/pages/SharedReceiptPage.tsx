@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../components/ui/Button.js';
-import { FALLBACK_PROJECT, FALLBACK_MILESTONES } from '../data/fallbackData.js';
 
 interface ReceiptData {
   shareId: string;
@@ -60,37 +59,6 @@ export const SharedReceiptPage: React.FC = () => {
         const res = await fetch(`/api/receipts/shared/${encodeURIComponent(shareId)}`);
 
         if (!res.ok) {
-          // If shareId is a test mock id e.g. "mock-share-token" or starts with "share_", use preview fallback
-          if (shareId === 'mock-share-token' || shareId.startsWith('sample') || shareId.startsWith('share_') || shareId === 'test-share') {
-            setReceipt({
-              shareId,
-              project: {
-                id: FALLBACK_PROJECT.id,
-                title: FALLBACK_PROJECT.title,
-              },
-              client: {
-                name: 'Sarah Lin',
-              },
-              freelancer: {
-                name: 'Arjun Mehta',
-              },
-              milestone: {
-                id: FALLBACK_MILESTONES[0].id,
-                name: FALLBACK_MILESTONES[0].name,
-                amountCents: FALLBACK_MILESTONES[0].amountCents,
-                status: 'paid',
-              },
-              ledger: {
-                amountCents: FALLBACK_MILESTONES[0].amountCents,
-                timestamp: '2026-11-03T16:30:00.000Z',
-                paypalPayoutBatchId: 'BATCH-PAYOUT-MS01-MOCK',
-              },
-              sharedAt: new Date().toISOString(),
-            });
-            setIsLoading(false);
-            return;
-          }
-
           throw new Error('This receipt share link is invalid or has been revoked.');
         }
 
@@ -101,36 +69,8 @@ export const SharedReceiptPage: React.FC = () => {
           throw new Error('This receipt share link is invalid or has been revoked.');
         }
       } catch (err) {
-        if (shareId === 'mock-share-token' || shareId.startsWith('sample') || shareId.startsWith('share_') || shareId === 'test-share') {
-          setReceipt({
-            shareId,
-            project: {
-              id: FALLBACK_PROJECT.id,
-              title: FALLBACK_PROJECT.title,
-            },
-            client: {
-              name: 'Sarah Lin',
-            },
-            freelancer: {
-              name: 'Arjun Mehta',
-            },
-            milestone: {
-              id: FALLBACK_MILESTONES[0].id,
-              name: FALLBACK_MILESTONES[0].name,
-              amountCents: FALLBACK_MILESTONES[0].amountCents,
-              status: 'paid',
-            },
-            ledger: {
-              amountCents: FALLBACK_MILESTONES[0].amountCents,
-              timestamp: '2026-11-03T16:30:00.000Z',
-              paypalPayoutBatchId: 'BATCH-PAYOUT-MS01-MOCK',
-            },
-            sharedAt: new Date().toISOString(),
-          });
-        } else {
-          setErrorMessage(err instanceof Error ? err.message : 'This receipt share link is invalid or has been revoked.');
-          setReceipt(null);
-        }
+        setErrorMessage(err instanceof Error ? err.message : 'This receipt share link is invalid or has been revoked.');
+        setReceipt(null);
       } finally {
         setIsLoading(false);
       }
@@ -209,8 +149,10 @@ export const SharedReceiptPage: React.FC = () => {
     );
   }
 
+  const clientName = receipt.client?.name || (receipt as any).project?.clientName || 'Project Client';
+  const freelancerName = receipt.freelancer?.name || (receipt as any).project?.freelancerName || 'Verified Freelancer';
   const transactionBatch =
-    receipt.ledger?.paypalPayoutBatchId || `BATCH-PAYOUT-${receipt.milestone.id.toUpperCase()}-MOCK`;
+    receipt.ledger?.paypalPayoutBatchId || (receipt as any).settlement?.paypalRef || 'Pending Settlement';
 
   return (
     <div
@@ -320,12 +262,12 @@ export const SharedReceiptPage: React.FC = () => {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.6rem' }}>
             <span style={{ color: 'var(--ink-2)' }}>Project Client</span>
-            <span style={{ color: 'var(--ink)' }}>{receipt.client.name}</span>
+            <span style={{ color: 'var(--ink)' }}>{clientName}</span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.6rem' }}>
             <span style={{ color: 'var(--ink-2)' }}>Recipient Freelancer</span>
-            <span style={{ color: 'var(--ink)' }}>{receipt.freelancer?.name || 'Verified Freelancer'}</span>
+            <span style={{ color: 'var(--ink)' }}>{freelancerName}</span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.6rem' }}>

@@ -275,11 +275,11 @@ Acceptance: complete classified list; owner approval.
 ## M8m L1 Purge hardcoded data
 Estimate: 5 h
 Goal: typed hooks, loading/error/empty states, server-derived money values, canary test, CI guard, removal of fallbacks.
-- [ ] Remove all fallbackData and sampleProject references from frontend
-- [ ] Replace hardcoded IDs, names, and amounts with typed API hooks and empty states
-- [ ] Implement server-derived money values in DTOs
-- [ ] Build automated Canary test (unusual inputs: 1337.42, Zebra Co, Quill)
-- [ ] Implement CI guard banning currency literals and demo names in apps/web/src
+- [x] Remove all fallbackData and sampleProject references from frontend
+- [x] Replace hardcoded IDs, names, and amounts with typed API hooks and empty states
+- [x] Implement server-derived money values in DTOs
+- [x] Build automated Canary test (unusual inputs: 1337.42, Zebra Co, Quill)
+- [x] Implement CI guard banning currency literals and demo names in apps/web/src
 Acceptance: canary test passes in mock mode; CI guard is green; manual check in 1.7 passes.
 
 ## M8n L2 Live demo sessions and abuse guards

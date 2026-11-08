@@ -30,7 +30,7 @@ export const SettlementReceiptCard: React.FC<SettlementReceiptCardProps> = ({
   milestoneTitle,
   amountCents,
   recipientName,
-  recipientEmail = 'arjun.freelancer@example.com',
+  recipientEmail = '',
   paypalPayoutBatchId,
   timestamp,
   ledgerEntryId,

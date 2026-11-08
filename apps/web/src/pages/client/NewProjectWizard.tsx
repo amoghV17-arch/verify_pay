@@ -305,20 +305,22 @@ export const NewProjectWizard: React.FC = () => {
           'X-Persona': 'freelancer',
         },
         body: JSON.stringify({
-          name: 'Arjun Mehta',
-          email: 'arjun@example.com',
+          name: 'Freelancer Partner',
+          email: 'freelancer@sandbox.paypal.com',
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        setAcceptedFreelancer({
-          name: data.freelancer?.name || 'Arjun Mehta',
-          email: data.freelancer?.email || 'arjun@example.com',
-        });
+        if (data.freelancer) {
+          setAcceptedFreelancer({
+            name: data.freelancer.name,
+            email: data.freelancer.email,
+          });
+        }
       }
-    } catch (err) {
-      console.error('Simulate accept failed:', err);
+    } catch {
+      // ignore
     }
   };
 

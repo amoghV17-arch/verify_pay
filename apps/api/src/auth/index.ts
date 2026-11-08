@@ -110,7 +110,7 @@ async function authPlugin(server: FastifyInstance): Promise<void> {
       const { persona, userId } = request.body || {};
       const targetRole = persona || (userId === 'user_freelancer_01' ? 'freelancer' : 'client');
       const targetUserId = userId || (targetRole === 'freelancer' ? 'user_freelancer_01' : 'user_client_01');
-      const targetName = targetRole === 'client' ? 'Sarah Lin (Acme Corp)' : 'Arjun Mehta';
+      const targetName = targetRole === 'client' ? 'Client' : 'Freelancer';
 
       const token = await createSessionToken({
         userId: targetUserId,
@@ -139,7 +139,7 @@ async function authPlugin(server: FastifyInstance): Promise<void> {
         user: {
           id: 'user_client_01',
           role: 'client',
-          name: 'Sarah Lin (Acme Corp)',
+          name: 'Client',
         },
       });
     }
@@ -149,7 +149,7 @@ async function authPlugin(server: FastifyInstance): Promise<void> {
       user: {
         id: request.user.userId,
         role: request.user.role,
-        name: request.user.name || (request.user.role === 'client' ? 'Sarah Lin (Acme Corp)' : 'Arjun Mehta'),
+        name: request.user.name || (request.user.role === 'client' ? 'Client' : 'Freelancer'),
       },
     });
   });

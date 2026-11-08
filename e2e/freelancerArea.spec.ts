@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { startTestServer, type TestServerContext } from './testServer.js';
 
 const BREAKPOINTS = [
   { name: '1440', width: 1440, height: 900 },
@@ -10,11 +11,18 @@ const BREAKPOINTS = [
 ];
 
 test.describe('Phase P5: Freelancer Area Suite', () => {
-  test.beforeAll(() => {
+  let testEnv: TestServerContext;
+
+  test.beforeAll(async () => {
+    testEnv = await startTestServer();
     const screensDir = path.resolve(process.cwd(), 'docs/screens/p5');
     if (!fs.existsSync(screensDir)) {
       fs.mkdirSync(screensDir, { recursive: true });
     }
+  });
+
+  test.afterAll(async () => {
+    await testEnv.stop();
   });
 
   // =========================================================

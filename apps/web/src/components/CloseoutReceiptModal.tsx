@@ -32,9 +32,11 @@ export const CloseoutReceiptModal: React.FC<CloseoutReceiptModalProps> = ({
   onClose,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleDownloadAuditJson = async () => {
     setIsExporting(true);
+    setExportError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/audit`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch audit trail');
@@ -50,25 +52,7 @@ export const CloseoutReceiptModal: React.FC<CloseoutReceiptModalProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // offline fallback: generate client-side record
-      const fallbackAudit = {
-        exportTimestamp: new Date().toISOString(),
-        projectId,
-        projectTitle,
-        totalBudget,
-        paidTotal,
-        heldTotal,
-        milestones,
-      };
-      const blob = new Blob([JSON.stringify(fallbackAudit, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `milestone-audit-${projectId}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setExportError('Failed to export audit trail. Please check your connection and retry.');
     } finally {
       setIsExporting(false);
     }
@@ -290,28 +274,33 @@ export const CloseoutReceiptModal: React.FC<CloseoutReceiptModalProps> = ({
             justifyContent: 'space-between',
           }}
         >
-          <button
-            id="download-audit-btn"
-            type="button"
-            onClick={handleDownloadAuditJson}
-            disabled={isExporting}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: 'var(--paper)',
-              color: 'var(--ink)',
-              border: '1px solid var(--line)',
-              borderRadius: '4px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              cursor: isExporting ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-            }}
-          >
-            <span>📥</span>
-            <span>{isExporting ? 'Exporting...' : 'Export Audit Trail (JSON)'}</span>
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <button
+              id="download-audit-btn"
+              type="button"
+              onClick={handleDownloadAuditJson}
+              disabled={isExporting}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'var(--paper)',
+                color: 'var(--ink)',
+                border: '1px solid var(--line)',
+                borderRadius: '4px',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                cursor: isExporting ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <span>📥</span>
+              <span>{isExporting ? 'Exporting...' : 'Export Audit Trail (JSON)'}</span>
+            </button>
+            {exportError && (
+              <span style={{ color: 'var(--red)', fontSize: '0.75rem' }}>{exportError}</span>
+            )}
+          </div>
 
           <button
             type="button"

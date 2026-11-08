@@ -16,10 +16,17 @@ export interface SubmitSlideOverProps {
   onSubmitted?: (deliverableId: string) => void;
 }
 
-const KIND_LABELS: Record<DeliverableKind, { label: string; placeholder: string; helper: string }> = {
+function normalizeKind(k?: string): DeliverableKind {
+  if (k === 'code_repo') return 'repo';
+  if (k === 'figma') return 'document';
+  if (k === 'url' || k === 'repo' || k === 'document' || k === 'text' || k === 'image') return k;
+  return 'url';
+}
+
+const KIND_LABELS: Record<string, { label: string; placeholder: string; helper: string }> = {
   url: {
     label: 'Live Website / URL',
-    placeholder: 'https://staging.acme-brand.com',
+    placeholder: 'https://staging.example.com',
     helper: 'Publicly reachable HTTPS link. The AI reviewer will fetch the DOM and verify assets.',
   },
   repo: {
@@ -27,7 +34,17 @@ const KIND_LABELS: Record<DeliverableKind, { label: string; placeholder: string;
     placeholder: 'https://github.com/username/project-repo',
     helper: 'Public GitHub or Git repo URL. Reviewer will inspect commit history and file structure.',
   },
+  code_repo: {
+    label: 'GitHub Repository',
+    placeholder: 'https://github.com/username/project-repo',
+    helper: 'Public GitHub or Git repo URL. Reviewer will inspect commit history and file structure.',
+  },
   document: {
+    label: 'Document / Design Spec',
+    placeholder: 'https://figma.com/file/... or https://docs.google.com/...',
+    helper: 'Public share link or document link with view permissions.',
+  },
+  figma: {
     label: 'Document / Design Spec',
     placeholder: 'https://figma.com/file/... or https://docs.google.com/...',
     helper: 'Public share link or document link with view permissions.',
@@ -39,7 +56,7 @@ const KIND_LABELS: Record<DeliverableKind, { label: string; placeholder: string;
   },
   image: {
     label: 'Image / Asset URL',
-    placeholder: 'https://assets.acme.com/exports/hero-banner.png',
+    placeholder: 'https://assets.example.com/exports/hero-banner.png',
     helper: 'Direct public link to PNG, JPG, or SVG asset.',
   },
 };
@@ -74,7 +91,7 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setKind(initialKind);
+      setKind(normalizeKind(initialKind));
       setContent('');
       setNotes('');
       setError(null);
