@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-11-08T14:13:31.760Z",
+  "projectId": "proj_acceptance_live_133742",
+  "totalBudget": "$1,337.42 USD",
+  "reconciliationMatches": true,
+  "checksPassed": 6,
+  "totalChecks": 10,
+  "externalCallsCount": 0
+}

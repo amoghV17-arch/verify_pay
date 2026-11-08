@@ -63,6 +63,12 @@ const ALLOW_LIST: AllowedMatch[] = [
     pattern: 'demo_name',
     reason: 'Evaluator 1-click deliverable presets for testing automated review in demo mode',
   },
+  {
+    // Mode truth banner disclosing simulation/mock status per LIVE_PROOF.md §3.2
+    file: 'components/ui/ModeTruthBanner.tsx',
+    pattern: 'mock_or_fixture',
+    reason: 'Mode truth banner alerting evaluator when backend reports simulated or mock mode per §3.2',
+  },
 ];
 
 function findFiles(dir: string, extensions: string[]): string[] {

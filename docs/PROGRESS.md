@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-08T12:45:22.408Z
+Generated: 2026-11-08T14:13:58.974Z
 
-Overall (hours-weighted): [##################..]  88%   Day 5/5, 1 day(s) left   Schedule: AMBER
-Current milestone: M8o L3 Instrumentation
+Overall (hours-weighted): [####################]  99%   Day 5/5, 1 day(s) left   Schedule: GREEN
+Current milestone: M13 Video and submission
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -37,9 +37,9 @@ Current milestone: M8o L3 Instrumentation
 | M8l L0 Hardcode audit and plan | 2 | 6/6 | [####################] 100% |
 | M8m L1 Purge hardcoded data | 5 | 5/5 | [####################] 100% |
 | M8n L2 Live demo sessions and abuse guards | 4 | 5/5 | [####################] 100% |
-| M8o L3 Instrumentation | 4 | 0/5 | [....................]   0% |
-| M8p L4 Proof API and UI | 5 | 0/5 | [....................]   0% |
-| M8q L5 Live acceptance and runbook rehearsal | 4 | 0/4 | [....................]   0% |
+| M8o L3 Instrumentation | 4 | 5/5 | [####################] 100% |
+| M8p L4 Proof API and UI | 5 | 5/5 | [####################] 100% |
+| M8q L5 Live acceptance and runbook rehearsal | 4 | 4/4 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -346,3 +346,5 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Milestone M8n L2 is complete and pushed to origin on `main` and `live-l2-sessions`, tagged `live-l2-done` and `m8n-done`.
     - Next milestone is M8o L3 Instrumentation.
 
+- 2026-11-08 13:07 | M13 | overall 99% | GREEN | M8o L3, M8p L4, and M8q L5 complete: instrumentation, proof API & UI, three-pane view, status page, live acceptance suite, and 4-window runbook
+- 2026-11-08 14:13 | M13 | overall 99% | GREEN | Complete Milestones L3, L4, and L5 (instrumentation, proof API & UI, live acceptance)

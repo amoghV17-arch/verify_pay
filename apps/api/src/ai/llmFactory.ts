@@ -3,6 +3,7 @@ import { FixtureAdapter } from './adapters/fixtureAdapter.js';
 import { AnthropicAdapter } from './adapters/anthropicAdapter.js';
 import { GeminiAdapter } from './adapters/geminiAdapter.js';
 import { OpenAiAdapter } from './adapters/openAiAdapter.js';
+import { InstrumentedLlmPort } from './instrumentedLlm.js';
 
 let customAdapter: LlmPort | null = null;
 
@@ -12,7 +13,7 @@ export function setCustomLlmAdapter(adapter: LlmPort | null): void {
 
 export function createLlmPort(config: Partial<AppConfig> = {}): LlmPort {
   if (customAdapter) {
-    return customAdapter;
+    return new InstrumentedLlmPort(customAdapter);
   }
 
   const provider = config.LLM_PROVIDER || process.env.LLM_PROVIDER;
@@ -22,7 +23,7 @@ export function createLlmPort(config: Partial<AppConfig> = {}): LlmPort {
 
   // Use fixtures only when LLM_PROVIDER=fixture is set explicitly
   if (provider === 'fixture') {
-    return new FixtureAdapter();
+    return new InstrumentedLlmPort(new FixtureAdapter());
   }
 
   if (!provider) {
@@ -37,15 +38,21 @@ export function createLlmPort(config: Partial<AppConfig> = {}): LlmPort {
     );
   }
 
+  let port: LlmPort;
   switch (provider) {
     case 'anthropic':
-      return new AnthropicAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      port = new AnthropicAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      break;
     case 'gemini':
-      return new GeminiAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      port = new GeminiAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      break;
     case 'openai-compatible':
-      return new OpenAiAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      port = new OpenAiAdapter({ apiKey, model: model || undefined, baseUrl: baseUrl || undefined });
+      break;
     default:
       throw new Error(`[LLM Configuration Error] Unsupported LLM_PROVIDER "${provider}".`);
   }
+
+  return new InstrumentedLlmPort(port);
 }
 

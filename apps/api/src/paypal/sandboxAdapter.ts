@@ -28,12 +28,17 @@ export class SandboxPayPalAdapter implements PayPalPort {
   // In-memory token cache
   private cachedToken: string | null = null;
   private tokenExpiresAt = 0;
+  private lastDebugId: string | null = null;
 
   constructor(config: SandboxPayPalConfig) {
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
     this.webhookId = config.webhookId;
     this.baseUrl = config.baseUrl || 'https://api-m.sandbox.paypal.com';
+  }
+
+  getLastDebugId(): string | null {
+    return this.lastDebugId;
   }
 
   /**
@@ -83,6 +88,8 @@ export class SandboxPayPalAdapter implements PayPalPort {
       ...options,
       headers,
     });
+
+    this.lastDebugId = res.headers.get('paypal-debug-id');
 
     if (res.status === 401 && !retried) {
       // Clear token and retry once

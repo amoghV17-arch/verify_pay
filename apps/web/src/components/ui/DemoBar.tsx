@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Sparkles, ChevronRight, RotateCcw, Split, Key, Check, Copy } from 'lucide-react';
+import { ModeTruthBanner } from './ModeTruthBanner.js';
 
 export interface DemoBarProps {
   currentStep?: number;
@@ -202,6 +203,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
         ...style,
       }}
     >
+      <ModeTruthBanner showWhenLive={false} />
       {/* Top row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>

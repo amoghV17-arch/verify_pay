@@ -15,6 +15,8 @@ import { registerMilestoneRoutes } from './routes/milestones.js';
 import { registerInviteRoutes } from './routes/invites.js';
 import { registerReceiptShareRoutes } from './routes/receiptShares.js';
 import { registerDemoRoutes } from './routes/demo.js';
+import { registerSystemRoutes } from './routes/system.js';
+import { registerProofRoutes } from './routes/proof.js';
 import { createPayPalAdapter } from './paypal/index.js';
 import { createLlmPort } from './ai/llmFactory.js';
 
@@ -97,6 +99,8 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   server.register(registerInviteRoutes);
   server.register(registerReceiptShareRoutes);
   server.register(registerDemoRoutes);
+  server.register(registerSystemRoutes);
+  server.register(registerProofRoutes);
 
   // Health check endpoint for Render and local checks per ARCHITECTURE.md
   server.get('/healthz', async () => {

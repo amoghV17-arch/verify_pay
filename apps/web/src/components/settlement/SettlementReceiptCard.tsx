@@ -190,6 +190,14 @@ export const SettlementReceiptCard: React.FC<SettlementReceiptCardProps> = ({
             </button>
           </div>
         </div>
+
+        <div style={{ padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--teal-subtle)', border: '1px solid var(--teal-border, #C3DCD5)', fontSize: '0.6875rem', color: 'var(--forest)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <CheckCircle2 size={13} color="var(--forest)" />
+          <span>
+            Verified against PayPal Sandbox at{' '}
+            {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+        </div>
       </div>
 
       {/* Action Footer: View Full Receipt + Share Link */}

@@ -295,30 +295,30 @@ Acceptance: two browsers run two independent demo projects at once without inter
 ## M8o L3 Instrumentation
 Estimate: 4 h
 Goal: external_calls table, call logging without secrets/bodies, mode truth API, red banner on simulation.
-- [ ] Create external_calls table and migration
-- [ ] Wrap PayPal adapter and LLM port with call duration and debug ID logging
-- [ ] Implement GET /api/system/mode truth endpoint
-- [ ] Implement mode truth banner in UI (red banner when mock/fixture in demo mode)
-- [ ] Expose read-only webhook receipt log from paypal_events
+- [x] Create external_calls table and migration
+- [x] Wrap PayPal adapter and LLM port with call duration and debug ID logging
+- [x] Implement GET /api/system/mode truth endpoint
+- [x] Implement mode truth banner in UI (red banner when mock/fixture in demo mode)
+- [x] Expose read-only webhook receipt log from paypal_events
 Acceptance: after one run, call log lists real PayPal and LLM calls with debug IDs and durations.
 
 ## M8p L4 Proof API and UI
 Estimate: 5 h
 Goal: proof reconciliation API, three-pane split view, /status page, settlement receipt verification.
-- [ ] Build GET /api/proof/projects/:id with environment and money reconciliation checks
-- [ ] Build /demo/proof page and client Proof tab with reconciliation table and call tape
-- [ ] Upgrade /demo/split to three-pane view (Client | Freelancer | PayPal truth)
-- [ ] Build public /status health page (cached 10s, zero secrets)
-- [ ] Enhance settlement receipt with live PayPal reconciliation timestamp and debug IDs
+- [x] Build GET /api/proof/projects/:id with environment and money reconciliation checks
+- [x] Build /demo/proof page and client Proof tab with reconciliation table and call tape
+- [x] Upgrade /demo/split to three-pane view (Client | Freelancer | PayPal truth)
+- [x] Build public /status health page (cached 10s, zero secrets)
+- [x] Enhance settlement receipt with live PayPal reconciliation timestamp and debug IDs
 Acceptance: every reconciliation row matches; artificially introduced mismatch detected.
 
 ## M8q L5 Live acceptance and runbook rehearsal
 Estimate: 4 h
 Goal: automated live acceptance script and manual 4-window side-by-side verification runbook.
-- [ ] Implement pnpm acceptance:live Playwright script
-- [ ] Execute 4-window side-by-side runbook (Client, Freelancer, Freelancer Sandbox, Business Sandbox)
-- [ ] Verify balance changes on PayPal sandbox accounts
-- [ ] Save acceptance run results and evidence screenshots
+- [x] Implement pnpm acceptance:live Playwright script
+- [x] Execute 4-window side-by-side runbook (Client, Freelancer, Freelancer Sandbox, Business Sandbox)
+- [x] Verify balance changes on PayPal sandbox accounts
+- [x] Save acceptance run results and evidence screenshots
 Acceptance: acceptance:live passes twice in a row against deployed app; manual runbook matches all steps.
 
 ## M9 The settle moment and polish (feature freeze)

@@ -23,6 +23,7 @@
     "wake": "node scripts/wake.mjs",
     "demo:reset": "node scripts/demo-reset.mjs",
     "demo:check": "node scripts/demo-check.mjs",
+    "acceptance:live": "playwright test e2e/acceptanceLive.spec.ts",
     "verify": "node scripts/verify.mjs"
   },
   "devDependencies": {

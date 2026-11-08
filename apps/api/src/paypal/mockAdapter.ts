@@ -18,6 +18,11 @@ export interface MockPayPalOptions {
 
 export class MockPayPalAdapter implements PayPalPort {
   readonly mode = 'mock' as const;
+  private lastDebugId: string | null = null;
+
+  getLastDebugId(): string | null {
+    return this.lastDebugId || `mock_dbg_${Date.now()}`;
+  }
 
   private orders = new Map<
     string,

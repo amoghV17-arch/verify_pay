@@ -195,6 +195,24 @@ export const receiptShares = pgTable('receipt_shares', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// --- External Calls (Instrumentation) ---
+export const externalCalls = pgTable('external_calls', {
+  id: text('id').primaryKey(),
+  at: timestamp('at', { withTimezone: true }).defaultNow().notNull(),
+  service: text('service').notNull(), // 'paypal' | 'llm' | 'github'
+  method: text('method').notNull(),
+  endpointTemplate: text('endpoint_template').notNull(),
+  status: integer('status'),
+  durationMs: integer('duration_ms').notNull(),
+  requestId: text('request_id'),
+  providerDebugId: text('provider_debug_id'),
+  projectId: text('project_id'),
+  milestoneId: text('milestone_id'),
+  ok: boolean('ok').notNull(),
+  errorCode: text('error_code'),
+  meta: jsonb('meta'), // { model, inputTokens, outputTokens } - NEVER bodies or secrets
+});
+
 // --- Relations ---
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   client: one(users, { fields: [projects.clientId], references: [users.id] }),

@@ -12,3 +12,4 @@ export * from './EvidenceChip.js';
 export * from './ProjectRow.js';
 export * from './DemoBar.js';
 export * from './InspectorPanel.js';
+export * from './ModeTruthBanner.js';

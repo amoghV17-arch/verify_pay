@@ -23,6 +23,8 @@ import { ReviewPage } from './pages/ReviewPage.js';
 import { SharedReceiptPage } from './pages/SharedReceiptPage.js';
 import { SplitDemoPage } from './pages/demo/SplitDemoPage.js';
 import { DemoLandingPage } from './pages/demo/DemoLandingPage.js';
+import { ProofPage } from './pages/demo/ProofPage.js';
+import { StatusPage } from './pages/StatusPage.js';
 import { ScheduleSkeleton } from './components/schedule/ScheduleSkeleton.js';
 
 // Lazy-loaded Legacy Workspace App (for ?workspace=true)
@@ -136,6 +138,14 @@ export const router = createBrowserRouter([
     path: '/demo/split',
     element: <SplitDemoPage />,
   },
+  {
+    path: '/demo/proof',
+    element: <ProofPage />,
+  },
+  {
+    path: '/status',
+    element: <StatusPage />,
+  },
 
   // Client Area Shell (Section 6)
   {
@@ -181,6 +191,10 @@ export const router = createBrowserRouter([
       {
         path: 'projects/:id/activity',
         element: <ClientActivityPage />,
+      },
+      {
+        path: 'projects/:id/proof',
+        element: <ProofPage />,
       },
     ],
   },

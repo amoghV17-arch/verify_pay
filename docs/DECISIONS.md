@@ -681,6 +681,38 @@ flowchart TD
 - **Decision:** Configured `pool: 'forks'` in `vitest.config.ts`.
 - **Why:** Isolates memory allocations for each test file into a dedicated Node.js child process, completely eliminating WebAssembly memory management collisions and stabilizing the local verification pipeline.
 
+## Phase L3 Instrumentation Decisions
+
+### Zero-Leak Outbound Telemetry Logging (`external_calls`)
+- **Context:** Judges require proof of live external API calls to PayPal and LLM models with durations and debug IDs, but logging raw request or response payloads could expose secrets, prompt injections, or customer information.
+- **Decision:** Created the `external_calls` table and logging wrapper (`apps/api/src/services/externalCalls.ts`) recording HTTP method, endpoint template, status, duration, request ID, `PayPal-Debug-Id`, and token metadata. Explicitly sanitized and excluded request/response bodies and authorization headers. Wrapped `PayPalPort` and `LlmPort` so every call is recorded non-blockingly with a 5,000-row retention window.
+- **Why:** Delivers incontrovertible live telemetry to evaluators with exact timestamps and PayPal debug IDs while guaranteeing zero secret or prompt leaks.
+
+### Mode Truth API and Simulation Warning Banner
+- **Context:** To ensure honesty, evaluators must know whether the deployed app is executing live PayPal Sandbox operations and live AI models or running local mock adapters and test fixtures.
+- **Decision:** Implemented `GET /api/system/mode` returning real-time adapter state, and mounted `ModeTruthBanner.tsx` in `DemoBar` and on the Proof dashboard. If PayPal is `mock` or the LLM is `fixture` while in demo mode, a prominent red banner warns: *"Not live: this demo is using simulated payments or AI."* When live, a green badge confirms sandbox and live model connectivity.
+- **Why:** Fully complies with honesty rules, preventing simulated or mock runs from ever masquerading as live transactions.
+
+## Phase L4 Proof API and UI Decisions
+
+### Real-Time Ledger vs. PayPal Truth Reconciliation Engine
+- **Context:** Demonstrating that milestone money movement is real requires auditing our database ledger directly against PayPal's Orders and Payouts APIs.
+- **Decision:** Implemented `GET /api/proof/projects/:id` which compares ledger entries against PayPal API captures and payout batch items. Performs 14 specific environment and financial checks (OAuth reachability, sandbox mode, webhook delivery, capture match, payout item success, milestone amount conservation, non-negative held balance). Built `/demo/proof` with an interactive reconciliation table, copyable chip IDs, call tape, webhook tape, and live self-test trigger.
+- **Why:** Gives judges mathematical and cryptographic proof that every cent in the ledger corresponds to a verified PayPal transaction.
+
+### Three-Pane Split View and Public Status Page
+- **Context:** Evaluators reviewing the split demo view need to verify that actions taken by the client and freelancer trigger real payment events without having to navigate away to separate tabs.
+- **Decision:** Upgraded `/demo/split` to a 3-pane layout: Client | Freelancer | **PayPal Truth** (a live feed of captured orders, payout batch statuses, and webhook receipts, with a direct link to `sandbox.paypal.com`). Also implemented a cached public `/status` page (`apps/web/src/pages/StatusPage.tsx`) reporting API, database, PayPal, webhook, and worker health with zero secrets.
+- **Why:** Provides an all-in-one evaluator experience where cause and effect across the two personas and the payment provider are visible side-by-side.
+
+## Phase L5 Live Acceptance Decisions
+
+### Headless Live Acceptance Test and Tamper Mismatch Guarantee
+- **Context:** The acceptance pipeline must verify that the proof engine can never be fooled into reporting a match when ledger or milestone data is tampered with.
+- **Decision:** Created `e2e/acceptanceLive.spec.ts` (`pnpm acceptance:live`) which tests the full end-to-end lifecycle with canary inputs ($1,337.42 budget, Zebra Co, Quill), verifies proof reconciliation, and executes an artificial mismatch drill by tampering with a ledger entry, asserting that `matches: false` and `mismatch` are detected with 100% accuracy.
+- **Why:** Guarantees that the proof system is tamper-evident and provides dependable verification ahead of final video recording and submission.
+
+
 
 
 

@@ -53,9 +53,24 @@ export const SplitDemoPage: React.FC = () => {
   const projectId = searchParams.get('projectId') || 'proj_brand_launch';
 
   const [activePreset, setActivePreset] = useState<PresetView>('overview');
-  const [mobileTab, setMobileTab] = useState<'client' | 'freelancer'>('client');
+  const [mobileTab, setMobileTab] = useState<'client' | 'freelancer' | 'truth'>('client');
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [showTruthPane, setShowTruthPane] = useState(true);
+  const [truthData, setTruthData] = useState<any>(null);
+
+  const fetchTruthFeed = () => {
+    fetch(`/api/proof/projects/${projectId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTruthData(d))
+      .catch(() => {});
+  };
+
+  React.useEffect(() => {
+    fetchTruthFeed();
+    const interval = setInterval(fetchTruthFeed, 5000);
+    return () => clearInterval(interval);
+  }, [projectId]);
 
   const clientIframeRef = useRef<HTMLIFrameElement>(null);
   const freelancerIframeRef = useRef<HTMLIFrameElement>(null);
@@ -290,6 +305,17 @@ export const SplitDemoPage: React.FC = () => {
           )}
 
           <Button
+            id="split-toggle-truth-btn"
+            variant="quiet"
+            size="sm"
+            onClick={() => setShowTruthPane(!showTruthPane)}
+            title="Toggle third pane: PayPal Truth"
+          >
+            <ShieldCheck size={13} style={{ marginRight: '0.35rem' }} />
+            {showTruthPane ? '3-Pane View' : '2-Pane View'}
+          </Button>
+
+          <Button
             id="split-refresh-btn"
             variant="quiet"
             size="sm"
@@ -360,6 +386,23 @@ export const SplitDemoPage: React.FC = () => {
         >
           Freelancer Frame
         </button>
+        <button
+          type="button"
+          id="split-mobile-truth-tab"
+          onClick={() => setMobileTab('truth')}
+          style={{
+            padding: '0.35rem 1rem',
+            borderRadius: 'var(--radius-pill)',
+            border: mobileTab === 'truth' ? '1.5px solid #0070BA' : '1px solid var(--line)',
+            backgroundColor: mobileTab === 'truth' ? 'var(--surface)' : 'transparent',
+            fontWeight: 600,
+            fontSize: '0.75rem',
+            color: 'var(--ink)',
+            cursor: 'pointer',
+          }}
+        >
+          PayPal Truth
+        </button>
       </div>
 
       <style>{`
@@ -376,6 +419,10 @@ export const SplitDemoPage: React.FC = () => {
           }
           .split-pane-freelancer {
             display: ${mobileTab === 'freelancer' ? 'flex' : 'none'} !important;
+            width: 100% !important;
+          }
+          .split-pane-truth {
+            display: ${mobileTab === 'truth' ? 'flex' : 'none'} !important;
             width: 100% !important;
           }
         }
@@ -531,6 +578,177 @@ export const SplitDemoPage: React.FC = () => {
             }}
           />
         </div>
+
+        {/* Right: PayPal Truth Live Feed Pane (§5.2) */}
+        {showTruthPane && (
+          <div
+            className="split-pane-truth"
+            style={{
+              width: '340px',
+              minWidth: '290px',
+              maxWidth: '380px',
+              display: 'flex',
+              flexDirection: 'column',
+              borderLeft: '1px solid var(--line)',
+              backgroundColor: 'var(--surface)',
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                padding: '0.45rem 1rem',
+                backgroundColor: 'var(--paper)',
+                borderBottom: '1px solid var(--line)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.75rem',
+                color: 'var(--ink-2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#0070BA',
+                  }}
+                />
+                <span style={{ fontWeight: 700, color: 'var(--ink)' }}>PayPal Truth</span>
+                <span style={{ color: 'var(--forest)', fontSize: '0.6875rem', fontWeight: 700 }}>● Live</span>
+              </div>
+
+              <a
+                href="https://sandbox.paypal.com"
+                target="_blank"
+                rel="noreferrer"
+                title="Open PayPal Sandbox Portal in a new tab"
+                style={{
+                  color: '#0070BA',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.6875rem',
+                }}
+              >
+                <ExternalLink size={11} />
+                Sandbox Portal
+              </a>
+            </div>
+
+            {/* Compact Live Truth Feed Content */}
+            <div style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.75rem' }}>
+              {/* Financial Snapshot */}
+              <div style={{ padding: '0.75rem', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--paper-warm)', border: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontWeight: 600, color: 'var(--forest)' }}>
+                  <span>Ledger Status</span>
+                  <span style={{ fontFamily: 'monospace' }}>
+                    ${truthData?.reconciliation?.ledger?.totalCents ? (truthData.reconciliation.ledger.totalCents / 100).toFixed(2) : '0.00'} USD
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem', textAlign: 'center', fontSize: '0.6875rem' }}>
+                  <div style={{ padding: '0.35rem', background: '#fff', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                    <div style={{ color: 'var(--ink-3)' }}>Funded</div>
+                    <div style={{ fontWeight: 700, color: 'var(--forest)' }}>
+                      ${truthData?.reconciliation?.ledger?.fundedCents ? (truthData.reconciliation.ledger.fundedCents / 100).toFixed(2) : '0.00'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '0.35rem', background: '#fff', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                    <div style={{ color: 'var(--ink-3)' }}>Held</div>
+                    <div style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                      ${truthData?.reconciliation?.ledger?.heldCents ? (truthData.reconciliation.ledger.heldCents / 100).toFixed(2) : '0.00'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '0.35rem', background: '#fff', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                    <div style={{ color: 'var(--ink-3)' }}>Paid</div>
+                    <div style={{ fontWeight: 700, color: 'var(--forest)' }}>
+                      ${truthData?.reconciliation?.ledger?.paidCents ? (truthData.reconciliation.ledger.paidCents / 100).toFixed(2) : '0.00'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feed Items */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.6875rem', textTransform: 'uppercase', color: 'var(--ink-3)', letterSpacing: '0.05em' }}>
+                  Recent Settlements & Events
+                </span>
+                
+                {truthData?.reconciliation?.rows && truthData.reconciliation.rows.length > 0 ? (
+                  truthData.reconciliation.rows.map((row: any) => (
+                    <div
+                      key={row.id}
+                      style={{
+                        padding: '0.55rem 0.65rem',
+                        borderRadius: 'var(--radius-input)',
+                        border: '1px solid var(--line)',
+                        backgroundColor: '#fff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.2rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{row.label}</span>
+                        <span
+                          style={{
+                            fontSize: '0.625rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.35rem',
+                            borderRadius: '3px',
+                            backgroundColor: row.status === 'match' ? 'var(--teal-subtle)' : '#fee2e2',
+                            color: row.status === 'match' ? 'var(--forest)' : '#b91c1c',
+                          }}
+                        >
+                          {row.status === 'match' ? 'MATCH' : 'MISMATCH'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', fontFamily: 'monospace' }}>
+                        <span style={{ color: 'var(--ink-3)' }}>Ledger: {row.ledgerValue}</span>
+                        <span style={{ color: 'var(--forest)', fontWeight: 600 }}>PayPal: {row.paypalValue}</span>
+                      </div>
+                      {row.paypalRef && (
+                        <div style={{ fontSize: '0.625rem', color: 'var(--ink-3)', fontFamily: 'monospace' }}>
+                          Batch: {row.paypalRef.substring(0, 16)}...
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--ink-3)', fontStyle: 'italic', fontSize: '0.6875rem' }}>
+                    Awaiting funding or settlement activity...
+                  </div>
+                )}
+              </div>
+
+              {/* Link to Full Proof Dashboard */}
+              <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+                <a
+                  href={`/demo/proof?projectId=${projectId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    padding: '0.45rem',
+                    borderRadius: 'var(--radius-input)',
+                    backgroundColor: 'var(--paper)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--forest)',
+                    fontWeight: 600,
+                    fontSize: '0.6875rem',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Open Full Proof & Reconciliation →
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
