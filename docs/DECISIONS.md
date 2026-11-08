@@ -486,4 +486,183 @@ Format for judgment calls: Context, Decision, Why.
 - **Decision:** Executed `smoke-sandbox.mjs` and `demo-check.mjs`, verified Order creation against `api-m.sandbox.paypal.com`, confirmed webhook registration, achieved 100% on AI planner and reviewer benchmarks, and checked off all 20 requirements in UI Implementation §15.
 - **Why:** Guarantees that hackathon judges encounter a 100% functional, responsive, and verifiable application on both hosted Render and local clone environments.
 
+## M8l Phase L0 Hardcode Purge Audit and Live Proof Decisions (Section 1.3 & Section 9)
+
+### 1. Hardcode Purge Audit and Hit Classification (Section 1.3)
+- **Context:** To guarantee that judges and evaluators encounter 100% verified data backed by real database records, PayPal Sandbox API calls, and live LLM evaluations without hardcoded fallbacks or simulated numbers, Section 1.3 mandates an exhaustive search and classification of all literal values across `apps/web/src` and `apps/api/src`.
+- **Decision:** Ran the 4 required PowerShell audit patterns and classified every hit into `allowed (labeled)`, `test-only`, or `remove`:
+
+#### Pattern 1: Hardcoded Currency and Number Literals (`apps\web\src\**\*.ts*,apps\api\src\**\*.ts`)
+| Location | Match / Context | Classification | Justification & Phase L1 Action |
+|---|---|---|---|
+| `apps/web/src/data/fallbackData.ts:189` | `$8,000.00` in PayPal sandbox holding balance event | **REMOVE** | Hardcoded offline fallback string; purge file in L1 and replace with dynamic API data. |
+| `apps/web/src/data/fallbackData.ts:205` | `$1,200.00` in Milestone 1 payout release event | **REMOVE** | Hardcoded offline fallback string; purge file in L1. |
+| `apps/web/src/pages/LandingPage.tsx:511-514` | `+$8,000.00`, `-$1,200.00`, `-$1,800.00`, `$0.00` in Sample Project Ledger | **ALLOWED (LABELED)** | Allowed marketing illustration per §1.2; explicitly labeled "Sample ledger" / "Sample project". In Phase L2, optionally connected to live sandbox settlement feed per §2. |
+| `apps/web/src/pages/StyleguidePage.tsx:272` | `$8,000.00 held for this project in PayPal Sandbox` | **TEST-ONLY** | Dev-only styleguide showcasing components; excluded from production bundles. |
+| `apps/api/src/db/seed.ts:50,100,115,130,144,265,272,286` | Seed amounts (`800000`, `120000`, `$8,000`, `$1,200.00`) | **ALLOWED (LABELED)** | Allowed per §1.2 (database seed script for demo base state). |
+| `apps/api/src/__tests__/*` (`failureDrills`, `funding`, `planner`, `postgresConcurrency`, `release`, `sync`) | Test fixture amounts (`180000`, `120000`, `100000`, `9999999`, etc.) | **TEST-ONLY** | Allowed per §1.2 (hermetic unit and failure drill test suites). |
+
+#### Pattern 2: Known Demo Names and Fallbacks in Web (`Brand-site|Acme|Arjun|Maya|sample|demo|mock|fallback|default*`)
+| Location | Match / Context | Classification | Justification & Phase L1 Action |
+|---|---|---|---|
+| `apps/web/src/data/fallbackData.ts:1-205` | `FALLBACK_PROJECT`, `Acme Corp`, `Arjun Mehta`, `HOLD-SANDBOX-MOCK`, `BATCH-PAYOUT-MS01-MOCK`, etc. | **REMOVE** | Entire offline fallback dataset must be purged in L1. Replace with typed hooks featuring loading skeleton, calm error retry, and single-action empty state. |
+| `apps/web/src/data/sampleProject.ts:1-190` | `sampleTasks`, `sampleDependencies` | **REMOVE** | Legacy hardcoded Bryntum dataset; purge file in L1. |
+| `apps/web/src/components/Gantt.tsx:9, 145-146` | `import { sampleTasks, sampleDependencies }`, `projectConfig.tasksData = sampleTasks` | **REMOVE** | Gantt must load data strictly from backend API or props, never falling back to hardcoded sample tasks. |
+| `apps/web/src/components/CloseoutReceiptModal.tsx:53-63` | `// offline fallback: generate client-side record`, `const fallbackAudit = ...` | **REMOVE** | Must fetch real audit JSON from `/api/projects/:id/audit`; display calm error state on network failure. |
+| `apps/web/src/components/TrustPanel.tsx:120, 169, 613` | Fallback text: `Arjun needs to submit work...`, `tx.paypalRef || 'mock_ref'` | **REMOVE** | Replace hardcoded name "Arjun" with dynamic project freelancer name; remove `'mock_ref'` fallback. |
+| `apps/web/src/components/StartScreen.tsx:9, 20-30, 149-162` | `SAMPLE_BRIEF`, `handleFillSample`, `Fill with sample brief` | **ALLOWED (LABELED)** | Allowed per §1.2 ("Copy such as 'Use sample brief' text that fills a form field (it is user input, not data)"). |
+| `apps/web/src/components/SettleMoment.tsx:96` | `// Locate milestone diamond in Gantt timeline or use center left fallback` | **ALLOWED (LABELED)** | DOM bounding box calculation fallback for coin travel animation when element is not yet rendered. |
+| `apps/web/src/pages/LandingPage.tsx:472, 492, 505` | `Sample Ledger Snippet`, `Sample Project Ledger`, `Sample ledger` | **ALLOWED (LABELED)** | Allowed per §1.2 (explicitly labeled sample marketing illustration). |
+| `apps/web/src/pages/ReviewPage.tsx:24-27, 174, 183-194, 198-208, 234, 265` | Imports and preview fallbacks to `FALLBACK_MILESTONES`, `FALLBACK_DELIVERABLES`, `FALLBACK_REVIEWS` | **REMOVE** | Purge fallback imports and fallback assignments; load review data strictly from API. |
+| `apps/web/src/pages/ReviewPage.tsx:906` | `Assisted 30s objection window with automated payout fallback` | **ALLOWED (LABELED)** | Policy explanation text describing autonomy mode mechanism. |
+| `apps/web/src/pages/SafetyPage.tsx:120, 162, 311` | "developer prototype", "Deterministic rule fallback", "demo and sandbox evaluation" | **ALLOWED (LABELED)** | Mandatory honest prototype safety disclosures and limits. |
+| `apps/web/src/pages/SchedulePage.tsx:15, 37, 74, 77, 85, 97-102, 201` | `sampleTasks`, `Brand-site Redesign & Launch` fallback title | **REMOVE** | Remove sample tasks import and fallback project title; rely 100% on live API data. |
+| `apps/web/src/pages/SchedulePage.tsx:47, 498` | `isMobileFallback={isMobile}` | **ALLOWED (LABELED)** | Responsive layout prop (swaps Gantt for mobile List view below 768px), not data. |
+| `apps/web/src/pages/SharedReceiptPage.tsx:12, 63-86, 104-128, 213` | Imports `FALLBACK_PROJECT`, uses `mock-share-token`, `Arjun Mehta`, `BATCH-PAYOUT-MS01-MOCK` | **REMOVE** | Receipts must load strictly from `GET /api/receipts/shared/:shareId`; show calm revoked/not-found screen on failure. |
+| `apps/web/src/pages/StyleguidePage.tsx:30, 91, 187, 221, 228, 402-415` | `demoLifecycleStatus`, `Arjun Mehta`, `Brand-site Redesign & Launch`, `isDemo` | **TEST-ONLY** | Dev-only styleguide route for component regression testing. |
+| `apps/web/src/shells/ClientShell.tsx:242, 315` | `Client (Acme Corp)`, `Brand-site Redesign & Launch` | **REMOVE** | Hardcoded client organization and breadcrumb title; must derive from active session and project DTO. |
+| `apps/web/src/shells/FreelancerShell.tsx:207, 211, 287` | `Arjun Mehta`, `Brand-site Redesign & Launch` | **REMOVE** | Hardcoded freelancer name and breadcrumb title; must derive from active session and project DTO. |
+| `apps/web/src/shells/ClientShell.tsx:15, 352-353`, `FreelancerShell.tsx:13, 323`, `PublicShell.tsx:4, 237-238, 261-262` | `<DemoBar />`, `Demo Split View` | **ALLOWED (LABELED)** | Evaluator navigation controls per §2 and UI Implementation §11. |
+| `apps/web/src/__tests__/honestyLint.test.ts:33` | `!f.includes('sampleProject.ts')` | **TEST-ONLY** | Test exclusion filter; update in L1 when `sampleProject.ts` is purged. |
+
+#### Pattern 3: Fallback Operators (`??`, `||`) Returning Literals / Defaults in Web
+| Location | Match / Context | Classification | Justification & Phase L1 Action |
+|---|---|---|---|
+| `TrustPanel.tsx:98` | `const milestoneId = milestone?.id \|\| 'ms-01'` | **REMOVE** | Hardcoded milestone ID fallback; replace with strict prop requirement or null guard. |
+| `TrustPanel.tsx:439` | `latestReview.model \|\| 'Fixture Replay'` | **REMOVE** | Hardcoded fixture model fallback; show actual review model from API. |
+| `TrustPanel.tsx:613` | `tx.paypalRef \|\| 'mock_ref'` | **REMOVE** | Invented mock reference; display real reference or 'Unverified / Pending'. |
+| `NewProjectWizard.tsx:316-317` | `data.freelancer?.name \|\| 'Arjun Mehta'`, `data.freelancer?.email \|\| 'arjun@example.com'` | **REMOVE** | Invented freelancer persona fallback; require real accepted invite record. |
+| `FreelancerDeliverablesPage.tsx:80` | `const projectId = id \|\| 'proj_brand_launch'` | **REMOVE** | Hardcoded project ID fallback; read from route param or redirect to project list. |
+| `FreelancerPaymentsPage.tsx:66` | `const projectId = id \|\| 'proj_brand_launch'` | **REMOVE** | Hardcoded project ID fallback; read from route param or redirect to project list. |
+| `FreelancerProjectsPage.tsx:244` | `ledgerMap[project.id] \|\| { heldCents: 680000, paidCents: 120000, fundedCents: 800000 }` | **REMOVE** | Invented client-side ledger values; replace with zero default `{ heldCents: 0, paidCents: 0, fundedCents: 0 }`. |
+| `ReviewPage.tsx:132-133` | `projectId = routeProjectId \|\| 'proj_brand_launch'`, `targetMilestoneId = routeMilestoneId \|\| 'ms-02'` | **REMOVE** | Hardcoded route defaults; require explicit route parameters or render 404. |
+| `SchedulePage.tsx:34, 201` | `projectId = routeProjectId \|\| 'proj_brand_launch'`, `project?.title \|\| 'Brand-site Redesign & Launch'` | **REMOVE** | Hardcoded project defaults; load dynamically from project API. |
+| `ClientShell.tsx:23` | `const currentProjectId = routeProjectId \|\| 'proj_brand_launch'` | **REMOVE** | Hardcoded active project ID fallback. |
+| `FreelancerShell.tsx:20` | `const currentProjectId = routeProjectId \|\| 'proj_brand_launch'` | **REMOVE** | Hardcoded active project ID fallback. |
+| `App.tsx` (legacy workspace) | Lines 152-153, 270, 723-804: `'ms-02'`, `'Milestone'`, `'ms-01'`, `'m1'`, `'funded'` | **REMOVE** | Hardcoded legacy workspace identifiers; clean up or isolate to mock test runs. |
+| `SubmitSlideOver.tsx:198, 213` | `parsed.description \|\| 'Evaluating criteria'`, `feedback \|\| 'Review evaluation finished.'` | **ALLOWED (LABELED)** | Safe SSE streaming message formatting fallbacks. |
+| `ScheduleListView.tsx:224`, `TaskInspectorPanel.tsx:328` | `task.startDate \|\| '—'`, `task.startDate \|\| 'Not scheduled'` | **ALLOWED (LABELED)** | Standard UI presentation placeholders for unscheduled tasks. |
+| `TaskInspectorPanel.tsx:65`, `Gantt.tsx:129`, `TrustPanel.tsx:113, 117, 323` | `criteria \|\| []`, `dependenciesData \|\| []`, `revData.reviews \|\| []` | **ALLOWED (LABELED)** | Standard defensive empty-array defaults for API collection responses. |
+| `EvidenceChip.tsx:39`, `InspectorPanel.tsx:128` | `label \|\| 'Evidence'`, `task.paymentStatus \|\| 'agreed'` | **ALLOWED (LABELED)** | Reusable UI component default props. |
+| `LifecycleProgress.tsx:105` | `style?.color \|\| 'var(--ink-2)'` | **ALLOWED (LABELED)** | Defensive CSS variable styling fallback. |
+| `AppealModal.tsx:62`, `ClientOverviewPage.tsx:283`, `SharedReceiptPage.tsx:199` | `body.error \|\| 'Appeal submission failed.'`, `error \|\| 'Project not found'` | **ALLOWED (LABELED)** | Calm user-facing error message defaults. |
+| `NewProjectWizard.tsx:54, 58`, `JoinFlowPage.tsx:45` | `searchParams.get('step') \|\| '1'`, `urlToken \|\| ''` | **ALLOWED (LABELED)** | URL search parameter string parsing. |
+| `NewProjectWizard.tsx:121, 163, 212, 214` | `title \|\| 'New Milestone Project'`, `deliverableType \|\| 'document'` | **ALLOWED (LABELED)** | Interactive wizard form field initializers. |
+| `SharedReceiptPage.tsx:328` | `receipt.freelancer?.name \|\| 'Verified Freelancer'` | **ALLOWED (LABELED)** | Safe fallback for masked recipient privacy view. |
+
+#### Pattern 4: `fixture` and `mock` in API (`apps/api/src/**/*.ts`)
+| Location | Match / Context | Classification | Justification & Phase L1/L3 Action |
+|---|---|---|---|
+| `apps/api/src/ai/adapters/fixtureAdapter.ts`, `apps/api/src/ai/llmFactory.ts:2, 23-36` | `FixtureAdapter` and factory gating | **ALLOWED (LABELED)** | Hermetic test adapter for Vitest CI runs; guarded by production Zod check in `env.ts` refusing `LLM_PROVIDER=fixture`. |
+| `apps/api/src/ai/planner.ts:301`, `apps/api/src/routes/projects.ts:302` | `isFixture: response.provider === 'fixture'` | **ALLOWED (LABELED)** | Provenance metadata reporting whether plan originated from test fixture replay. |
+| `apps/api/src/paypal/mockAdapter.ts`, `apps/api/src/paypal/index.ts:2, 5, 10, 25-26` | `MockPayPalAdapter` and factory gating | **ALLOWED (LABELED)** | Offline mock adapter for CI/local development; strictly prohibited in production by `PAYPAL_ENV=sandbox` guard. |
+| `apps/api/src/db/seed.ts:240, 250` | `CAPTURE-782910-MOCK`, `PAYOUT-991204-MOCK` | **ALLOWED (LABELED)** | Seed script test data; Phase L2 replaces with live sandbox demo sessions. |
+| `apps/api/src/services/ledger.ts:74` | `// Fallback if milestones query unavailable in unit mocks` | **ALLOWED (LABELED)** | Code comment regarding unit test mock behavior. |
+| `apps/api/src/services/release.ts:275` | `// 4. If immediate itemStatus is SUCCESS (e.g. In mock mode)...` | **ALLOWED (LABELED)** | Mock adapter instant-settlement handling branch for automated tests. |
+| `apps/api/src/services/reviewer.ts:374` | `model: llm.model ?? process.env.LLM_MODEL ?? 'mock-model'` | **REMOVE** | Replace `'mock-model'` fallback with real model identifier or `'unspecified'`. |
+| `apps/api/src/__tests__/*` (180+ occurrences) | All Vitest and integration test specs | **TEST-ONLY** | Essential test suite assertions and mocks; allowed per §1.2. |
+
+---
+
+### 2. Render Environment Audit against Section 8
+- **Context:** `docs/LIVE_PROOF.md` Section 8 establishes an environment variable checklist required on the deployed Render service (`https://verify-pay.onrender.com`) and local environments.
+- **Decision:** Inspected `render.yaml`, environment configuration schema in `packages/shared/src/config/env.ts`, and live responses from the deployed service:
+
+| Variable | Section 8 Requirement | Current Render State | Status | Remediation Required |
+|---|---|---|---|---|
+| `PAYPAL_ENV` | `sandbox` | `sandbox` (verified via `/healthz`) | **PASS** | None. Sandbox endpoint strictly enforced. |
+| `PAYPAL_CLIENT_ID` | Sandbox client credentials | Configured in Render dashboard | **PASS** | Verified via live OAuth2 token acquisition. |
+| `PAYPAL_CLIENT_SECRET` | Sandbox client credentials | Configured in Render dashboard | **PASS** | Verified via live OAuth2 token acquisition. |
+| `PAYPAL_WEBHOOK_ID` | Webhook ID registered with Render URL | Configured in Render dashboard | **PASS** | Webhook registered for `https://verify-pay.onrender.com/api/webhooks/paypal`. |
+| `LLM_PROVIDER` | Real provider (`gemini`, `anthropic`, `openai-compatible`) | `gemini` (verified via `/api/admin/health`) | **PASS** | Real Gemini model active. |
+| `GEMINI_API_KEY` / `LLM_API_KEY` | Provider API key | Configured in Render dashboard | **PASS** | Active on Render web service. |
+| `LLM_MODEL` | Explicit model name | Missing in `render.yaml` | **WARN** | Uses provider default (`gemini-1.5-flash`); make explicit in `render.yaml`. |
+| `DEMO_MODE` | `true` on hosted judging site | **MISSING** on Render | **FAIL** | Render sets `NODE_ENV=production`. Because `DEMO_MODE` is unset, `/api/demo/*` returns 404! Add `DEMO_MODE=true` to `render.yaml` and Render dashboard. |
+| `DEMO_FREELANCER_PAYPAL_EMAIL` | Personal sandbox account email | Missing in `render.yaml` | **ACTION** | Add to `render.yaml` and Render dashboard so payouts route to owner's test account. |
+| `DEMO_SANDBOX_BUYER_EMAIL` | Sandbox buyer test email | Missing in `render.yaml` | **ACTION** | Add to `render.yaml` and Render dashboard for judge helper card on `/demo`. |
+| `DEMO_SANDBOX_BUYER_PASSWORD` | Sandbox buyer test password | Missing in `render.yaml` | **ACTION** | Add to `render.yaml` and Render dashboard for judge helper card on `/demo`. |
+| `LLM_DAILY_CALL_CAP` | Daily LLM call cap limit | Missing in `render.yaml` | **ACTION** | To be implemented and added in Phase L2 abuse guards. |
+| `RATE_LIMIT_MAX` | Request rate limit per IP | Missing in `render.yaml` | **ACTION** | To be implemented and added in Phase L2 abuse guards. |
+| Repository Secret Hygiene | No secrets committed in repo | Verified via `pnpm verify` | **PASS** | Secret scanner passes cleanly with 0 credentials found. |
+
+---
+
+### 3. Deployed Application Runtime Analysis (Mock/Fixture Truth)
+- **Context:** To ensure the live deployed application is not using mock payments or fixture AI anywhere, verified live HTTP probes against `https://verify-pay.onrender.com`:
+- **Findings:**
+  1. **PayPal Mode:** `GET /healthz` returns `paypalEnv: "sandbox"`. The backend is actively connected to `api-m.sandbox.paypal.com`. It is **NOT** using the mock PayPal adapter in production.
+  2. **LLM Mode:** `GET /api/admin/health` returns `adapters: { paypal: "sandbox", llm: "gemini" }`. The backend is actively running Google Gemini via `GeminiAdapter`. It is **NOT** using `FixtureAdapter` in production.
+  3. **Database Seed Data:** Probing `GET /api/projects/proj_brand_launch/ledger` shows that the initial seeded project contains mock references in `ledger_entries` (`CAPTURE-782910-MOCK` and `PAYOUT-991204-MOCK`).
+  4. **Demo Mode 404 Block:** Probing `GET /api/demo/status` returned `404 Not Found`. Because `DEMO_MODE` is not yet set in Render environment variables, the demo reset and login endpoints are inactive in production.
+  5. **Frontend Fallbacks:** On offline or fresh visitors, the web SPA falls back to hardcoded demo data (`fallbackData.ts`, `sampleProject.ts`, `proj_brand_launch`).
+- **Conclusion:** The backend runtime is truly live (real sandbox PayPal, real Gemini AI), but the database still contains legacy mock seed rows and the frontend still contains hardcoded fallback data. This precisely validates the necessity of Phases L1 through L5.
+
+---
+
+### 4. Database Tables and API Endpoints Affected
+
+#### Database Tables Affected
+1. `projects`:
+   - Enforce pure dynamic creation; associate demo projects with visitor session tokens in Phase L2 so judges do not collide.
+2. `milestones`:
+   - All milestone records, amounts, and criteria will be loaded dynamically from PostgreSQL without frontend fallbacks.
+3. `ledger_entries`:
+   - Remove legacy mock references (`CAPTURE-782910-MOCK`, `PAYOUT-991204-MOCK`); ledger entries will record real PayPal capture IDs and payout batch IDs from the sandbox.
+4. `external_calls` (**NEW table in Phase L3 per Section 3.1**):
+   - Schema: `id text PRIMARY KEY`, `at timestamp with time zone NOT NULL`, `service text NOT NULL` (`'paypal'` | `'llm'` | `'github'`), `method text NOT NULL`, `endpoint_template text NOT NULL`, `status integer NOT NULL`, `duration_ms integer NOT NULL`, `request_id text`, `provider_debug_id text`, `project_id text`, `milestone_id text`, `ok boolean NOT NULL`, `error_code text`, `meta jsonb`.
+5. `paypal_events`:
+   - Read-only webhook receipt log exposed for proof audit trail (Section 3.3).
+6. `payout_batches`:
+   - Stored batch IDs reconciled live against PayPal Payouts API (Section 4.2).
+7. `invites`:
+   - Real invite tokens generated dynamically for isolated visitor demo sessions (Phase L2).
+8. `receipt_shares`:
+   - Settlement receipts verified live against PayPal API before displaying "Verified against PayPal" timestamp.
+
+#### API Endpoints Affected
+1. `GET /api/system/mode` (**NEW in Phase L3 per Section 3.2**):
+   - Returns `{ paypal: 'sandbox' | 'mock', llm: { provider, model, live: boolean }, demoMode: boolean, webhookConfigured: boolean, version: string, commit: string }`.
+2. `GET /api/proof/projects/:id` (**NEW in Phase L4 per Section 4**):
+   - Executes environment checks (§4.1) and live money reconciliation against PayPal API (§4.2), returning structured checks and verifiable evidence without exposing secrets.
+3. `POST /api/proof/self-test` (**NEW in Phase L4 per Section 5.1**):
+   - Demo-mode self-test creating an uncaptured PayPal order, pinging LLM, and round-tripping DB and SSE.
+4. `GET /status` (**NEW public health page in Phase L4 per Section 5.3**):
+   - Public status page reporting API, DB, PayPal API reachability, webhook health, LLM provider, and worker status.
+5. `POST /api/demo/session` (**NEW in Phase L2 per Section 2**):
+   - Allocates an isolated demo workspace with unique client and freelancer personas for concurrent evaluators.
+6. `GET /api/demo/feed` (**NEW in Phase L2 per Section 2**):
+   - Read-only endpoint exposing last 5 settlements from sandbox demo projects.
+7. `GET /api/projects/:id`, `GET /api/projects/:id/ledger`, `GET /api/projects/:id/audit`:
+   - Cleaned of all fallback mock references; return pure database truth with PayPal debug IDs.
+8. `POST /api/milestones/:id/submit`, `POST /api/projects/:id/fund/*`, `POST /api/milestones/:id/release`:
+   - Wrapped with read-only instrumentation logging to `external_calls` (Phase L3).
+
+---
+
+### 5. Implementation Roadmap (Phases L0 through L5)
+
+```mermaid
+flowchart TD
+    L0["L0 Audit (Complete)"] --> L1["L1 Purge Hardcoded Data"]
+    L1 --> L2["L2 Live Demo Sessions & Abuse Guards"]
+    L2 --> L3["L3 Instrumentation (external_calls & Mode Truth)"]
+    L3 --> L4["L4 Proof API & Three-Pane UI"]
+    L4 --> L5["L5 Live Acceptance & Side-by-Side Runbook"]
+
+    classDef done fill:#e3efec,stroke:#337d70,stroke-width:2px,color:#202722;
+    classDef planned fill:#f5f2ea,stroke:#d7a65a,stroke-width:2px,color:#202722;
+    class L0 done;
+    class L1,L2,L3,L4,L5 planned;
+```
+
+1. **Phase L0 (Current):** Complete hardcode audit, hit classification table, Render environment checklist, runtime analysis, affected schema/endpoints inventory, and decisions record.
+2. **Phase L1 (Purge hardcoded data):** Delete `fallbackData.ts` and `sampleProject.ts`; replace fallback operators in `ReviewPage`, `SchedulePage`, `SharedReceiptPage`, `TrustPanel`, `ClientShell`, and `FreelancerShell` with typed hooks and loading/empty states; build Canary Playwright test (`1337.42`, Zebra Co, Quill); add CI guard banning hardcoded literals.
+3. **Phase L2 (Live demo sessions and abuse guards):** Build isolated visitor demo sessions on `/demo`; add sandbox buyer credentials card; set freelancer payout email to personal sandbox account; implement rate limits, daily LLM call cap, and 24h session cleanup.
+4. **Phase L3 (Instrumentation):** Create `external_calls` table and migration; wrap PayPal adapter and LLM port with duration and debug ID logging (zero bodies or secrets); implement `GET /api/system/mode` and UI mode truth banner.
+5. **Phase L4 (Proof API and UI):** Implement `GET /api/proof/projects/:id` reconciling database ledger against PayPal API; build Proof UI on `/demo/proof`; upgrade `/demo/split` to 3 panes (Client, Freelancer, PayPal truth); build public `/status` page.
+6. **Phase L5 (Live acceptance and runbook rehearsal):** Implement `pnpm acceptance:live` script; execute 4-window manual side-by-side runbook (Client, Freelancer, Freelancer Sandbox PayPal, Business Sandbox PayPal); record balance changes and evidence screenshots.
+
+- **Why:** Delivers incontrovertible proof to judges that Milestone is a live, honest, production-ready system where money moves strictly through PayPal Sandbox API calls and AI reviews are verified in real time.
+
+
 

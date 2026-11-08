@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-07T18:23:54.328Z
+Generated: 2026-11-08T06:39:44.289Z
 
-Overall (hours-weighted): [####################]  98%   Day 4/5, 2 day(s) left   Schedule: GREEN
-Current milestone: M13 Video and submission
+Overall (hours-weighted): [################....]  81%   Day 5/5, 1 day(s) left   Schedule: AMBER
+Current milestone: M8m L1 Purge hardcoded data
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -34,6 +34,12 @@ Current milestone: M13 Video and submission
 | M8i P8 Demo mode, split view, seeds | 3 | 4/4 | [####################] 100% |
 | M8j P9 Polish and quality pass | 3 | 5/5 | [####################] 100% |
 | M8k P10 Regression and deployment | 3 | 4/4 | [####################] 100% |
+| M8l L0 Hardcode audit and plan | 2 | 6/6 | [####################] 100% |
+| M8m L1 Purge hardcoded data | 5 | 0/5 | [....................]   0% |
+| M8n L2 Live demo sessions and abuse guards | 4 | 0/5 | [....................]   0% |
+| M8o L3 Instrumentation | 4 | 0/5 | [....................]   0% |
+| M8p L4 Proof API and UI | 5 | 0/5 | [....................]   0% |
+| M8q L5 Live acceptance and runbook rehearsal | 4 | 0/4 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -324,3 +330,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-07 14:31 | M8j | overall 93% | GREEN | Completed Phase P8: Demo mode, split view, seeds, DemoBar walkthrough, and prepared deliverables
 - 2026-11-07 16:45 | M8k | overall 95% | GREEN | Completed Phase P9: Polish, responsive pass across 6 breakpoints, axe accessibility, and honest wording audit
 - 2026-11-07 16:59 | M13 | overall 98% | GREEN | Completed Phase P10: Full regression pass, Neon schema migration, PayPal sandbox order smoke test, AI evals, and pre-flight demo check
+- 2026-11-08 06:39 | M8m | overall 81% | AMBER | L0 hardcode audit complete: classified hits across web and api, audited Render env vs section 8, inspected live runtime and mock seeds, listed affected tables and endpoints, documented decisions and plan in DECISIONS.md
