@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
@@ -34,21 +34,21 @@ const SAMPLE_BRIEFS = [
     title: 'Brand Identity & Visual System',
     brief:
       'Design a comprehensive brand identity system including logo, color palette, typography guidelines, and digital asset templates for a modern fintech company. The project should deliver production-ready SVG assets, brand guidelines PDF, and a Figma component library.',
-    budget: 8000,
+    budget: 450,
     duration: '4 weeks',
   },
   {
     title: 'Next.js Customer Dashboard',
     brief:
       'Build a modern responsive customer analytics dashboard in Next.js and Tailwind CSS with authentication, data charts, and real-time activity feeds. Needs comprehensive TypeScript strict typechecking, 90%+ test coverage, and deployment on Vercel.',
-    budget: 6500,
+    budget: 350,
     duration: '3 weeks',
   },
 ];
 
 export const NewProjectWizard: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Wizard Step (1: Brief, 2: Plan, 3: Invite, 4: Fund)
   const initialStep = parseInt(searchParams.get('step') || '1', 10);
@@ -58,7 +58,7 @@ export const NewProjectWizard: React.FC = () => {
   const [projectId, setProjectId] = useState<string>(searchParams.get('projectId') || '');
   const [title, setTitle] = useState('');
   const [brief, setBrief] = useState('');
-  const [totalBudget, setTotalBudget] = useState(8000);
+  const [totalBudget, setTotalBudget] = useState(450);
   const [durationHint, setDurationHint] = useState('4 weeks');
   const [demoCapUsd, setDemoCapUsd] = useState<number | null>(null);
 
@@ -99,6 +99,8 @@ export const NewProjectWizard: React.FC = () => {
   const [isFunding, setIsFunding] = useState(false);
   const [fundingError, setFundingError] = useState<string | null>(null);
   const [fundSuccess, setFundSuccess] = useState(false);
+  const [pendingApprovalUrl, setPendingApprovalUrl] = useState<string | null>(null);
+  const capturedTokenRef = useRef<string | null>(null);
 
   // Calculate total milestone percentage
   const totalPercentage = editableMilestones.reduce((sum, m) => sum + m.paymentPercent, 0);
@@ -229,7 +231,7 @@ export const NewProjectWizard: React.FC = () => {
         amountCents: Math.round((totalCents * m.paymentPercent) / 100),
       }));
 
-      const planToApply: ComputedPlan = {
+      const plan = {
         ...computedPlan,
         totalBudget,
         totalCents,
@@ -249,20 +251,34 @@ export const NewProjectWizard: React.FC = () => {
         }),
       };
 
-      const res = await fetch(`/api/projects/${projectId}/plan/apply`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Persona': 'client',
-        },
-        body: JSON.stringify({ plan: planToApply }),
-      });
+      const postApply = () =>
+        fetch(`/api/projects/${projectId}/plan/apply`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Persona': 'client',
+          },
+          body: JSON.stringify({ plan }),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to apply plan');
+      let res = await postApply();
+      if (res.status === 403) {
+        await fetch('/api/auth/persona', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: 'client' }),
+        });
+        res = await postApply();
       }
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Failed to apply plan');
+      }
+
+      setEditableMilestones(updatedMilestones);
       setCurrentStep(3);
     } catch (err) {
       setPlanError(err instanceof Error ? err.message : 'Failed to approve plan');
@@ -276,14 +292,27 @@ export const NewProjectWizard: React.FC = () => {
     if (!projectId) return;
     setIsCreatingInvite(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/invites`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Persona': 'client',
-        },
-        body: JSON.stringify({ expiryDays: 7, maxUses: 1 }),
-      });
+      const postInvite = () =>
+        fetch(`/api/projects/${projectId}/invites`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Persona': 'client',
+          },
+          body: JSON.stringify({ expiryDays: 7, maxUses: 1 }),
+        });
+
+      let res = await postInvite();
+      if (res.status === 403) {
+        await fetch('/api/auth/persona', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: 'client' }),
+        });
+        res = await postInvite();
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -295,6 +324,77 @@ export const NewProjectWizard: React.FC = () => {
       setIsCreatingInvite(false);
     }
   };
+
+  // Hydrate existing project details when entering via ?projectId=... (e.g. PayPal return or overview link)
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+
+    const hydrateProject = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}`, {
+          credentials: 'include',
+          headers: { 'X-Persona': 'client' },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.project) {
+          if (data.project.title) {
+            setTitle((prev) => prev || data.project.title);
+          }
+          if (data.project.brief) {
+            setBrief((prev) => prev || data.project.brief);
+          }
+          if (typeof data.project.totalCents === 'number' && data.project.totalCents > 0) {
+            setTotalBudget(Math.round(data.project.totalCents / 100));
+          }
+          if (data.project.status === 'funded' || data.project.status === 'active') {
+            setFundSuccess(true);
+          }
+        }
+
+        if (data.freelancer) {
+          setAcceptedFreelancer({
+            name: data.freelancer.name,
+            email: data.freelancer.email,
+          });
+        }
+
+        if (Array.isArray(data.milestones) && data.milestones.length > 0) {
+          interface ApiMilestoneItem {
+            id: string;
+            name?: string;
+            title?: string;
+            percent?: number;
+            amountCents?: number;
+            deliverableType?: EditableMilestone['deliverableType'];
+            acceptanceCriteria?: string[];
+          }
+          setEditableMilestones((prev) =>
+            prev.length > 0
+              ? prev
+              : (data.milestones as ApiMilestoneItem[]).map((m) => ({
+                  id: m.id,
+                  name: m.name || m.title || 'Milestone',
+                  paymentPercent: typeof m.percent === 'number' ? m.percent : 0,
+                  amountCents: typeof m.amountCents === 'number' ? m.amountCents : 0,
+                  deliverableType: m.deliverableType || 'document',
+                  acceptanceCriteria: Array.isArray(m.acceptanceCriteria) ? m.acceptanceCriteria : [],
+                }))
+          );
+        }
+      } catch {
+        // Ignore hydration errors
+      }
+    };
+
+    hydrateProject();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   // Poll project status in Step 3 for freelancer acceptance
   useEffect(() => {
@@ -308,6 +408,7 @@ export const NewProjectWizard: React.FC = () => {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/projects/${projectId}`, {
+          credentials: 'include',
           headers: { 'X-Persona': 'client' },
         });
         if (res.ok) {
@@ -333,6 +434,7 @@ export const NewProjectWizard: React.FC = () => {
     try {
       const res = await fetch(`/api/invites/${inviteData.code}/accept`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-Persona': 'freelancer',
@@ -357,51 +459,139 @@ export const NewProjectWizard: React.FC = () => {
     }
   };
 
-  // Step 4: Fund Project via PayPal sandbox order & capture
+  // Shared capture helper used by both mock immediate capture and PayPal Sandbox redirect return
+  const captureOrder = useCallback(
+    async (targetProjectId: string, orderId: string) => {
+      setIsFunding(true);
+      setFundingError(null);
+      setPendingApprovalUrl(null);
+
+      try {
+        const postCapture = () =>
+          fetch(`/api/projects/${targetProjectId}/fund/capture`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Persona': 'client',
+            },
+            body: JSON.stringify({ orderId }),
+          });
+
+        let captureRes = await postCapture();
+        if (captureRes.status === 403) {
+          await fetch('/api/auth/persona', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona: 'client' }),
+          });
+          captureRes = await postCapture();
+        }
+
+        if (!captureRes.ok) {
+          const errData = await captureRes.json().catch(() => ({}));
+          throw new Error(errData.message || errData.error || 'Failed to capture funding order');
+        }
+
+        setFundSuccess(true);
+        setTimeout(() => {
+          navigate(`/client/projects/${targetProjectId}`);
+        }, 1500);
+      } catch (err) {
+        setFundingError(err instanceof Error ? err.message : 'Funding failed');
+      } finally {
+        setIsFunding(false);
+      }
+    },
+    [navigate]
+  );
+
+  // Handle return from PayPal Sandbox Checkout (?token=<orderId>&PayerID=... or ?paypalCancel=1)
+  useEffect(() => {
+    if (currentStep !== 4 || !projectId) return;
+
+    const paypalToken = searchParams.get('token');
+    const paypalCancel = searchParams.get('paypalCancel');
+
+    if (paypalCancel === '1') {
+      setFundingError('PayPal Sandbox approval was cancelled before payment completed. Click Authorize & Fund to try again.');
+      const cleaned = new URLSearchParams(searchParams);
+      cleaned.delete('paypalCancel');
+      cleaned.delete('token');
+      cleaned.delete('PayerID');
+      setSearchParams(cleaned, { replace: true });
+      return;
+    }
+
+    if (paypalToken && capturedTokenRef.current !== paypalToken) {
+      capturedTokenRef.current = paypalToken;
+      const cleaned = new URLSearchParams(searchParams);
+      cleaned.delete('token');
+      cleaned.delete('PayerID');
+      setSearchParams(cleaned, { replace: true });
+      void captureOrder(projectId, paypalToken);
+    }
+  }, [currentStep, projectId, searchParams, setSearchParams, captureOrder]);
+
+  // Step 4: Fund Project via PayPal sandbox order -> approval redirect (when needed) -> capture
   const handleFundProject = async () => {
     if (!projectId) return;
     setIsFunding(true);
     setFundingError(null);
+    setPendingApprovalUrl(null);
 
     try {
+      const baseWizardUrl = `${window.location.origin}/client/new?step=4&projectId=${encodeURIComponent(projectId)}`;
+      const returnUrl = baseWizardUrl;
+      const cancelUrl = `${baseWizardUrl}&paypalCancel=1`;
+
       // 1. Create funding order
-      const orderRes = await fetch(`/api/projects/${projectId}/fund/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Persona': 'client',
-        },
-      });
+      const postOrder = () =>
+        fetch(`/api/projects/${projectId}/fund/order`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Persona': 'client',
+          },
+          body: JSON.stringify({ returnUrl, cancelUrl }),
+        });
+
+      let orderRes = await postOrder();
+      if (orderRes.status === 403) {
+        await fetch('/api/auth/persona', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: 'client' }),
+        });
+        orderRes = await postOrder();
+      }
 
       if (!orderRes.ok) {
-        const errData = await orderRes.json();
-        throw new Error(errData.message || 'Failed to create funding order');
+        const errData = await orderRes.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || 'Failed to create funding order');
       }
 
       const orderData = await orderRes.json();
 
-      // 2. Capture funding order
-      const captureRes = await fetch(`/api/projects/${projectId}/fund/capture`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Persona': 'client',
-        },
-        body: JSON.stringify({ orderId: orderData.orderId }),
-      });
-
-      if (!captureRes.ok) {
-        const errData = await captureRes.json();
-        throw new Error(errData.message || 'Failed to capture funding order');
+      // Real PayPal Sandbox requires buyer approval on PayPal Checkout before capture
+      if (
+        orderData.approveUrl &&
+        orderData.status !== 'APPROVED' &&
+        orderData.status !== 'COMPLETED'
+      ) {
+        setPendingApprovalUrl(orderData.approveUrl);
+        setIsFunding(false);
+        window.location.assign(orderData.approveUrl);
+        return;
       }
 
-      setFundSuccess(true);
-      setTimeout(() => {
-        navigate(`/client/projects/${projectId}`);
-      }, 1500);
+      // 2. Capture funding order directly (mock mode or already-approved order)
+      await captureOrder(projectId, orderData.orderId);
     } catch (err) {
       setFundingError(err instanceof Error ? err.message : 'Funding failed');
-    } finally {
       setIsFunding(false);
     }
   };
@@ -570,7 +760,7 @@ export const NewProjectWizard: React.FC = () => {
                   {...props}
                   type="number"
                   min={100}
-                  step={100}
+                  step={50}
                   value={totalBudget}
                   onChange={(e) => setTotalBudget(Number(e.target.value))}
                 />
@@ -1133,7 +1323,7 @@ export const NewProjectWizard: React.FC = () => {
             <ShieldCheck size={20} style={{ color: 'var(--forest)' }} />
             <div style={{ fontSize: '0.875rem', color: 'var(--ink-2)' }}>
               <strong style={{ color: 'var(--ink)' }}>PayPal Sandbox Environment:</strong> No real money moves.
-              Payment is authorized and captured into sandbox holding.
+              You will approve the payment in PayPal Sandbox Checkout and return here to capture it into sandbox holding.
             </div>
           </div>
 
@@ -1174,13 +1364,43 @@ export const NewProjectWizard: React.FC = () => {
                       {idx + 1}. {m.name} ({m.paymentPercent}%)
                     </span>
                     <span style={{ fontWeight: 600, color: 'var(--teal-ink)' }}>
-                      {formatCents(Math.round((totalBudget * 100 * m.paymentPercent) / 100))}
+                      {formatCents(m.amountCents > 0 ? m.amountCents : Math.round((totalBudget * 100 * m.paymentPercent) / 100))}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+
+          {pendingApprovalUrl && (
+            <div
+              style={{
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--forest)',
+                borderRadius: 'var(--radius-card)',
+                padding: '0.875rem 1rem',
+                color: 'var(--ink)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span>Redirecting to PayPal Sandbox Checkout for buyer approval...</span>
+              <a
+                href={pendingApprovalUrl}
+                style={{
+                  color: 'var(--forest)',
+                  fontWeight: 600,
+                  textDecoration: 'underline',
+                }}
+              >
+                Open PayPal Sandbox Checkout
+              </a>
+            </div>
+          )}
 
           {fundingError && (
             <div

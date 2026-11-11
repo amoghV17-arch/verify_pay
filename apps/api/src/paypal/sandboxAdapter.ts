@@ -107,7 +107,7 @@ export class SandboxPayPalAdapter implements PayPalPort {
 
   async createFundingOrder(input: PayPalOrderInput, requestId?: string): Promise<PayPalOrderResult> {
     const customId = input.customId || input.projectId;
-    const body = {
+    const body: Record<string, unknown> = {
       intent: 'CAPTURE',
       purchase_units: [
         {
@@ -122,25 +122,46 @@ export class SandboxPayPalAdapter implements PayPalPort {
       ],
     };
 
+    if (input.returnUrl || input.cancelUrl) {
+      const applicationContext: Record<string, string> = {
+        brand_name: 'Milestone',
+        user_action: 'PAY_NOW',
+      };
+      if (input.returnUrl) {
+        applicationContext.return_url = input.returnUrl;
+      }
+      if (input.cancelUrl) {
+        applicationContext.cancel_url = input.cancelUrl;
+      }
+      body.application_context = applicationContext;
+    }
+
     const headers: Record<string, string> = {};
     if (requestId) {
       headers['PayPal-Request-Id'] = requestId;
     }
 
-    const response = await this.executeWithAuth<{ id: string; status: PayPalOrderResult['status'] }>(
-      '/v2/checkout/orders',
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      }
-    );
+    const response = await this.executeWithAuth<{
+      id: string;
+      status: PayPalOrderResult['status'];
+      links?: Array<{ href: string; rel: string }>;
+    }>('/v2/checkout/orders', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const approveUrl = response.links?.find(
+      (link) => link.rel === 'approve' || link.rel === 'payer-action'
+    )?.href;
 
     return {
       orderId: response.id,
       status: response.status,
       customId,
       amountCents: input.amountCents,
+      approveUrl,
+      mode: 'sandbox',
     };
   }
 

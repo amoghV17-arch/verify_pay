@@ -6,6 +6,8 @@ export const PayPalOrderInputSchema = z.object({
   amountCents: z.number().int().positive(),
   currency: z.string().default('USD'),
   customId: z.string().optional(),
+  returnUrl: z.string().url().optional(),
+  cancelUrl: z.string().url().optional(),
 });
 export type PayPalOrderInput = z.infer<typeof PayPalOrderInputSchema>;
 
@@ -14,6 +16,8 @@ export const PayPalOrderResultSchema = z.object({
   status: z.enum(['CREATED', 'SAVED', 'APPROVED', 'VOIDED', 'COMPLETED', 'PAYER_ACTION_REQUIRED']),
   customId: z.string().optional(),
   amountCents: z.number().int().nonnegative().optional(),
+  approveUrl: z.string().url().optional(),
+  mode: z.enum(['mock', 'sandbox']).optional(),
 });
 export type PayPalOrderResult = z.infer<typeof PayPalOrderResultSchema>;
 

@@ -63,13 +63,16 @@ test.describe('Phase P4: Client Area Suite', () => {
     await expect(page.locator('text=3. Invite')).toBeVisible();
     await expect(page.locator('text=4. Fund')).toBeVisible();
 
-    // Use sample brief button
-    const sampleBtn = page.locator('button:has-text("Use sample: Brand Identity")');
-    await expect(sampleBtn).toBeVisible();
-    await sampleBtn.click();
+    // Use sample brief buttons (both demo projects priced under $500)
+    const sampleBrandBtn = page.locator('button:has-text("Use sample: Brand Identity & Visual System ($450)")');
+    const sampleDashBtn = page.locator('button:has-text("Use sample: Next.js Customer Dashboard ($350)")');
+    await expect(sampleBrandBtn).toBeVisible();
+    await expect(sampleDashBtn).toBeVisible();
+    await sampleBrandBtn.click();
 
     // Check filled inputs
     await expect(page.locator('input[value="Brand Identity & Visual System"]')).toBeVisible();
+    await expect(page.locator('input[type="number"][value="450"]')).toBeVisible();
 
     // Capture Step 1 Screenshots
     for (const bp of BREAKPOINTS) {
@@ -165,6 +168,64 @@ test.describe('Phase P4: Client Area Suite', () => {
         fullPage: true,
       });
     }
+  });
+
+  // =========================================================
+  // 6. Full Wizard + Step 4 Hydration + PayPal Return Capture (< $500)
+  // =========================================================
+  test('Wizard completes Brief -> Plan -> Invite -> Step 4 hydration and PayPal return capture under $500', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/client/new');
+
+    // Select the $350 sample brief
+    await page.locator('button:has-text("Use sample: Next.js Customer Dashboard ($350)")').click();
+    await expect(page.locator('input[type="number"][value="350"]')).toBeVisible();
+
+    // Step 1 -> Step 2 (capture created project ID)
+    const createProjectPromise = page.waitForResponse(
+      (res) => res.url().endsWith('/api/projects') && res.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: 'Generate AI Plan' }).click();
+    const createRes = await createProjectPromise;
+    expect(createRes.ok()).toBe(true);
+    const { project } = await createRes.json();
+    const newProjectId = project.id as string;
+
+    await expect(page.locator('text=Review & adjust milestone plan')).toBeVisible({ timeout: 15000 });
+
+    // Step 2 -> Step 3
+    await page.getByRole('button', { name: 'Approve Plan & Continue' }).click();
+    await expect(page.locator('text=Your project agreement is ready')).toBeVisible({ timeout: 15000 });
+
+    // Step 3 -> Accept invite (demo helper) -> Step 4
+    await page.getByRole('button', { name: /Simulate Acceptance/i }).click();
+    await expect(page.locator('text=Funding gate unlocked')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Continue to Funding' }).click();
+    await expect(page.locator('text=Fund project holding balance')).toBeVisible();
+    await expect(page.locator('text=$350.00 USD')).toBeVisible();
+
+    // Verify Step 4 hydrates from backend when visiting via URL (?step=4&projectId=...&paypalCancel=1)
+    await page.goto(`/client/new?step=4&projectId=${newProjectId}&paypalCancel=1`);
+    await expect(page.locator('text=$350.00 USD')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=MILESTONE SCHEDULE')).toBeVisible();
+    await expect(page.locator('text=PayPal Sandbox approval was cancelled')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Authorize & Fund $350' })).toBeVisible();
+
+    // Simulate PayPal Sandbox return redirect (?token=<orderId>&PayerID=PAYER_1)
+    const origin = new URL(page.url()).origin;
+    await page.request.post('/api/auth/persona', { data: { persona: 'client' } });
+    const orderRes = await page.request.post(`/api/projects/${newProjectId}/fund/order`, {
+      data: {
+        returnUrl: `${origin}/client/new?step=4&projectId=${newProjectId}`,
+        cancelUrl: `${origin}/client/new?step=4&projectId=${newProjectId}&paypalCancel=1`,
+      },
+    });
+    expect(orderRes.ok()).toBe(true);
+    const { orderId } = await orderRes.json();
+
+    await page.goto(`/client/new?step=4&projectId=${newProjectId}&token=${orderId}&PayerID=PAYER_1`);
+    await expect(page.locator('text=Funding captured successfully!')).toBeVisible({ timeout: 10000 });
+    await page.waitForURL(`**/client/projects/${newProjectId}`, { timeout: 10000 });
   });
 });
 

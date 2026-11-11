@@ -8,6 +8,16 @@ import { LedgerService } from '../services/ledger.js';
 import { sseHub } from '../services/sse.js';
 import { PayPalPort } from '@milestone/shared';
 
+const HttpUrlSchema = z
+  .string()
+  .url()
+  .refine((val) => /^https?:\/\//i.test(val), 'URL must use http or https protocol');
+
+const CreateOrderBodySchema = z.object({
+  returnUrl: HttpUrlSchema.optional(),
+  cancelUrl: HttpUrlSchema.optional(),
+});
+
 const CaptureBodySchema = z.object({
   orderId: z.string().min(1),
 });
@@ -23,15 +33,28 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
   const ledgerService = new LedgerService();
 
   // 1. Create Funding Order
-  server.post<{ Params: { id: string } }>(
+  server.post<{ Params: { id: string }; Body: unknown }>(
     '/api/projects/:id/fund/order',
     { preHandler: [requireRole(['client'])] },
     async (request, reply) => {
       const { id: projectId } = request.params;
+      const bodyParsed = CreateOrderBodySchema.safeParse(request.body ?? {});
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: 'Invalid returnUrl or cancelUrl provided for funding order.',
+          details: bodyParsed.error.issues,
+        });
+      }
+
       const paypal = (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter || options.paypalAdapter;
 
       if (!paypal) {
-        return reply.status(500).send({ error: 'PayPal adapter not initialized' });
+        return reply.status(500).send({
+          error: 'ConfigurationError',
+          message: 'PayPal adapter not initialized',
+        });
       }
 
       const db = getDb();
@@ -42,7 +65,10 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
         .limit(1);
 
       if (!project) {
-        return reply.status(404).send({ error: 'Project not found' });
+        return reply.status(404).send({
+          error: 'NotFound',
+          message: 'Project not found',
+        });
       }
 
       if (!project.freelancerId) {
@@ -64,6 +90,8 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
             amountCents: project.totalCents,
             currency: 'USD',
             customId: project.id,
+            returnUrl: bodyParsed.data.returnUrl,
+            cancelUrl: bodyParsed.data.cancelUrl,
           },
           clientRequestId
         );
@@ -72,10 +100,15 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
           orderId: orderResult.orderId,
           status: orderResult.status,
           amountCents: project.totalCents,
+          approveUrl: orderResult.approveUrl,
+          mode: paypal.mode,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Unknown PayPal error';
-        return reply.status(502).send({ error: `PayPal order creation failed: ${msg}` });
+        return reply.status(502).send({
+          error: 'PayPalOrderCreationFailed',
+          message: `PayPal order creation failed: ${msg}`,
+        });
       }
     }
   );
@@ -89,14 +122,21 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
       const parsed = CaptureBodySchema.safeParse(request.body);
 
       if (!parsed.success) {
-        return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.issues });
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: 'Invalid capture request: orderId is required.',
+          details: parsed.error.issues,
+        });
       }
 
       const { orderId } = parsed.data;
       const paypal = (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter || options.paypalAdapter;
 
       if (!paypal) {
-        return reply.status(500).send({ error: 'PayPal adapter not initialized' });
+        return reply.status(500).send({
+          error: 'ConfigurationError',
+          message: 'PayPal adapter not initialized',
+        });
       }
 
       const db = getDb();
@@ -107,7 +147,10 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
         .limit(1);
 
       if (!project) {
-        return reply.status(404).send({ error: 'Project not found' });
+        return reply.status(404).send({
+          error: 'NotFound',
+          message: 'Project not found',
+        });
       }
 
       if (!project.freelancerId) {
@@ -128,6 +171,7 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
           return reply.status(400).send({
             error: 'PayPal capture was not completed',
             status: captureResult.status,
+            message: `PayPal capture was not completed (status: ${captureResult.status}).`,
           });
         }
 
@@ -161,7 +205,26 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Unknown capture error';
-        return reply.status(502).send({ error: `PayPal capture failed: ${msg}` });
+        if (msg.includes('ORDER_NOT_APPROVED') || msg.includes('PAYER_ACTION_REQUIRED')) {
+          return reply.status(422).send({
+            error: 'PayPalOrderNotApproved',
+            code: 'ORDER_NOT_APPROVED',
+            message:
+              'PayPal order has not been approved yet. Please approve the payment in PayPal Sandbox Checkout first.',
+          });
+        }
+        if (msg.includes('INSTRUMENT_DECLINED')) {
+          return reply.status(422).send({
+            error: 'PayPalInstrumentDeclined',
+            code: 'INSTRUMENT_DECLINED',
+            message:
+              'Your PayPal Sandbox funding method was declined. Please retry checkout and choose another sandbox payment method.',
+          });
+        }
+        return reply.status(502).send({
+          error: 'PayPalCaptureFailed',
+          message: `PayPal capture failed: ${msg}`,
+        });
       }
     }
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { ComputedPlan } from '@milestone/shared';
 import { formatCents } from '@milestone/shared';
 import { MilestoneGantt } from './components/Gantt.js';
@@ -43,7 +43,10 @@ const DEMO_PROJECTS: ProjectListItem[] = [
 ];
 
 export function App(): React.ReactElement {
-  const [projectId, setProjectId] = useState('proj_brand_launch');
+  const [projectId, setProjectId] = useState(
+    () => new URLSearchParams(window.location.search).get('projectId') || 'proj_brand_launch'
+  );
+  const capturedPayPalTokenRef = useRef<string | null>(null);
   const [viewMode, setViewMode] = useState<'workspace' | 'start' | 'review_plan'>('workspace');
   const [currentPlan, setCurrentPlan] = useState<ComputedPlan | null>(null);
   const [selectedTask, setSelectedTask] = useState<MilestoneTaskModel | null>(null);
@@ -217,49 +220,134 @@ export function App(): React.ReactElement {
     }
   };
 
+  const captureFundingOrder = useCallback(
+    async (targetProjectId: string, orderId: string) => {
+      setIsFunding(true);
+      try {
+        const postCapture = () =>
+          fetch(`/api/projects/${targetProjectId}/fund/capture`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ orderId }),
+          });
+
+        let capRes = await postCapture();
+        if (capRes.status === 403) {
+          await fetch('/api/auth/persona', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ persona: 'client' }),
+          });
+          capRes = await postCapture();
+        }
+
+        if (!capRes.ok) {
+          const errJson = (await capRes.json().catch(() => ({}))) as {
+            message?: string;
+            error?: string;
+          };
+          throw new Error(errJson.message || errJson.error || 'Failed to capture funding order');
+        }
+
+        const capData = await capRes.json();
+        setNotification(
+          `Project funded! Captured ${capData.captureId}. Holding balance: ${formatCents(capData.holdingBalanceCents)}`
+        );
+        setShowFundModal(false);
+        await fetchLedger();
+        setRefreshKey((k) => k + 1);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Funding failed';
+        setNotification(`Error: ${msg}`);
+      } finally {
+        setIsFunding(false);
+      }
+    },
+    [fetchLedger]
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paypalCancel = params.get('paypalCancel');
+    const token = params.get('token');
+    const urlProjectId = params.get('projectId') || projectId;
+
+    if (paypalCancel === '1') {
+      setNotification('PayPal Sandbox approval was cancelled before payment completed.');
+      params.delete('paypalCancel');
+      params.delete('token');
+      params.delete('PayerID');
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+      return;
+    }
+
+    if (token && capturedPayPalTokenRef.current !== token) {
+      capturedPayPalTokenRef.current = token;
+      params.delete('token');
+      params.delete('PayerID');
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+      void captureFundingOrder(urlProjectId, token);
+    }
+  }, [projectId, captureFundingOrder]);
+
   const handleFundProject = async () => {
     setIsFunding(true);
     setNotification(null);
     try {
+      const returnUrl = `${window.location.origin}/?workspace=true&projectId=${encodeURIComponent(projectId)}`;
+      const cancelUrl = `${returnUrl}&paypalCancel=1`;
+
       // 1. Create order
-      const orderRes = await fetch(`/api/projects/${projectId}/fund/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'PayPal-Request-Id': `fund:${projectId}:${Date.now()}`,
-        },
-        body: JSON.stringify({}),
-        credentials: 'include',
-      });
+      const postOrder = () =>
+        fetch(`/api/projects/${projectId}/fund/order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'PayPal-Request-Id': `fund:${projectId}:${Date.now()}`,
+          },
+          body: JSON.stringify({ returnUrl, cancelUrl }),
+          credentials: 'include',
+        });
+
+      let orderRes = await postOrder();
+      if (orderRes.status === 403) {
+        await fetch('/api/auth/persona', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ persona: 'client' }),
+        });
+        orderRes = await postOrder();
+      }
 
       if (!orderRes.ok) {
-        const errJson = (await orderRes.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errJson.error || 'Failed to create funding order');
+        const errJson = (await orderRes.json().catch(() => ({}))) as {
+          message?: string;
+          error?: string;
+        };
+        throw new Error(errJson.message || errJson.error || 'Failed to create funding order');
       }
 
       const orderData = await orderRes.json();
 
-      // 2. Capture order
-      const capRes = await fetch(`/api/projects/${projectId}/fund/capture`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ orderId: orderData.orderId }),
-      });
-
-      if (!capRes.ok) {
-        throw new Error('Failed to capture funding order');
+      if (
+        orderData.approveUrl &&
+        orderData.status !== 'APPROVED' &&
+        orderData.status !== 'COMPLETED'
+      ) {
+        window.location.assign(orderData.approveUrl);
+        return;
       }
 
-      const capData = await capRes.json();
-      setNotification(`Project funded! Captured ${capData.captureId}. Holding balance: ${formatCents(capData.holdingBalanceCents)}`);
-      setShowFundModal(false);
-      await fetchLedger();
-      setRefreshKey((k) => k + 1);
+      // 2. Capture order directly (mock mode or already-approved order)
+      await captureFundingOrder(projectId, orderData.orderId);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Funding failed';
       setNotification(`Error: ${msg}`);
-    } finally {
       setIsFunding(false);
     }
   };

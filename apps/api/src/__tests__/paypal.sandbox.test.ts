@@ -171,5 +171,64 @@ describe('SandboxPayPalAdapter Test Suite', () => {
     expect(verify.verified).toBe(true);
     expect(verify.status).toBe('SUCCESS');
   });
+
+  it('sends application_context with returnUrl/cancelUrl and extracts approveUrl from PayPal HATEOAS links', async () => {
+    const capturedOrderPayloads: Array<Record<string, unknown>> = [];
+
+    global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = url.toString();
+
+      if (urlStr.includes('/v1/oauth2/token')) {
+        return new Response(
+          JSON.stringify({ access_token: 'tok_approve_1', expires_in: 3600 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (urlStr.includes('/v2/checkout/orders')) {
+        capturedOrderPayloads.push(JSON.parse(init?.body as string) as Record<string, unknown>);
+        return new Response(
+          JSON.stringify({
+            id: 'ORD-SANDBOX-APPROVE-1',
+            status: 'CREATED',
+            links: [
+              { href: 'https://api-m.sandbox.paypal.com/v2/checkout/orders/ORD-SANDBOX-APPROVE-1', rel: 'self', method: 'GET' },
+              { href: 'https://www.sandbox.paypal.com/checkoutnow?token=ORD-SANDBOX-APPROVE-1', rel: 'approve', method: 'GET' },
+              { href: 'https://api-m.sandbox.paypal.com/v2/checkout/orders/ORD-SANDBOX-APPROVE-1/capture', rel: 'capture', method: 'POST' },
+            ],
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response('Not found', { status: 404 });
+    });
+
+    const adapter = new SandboxPayPalAdapter({
+      clientId: 'sandbox_client_id',
+      clientSecret: 'sandbox_client_secret',
+      baseUrl: 'https://api-m.sandbox.paypal.com',
+    });
+
+    const order = await adapter.createFundingOrder({
+      projectId: 'proj_live_01',
+      title: 'Dashboard MVP',
+      amountCents: 35000,
+      currency: 'USD',
+      returnUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_live_01',
+      cancelUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_live_01&paypalCancel=1',
+    });
+
+    expect(order.orderId).toBe('ORD-SANDBOX-APPROVE-1');
+    expect(order.status).toBe('CREATED');
+    expect(order.approveUrl).toBe('https://www.sandbox.paypal.com/checkoutnow?token=ORD-SANDBOX-APPROVE-1');
+    expect(order.mode).toBe('sandbox');
+    expect(capturedOrderPayloads[0]?.application_context).toEqual({
+      brand_name: 'Milestone',
+      user_action: 'PAY_NOW',
+      return_url: 'http://localhost:5173/client/new?step=4&projectId=proj_live_01',
+      cancel_url: 'http://localhost:5173/client/new?step=4&projectId=proj_live_01&paypalCancel=1',
+    });
+  });
 });
 

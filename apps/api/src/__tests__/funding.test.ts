@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { initDb, AppDatabase } from '../db/index.js';
@@ -317,5 +317,60 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.json().error).toBe('Invalid webhook signature');
+  });
+
+  it('accepts optional returnUrl and cancelUrl on funding order creation and includes adapter mode', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/projects/${testProjectId}/fund/order`,
+      headers: { cookie: clientCookie },
+      payload: {
+        returnUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_unfunded',
+        cancelUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_unfunded&paypalCancel=1',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.orderId).toMatch(/^mock_order_/);
+    expect(body.mode).toBe('mock');
+  });
+
+  it('rejects non-http returnUrl with 400 ValidationError on funding order creation', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/projects/${testProjectId}/fund/order`,
+      headers: { cookie: clientCookie },
+      payload: {
+        returnUrl: 'javascript:alert(1)',
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('ValidationError');
+  });
+
+  it('returns 422 with clear message when PayPal rejects capture with ORDER_NOT_APPROVED', async () => {
+    const spy = vi
+      .spyOn(mockPayPal, 'captureFundingOrder')
+      .mockRejectedValueOnce(
+        new Error('PayPal API error [POST /v2/checkout/orders/ord_unapproved/capture] 422: {"name":"UNPROCESSABLE_ENTITY","details":[{"issue":"ORDER_NOT_APPROVED"}]}')
+      );
+
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/projects/${testProjectId}/fund/capture`,
+        headers: { cookie: clientCookie },
+        payload: { orderId: 'ord_unapproved' },
+      });
+
+      expect(res.statusCode).toBe(422);
+      const body = res.json();
+      expect(body.code).toBe('ORDER_NOT_APPROVED');
+      expect(body.message).toMatch(/approve/i);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
