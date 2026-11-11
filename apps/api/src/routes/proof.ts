@@ -3,6 +3,7 @@ import { getDb } from '../db/index.js';
 import { projects, milestones, ledgerEntries, payoutBatches, paypalEvents } from '../db/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
 import { getRecentExternalCalls, getWebhookReceiptLog } from '../services/externalCalls.js';
+import { createLlmPort } from '../ai/llmFactory.js';
 import { PayPalPort } from '@milestone/shared';
 
 export interface ProofCheck {
@@ -338,30 +339,23 @@ export async function registerProofRoutes(server: FastifyInstance): Promise<void
     }
 
     // Step 3: LLM Ping
-    const llm = (server as any).llmAdapter;
-    if (llm) {
-      try {
-        const pingRes = await llm.complete({
-          messages: [{ role: 'user', content: 'Respond with exactly: PONG' }],
-          maxTokens: 5,
-        });
-        results.push({
-          step: 'AI Model Ping',
-          status: 'pass',
-          detail: `Provider: ${llm.provider}, Latency: ${pingRes.latencyMs}ms`,
-        });
-      } catch (err: any) {
-        results.push({
-          step: 'AI Model Ping',
-          status: 'fail',
-          detail: err?.message || 'LLM call failed',
-        });
-      }
-    } else {
+    try {
+      const llm = (server as any).llmAdapter || createLlmPort(config || {});
+      const pingRes = await llm.complete({
+        messages: [{ role: 'user', content: 'Respond with exactly: PONG' }],
+        maxTokens: 10,
+      });
+      const isLiveModel = llm.provider !== 'fixture';
       results.push({
         step: 'AI Model Ping',
-        status: 'pass',
-        detail: 'LLM Adapter active in fixture/mock mode',
+        status: isLiveModel || config?.NODE_ENV === 'test' || paypalAdapter.mode === 'mock' ? 'pass' : 'fail',
+        detail: `Provider: ${llm.provider} (${pingRes.model}), Latency: ${pingRes.latencyMs}ms`,
+      });
+    } catch (err: any) {
+      results.push({
+        step: 'AI Model Ping',
+        status: 'fail',
+        detail: err?.message || 'LLM call failed',
       });
     }
 

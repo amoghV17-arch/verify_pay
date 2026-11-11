@@ -124,39 +124,71 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     { preHandler: [requireRole(['client'])] },
     async (request, reply) => {
       const db = getDb();
-      const { title, brief, totalBudget } = request.body;
-      const briefValidation = validateBriefLength(brief);
+      const { title, brief, totalBudget } = request.body || {};
+      const briefValidation = validateBriefLength(brief || '');
       if (!briefValidation.valid) {
         return reply.status(400).send({ error: 'ValidationError', message: briefValidation.error });
       }
 
       const id = `proj_${randomUUID().substring(0, 8)}`;
-      const totalCents = Math.round((totalBudget ?? 2000) * 100);
+      const numericBudget = Number(totalBudget);
+      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : 2000;
+      const totalCents = Math.round(safeBudget * 100);
 
-      const isDemo = Boolean(process.env.DEMO_MODE === 'true');
+      const appConfig = (server as unknown as { appConfig?: AppConfig }).appConfig;
+      const isDemo = Boolean(appConfig?.DEMO_MODE || process.env.DEMO_MODE === 'true');
       const budgetValidation = validateDemoBudget(totalCents, isDemo);
       if (!budgetValidation.valid) {
         return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });
       }
 
-      const [newProject] = await db
-        .insert(projects)
-        .values({
-          id,
-          title: title || 'New Milestone Project',
-          brief,
-          currency: 'USD',
-          totalCents,
-          status: 'draft',
-          autonomyMode: 'assisted',
-          releaseWindowSeconds: 20,
-          clientId: request.user?.userId || 'user_client_01',
-          freelancerId: null,
-          isDemo: false,
-        })
-        .returning();
+      try {
+        let clientId = request.user?.userId || 'user_client_01';
+        const [existingClient] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, clientId))
+          .limit(1);
 
-      return reply.status(201).send({ success: true, project: newProject });
+        if (!existingClient) {
+          clientId = 'user_client_01';
+          await db
+            .insert(users)
+            .values({
+              id: 'user_client_01',
+              name: 'Sarah Lin (Acme Corp)',
+              email: 'sarah@acme-corp.com',
+              avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+            })
+            .onConflictDoNothing();
+        }
+
+        const [newProject] = await db
+          .insert(projects)
+          .values({
+            id,
+            title: title?.trim() || 'New Milestone Project',
+            brief,
+            currency: 'USD',
+            totalCents,
+            status: 'draft',
+            autonomyMode: 'assisted',
+            releaseWindowSeconds: 20,
+            clientId,
+            freelancerId: null,
+            isDemo: false,
+          })
+          .returning();
+
+        return reply.status(201).send({ success: true, project: newProject });
+      } catch (err) {
+        server.log.error({ err }, 'Failed to create project draft');
+        const msg = err instanceof Error ? err.message : 'Database insert error';
+        return reply.status(500).send({
+          error: 'ProjectCreationError',
+          message: `Failed to create project draft: ${msg}`,
+        });
+      }
     }
   );
 
@@ -404,8 +436,11 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         });
       }
 
-      const totalCents = Math.round((totalBudget ?? 2000) * 100);
-      const isDemo = Boolean(process.env.DEMO_MODE === 'true');
+      const numericBudget = Number(totalBudget);
+      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : 2000;
+      const totalCents = Math.round(safeBudget * 100);
+      const appConfig = (request.server as unknown as { appConfig?: AppConfig }).appConfig;
+      const isDemo = Boolean(appConfig?.DEMO_MODE || process.env.DEMO_MODE === 'true');
       const budgetValidation = validateDemoBudget(totalCents, isDemo);
       if (!budgetValidation.valid) {
         return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });
@@ -427,7 +462,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
 
       const result = await planner.generatePlan({
         brief,
-        totalBudget: totalBudget ?? 2000,
+        totalBudget: safeBudget,
         durationHint,
         currency: currency || 'USD',
       });
@@ -501,127 +536,141 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         new Date()
       );
 
-      // Perform atomic database update
-      await db.transaction(async (tx) => {
-        // 1. Delete existing milestones, dependencies, tasks
-        await tx.delete(milestones).where(eq(milestones.projectId, id));
-        await tx.delete(dependencies).where(eq(dependencies.projectId, id));
-        await tx.delete(tasks).where(eq(tasks.projectId, id));
+      const toDbTaskId = (rawId: string) => (rawId.startsWith(`${id}__`) ? rawId : `${id}__${rawId}`);
+      const toDbMilestoneId = (rawId: string) => (rawId.startsWith(`${id}__ms_`) ? rawId : `${id}__ms_${rawId}`);
 
-        // 2. Insert standard delivery tasks
-        for (let idx = 0; idx < scheduledTasks.length; idx++) {
-          const t = scheduledTasks[idx];
-          await tx.insert(tasks).values({
-            id: t.id,
-            projectId: id,
-            name: t.name,
-            startDate: t.startDate,
-            durationDays: t.durationDays,
-            percentDone: 0,
-            milestoneId: t.milestoneId,
-            sortOrder: idx,
-            bryntumExt: { milestone: false },
-          });
+      try {
+        // Perform atomic database update
+        await db.transaction(async (tx) => {
+          // 1. Delete existing milestones, dependencies, tasks
+          await tx.delete(milestones).where(eq(milestones.projectId, id));
+          await tx.delete(dependencies).where(eq(dependencies.projectId, id));
+          await tx.delete(tasks).where(eq(tasks.projectId, id));
 
-          // Insert task-to-task dependencies
-          for (const depId of t.dependsOn) {
-            await tx.insert(dependencies).values({
-              id: `dep_${t.id}_${depId}_${randomUUID().substring(0, 6)}`,
+          // 2. Insert standard delivery tasks
+          for (let idx = 0; idx < scheduledTasks.length; idx++) {
+            const t = scheduledTasks[idx];
+            const dbTaskId = toDbTaskId(t.id);
+            await tx.insert(tasks).values({
+              id: dbTaskId,
               projectId: id,
-              fromTaskId: depId,
-              toTaskId: t.id,
-              type: 2, // Finish-to-Start
-              lag: 0,
+              name: t.name,
+              startDate: t.startDate,
+              durationDays: t.durationDays,
+              percentDone: 0,
+              milestoneId: null,
+              sortOrder: idx,
+              bryntumExt: { milestone: false, linkedMilestoneId: t.milestoneId ? toDbMilestoneId(t.milestoneId) : null },
             });
+
+            // Insert task-to-task dependencies
+            for (const depId of t.dependsOn) {
+              await tx.insert(dependencies).values({
+                id: `dep_${id}_${t.id}_${depId}_${randomUUID().substring(0, 6)}`,
+                projectId: id,
+                fromTaskId: toDbTaskId(depId),
+                toTaskId: dbTaskId,
+                type: 2, // Finish-to-Start
+                lag: 0,
+              });
+            }
           }
-        }
 
-        // 3. Insert milestone tasks and milestone records
-        for (let idx = 0; idx < scheduledMilestones.length; idx++) {
-          const m = scheduledMilestones[idx];
-          const milestoneTaskId = m.id;
+          // 3. Insert milestone tasks and milestone records
+          for (let idx = 0; idx < scheduledMilestones.length; idx++) {
+            const m = scheduledMilestones[idx];
+            const milestoneTaskId = toDbTaskId(m.id);
+            const dbMilestoneId = toDbMilestoneId(m.id);
 
-          // Milestone task in Gantt
-          await tx.insert(tasks).values({
-            id: milestoneTaskId,
-            projectId: id,
-            name: m.name,
-            startDate: m.date,
-            durationDays: 0,
-            percentDone: 0,
-            milestoneId: m.id,
-            sortOrder: scheduledTasks.length + idx,
-            bryntumExt: {
-              milestone: true,
-              paymentStatus: 'unfunded',
+            // Milestone task in Gantt
+            await tx.insert(tasks).values({
+              id: milestoneTaskId,
+              projectId: id,
+              name: m.name,
+              startDate: m.date,
+              durationDays: 0,
+              percentDone: 0,
+              milestoneId: dbMilestoneId,
+              sortOrder: scheduledTasks.length + idx,
+              bryntumExt: {
+                milestone: true,
+                paymentStatus: 'unfunded',
+                amountCents: m.amountCents,
+              },
+            });
+
+            // Milestone finish-to-start dependencies from afterTaskIds
+            for (const prevTaskId of m.afterTaskIds) {
+              await tx.insert(dependencies).values({
+                id: `dep_${id}_${m.id}_${prevTaskId}_${randomUUID().substring(0, 6)}`,
+                projectId: id,
+                fromTaskId: toDbTaskId(prevTaskId),
+                toTaskId: milestoneTaskId,
+                type: 2,
+                lag: 0,
+              });
+            }
+
+            // Milestone record in milestones table
+            const criteriaList = m.acceptanceCriteria.map((descText, cIdx) => ({
+              id: `crit_${id}_${m.id}_${cIdx + 1}`,
+              description: descText,
+              passed: false,
+            }));
+
+            await tx.insert(milestones).values({
+              id: dbMilestoneId,
+              projectId: id,
+              taskId: milestoneTaskId,
+              name: m.name,
               amountCents: m.amountCents,
-            },
-          });
-
-          // Milestone finish-to-start dependencies from afterTaskIds
-          for (const prevTaskId of m.afterTaskIds) {
-            await tx.insert(dependencies).values({
-              id: `dep_${milestoneTaskId}_${prevTaskId}_${randomUUID().substring(0, 6)}`,
-              projectId: id,
-              fromTaskId: prevTaskId,
-              toTaskId: milestoneTaskId,
-              type: 2,
-              lag: 0,
+              percent: m.paymentPercent,
+              criteria: criteriaList,
+              deliverableType: m.deliverableType,
+              status: 'unfunded',
             });
           }
 
-          // Milestone record in milestones table
-          const criteriaList = m.acceptanceCriteria.map((descText, cIdx) => ({
-            id: `crit_${m.id}_${cIdx + 1}`,
-            description: descText,
-            passed: false,
-          }));
+          // 4. Update project record
+          await tx
+            .update(projects)
+            .set({
+              title: plan.projectTitle || proj.title,
+              brief: plan.summary || proj.brief,
+              totalCents: plan.totalCents,
+              status: 'planned',
+              planJson: {
+                ...plan,
+                tasks: scheduledTasks,
+                milestones: scheduledMilestones,
+              },
+              planPromptVersion: plan.promptVersion || 'planner.v1',
+              updatedAt: new Date(),
+            })
+            .where(eq(projects.id, id));
 
-          await tx.insert(milestones).values({
-            id: m.id,
+          // 5. Log activity
+          await tx.insert(activity).values({
+            id: `act_${randomUUID().substring(0, 8)}`,
             projectId: id,
-            taskId: milestoneTaskId,
-            name: m.name,
-            amountCents: m.amountCents,
-            percent: m.paymentPercent,
-            criteria: criteriaList,
-            deliverableType: m.deliverableType,
-            status: 'unfunded',
-          });
-        }
-
-        // 4. Update project record
-        await tx
-          .update(projects)
-          .set({
-            title: plan.projectTitle || proj.title,
-            brief: plan.summary || proj.brief,
-            totalCents: plan.totalCents,
-            status: 'planned',
-            planJson: {
-              ...plan,
-              tasks: scheduledTasks,
-              milestones: scheduledMilestones,
+            actor: 'client',
+            kind: 'plan_approved',
+            text: `Client approved delivery plan "${plan.projectTitle}" with ${scheduledMilestones.length} milestones.`,
+            meta: {
+              totalCents: plan.totalCents,
+              tasksCount: scheduledTasks.length,
+              milestonesCount: scheduledMilestones.length,
             },
-            planPromptVersion: plan.promptVersion || 'planner.v1',
-            updatedAt: new Date(),
-          })
-          .where(eq(projects.id, id));
-
-        // 5. Log activity
-        await tx.insert(activity).values({
-          id: `act_${randomUUID().substring(0, 8)}`,
-          projectId: id,
-          actor: 'client',
-          kind: 'plan_approved',
-          text: `Client approved delivery plan "${plan.projectTitle}" with ${scheduledMilestones.length} milestones.`,
-          meta: {
-            totalCents: plan.totalCents,
-            tasksCount: scheduledTasks.length,
-            milestonesCount: scheduledMilestones.length,
-          },
+          });
         });
-      });
+      } catch (err) {
+        server.log.error({ err, projectId: id }, 'Failed to apply approved plan');
+        const msg = err instanceof Error ? err.message : 'Database transaction error';
+        return reply.status(500).send({
+          error: 'PlanApplyError',
+          message: `Failed to apply approved plan: ${msg}`,
+        });
+      }
 
       // Broadcast update over SSE
       sseHub.broadcast(id, 'plan.applied', {

@@ -132,8 +132,9 @@ export const StatusPage: React.FC = () => {
                 <p className="text-xs text-[#5F645C] mt-0.5">Orders v2 & Payouts v1</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[#337D70] bg-[#E3EFEC] px-2 py-0.5 rounded font-mono">
-              <CheckCircle2 className="w-3 h-3" /> {data?.paypalApi || 'Active'}
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[#1E4D40] bg-[#E3EFEC] px-2 py-0.5 rounded font-mono">
+              <CheckCircle2 className="w-3 h-3" />{' '}
+              {data?.paypalApi === 'sandbox_active' ? 'LIVE SANDBOX VERIFIED' : data?.paypalApi || 'Active'}
             </span>
           </div>
 

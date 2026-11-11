@@ -115,4 +115,54 @@ describe('Project Planner API Endpoints', () => {
     const dbTasks = await db.select().from(schema.tasks).where(eq(schema.tasks.projectId, projectId));
     expect(dbTasks.length).toBeGreaterThanOrEqual(generatedPlan.tasks.length);
   });
+
+  it('POST /api/projects/:id/plan/apply scopes task & milestone IDs for newly created projects', async () => {
+    const token = await createSessionToken({ userId: 'user_client_01', role: 'client' });
+    const clientCookie = `milestone_session=${token}`;
+
+    const createRes = await server.inject({
+      method: 'POST',
+      url: '/api/projects',
+      headers: { cookie: clientCookie },
+      payload: {
+        title: 'Second Project Alongside Seed',
+        brief: 'Build a customer retention data analytics pipeline and cohort dashboard',
+        totalBudget: 2400,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const createdProjectId: string = JSON.parse(createRes.body).project.id;
+
+    const planRes = await server.inject({
+      method: 'POST',
+      url: '/api/projects/plan',
+      headers: { cookie: clientCookie },
+      payload: {
+        brief: 'Build a customer retention data analytics pipeline and cohort dashboard',
+        totalBudget: 2400,
+      },
+    });
+    expect(planRes.statusCode).toBe(200);
+    const generatedPlan: ComputedPlan = JSON.parse(planRes.body).plan;
+
+    const applyRes = await server.inject({
+      method: 'POST',
+      url: `/api/projects/${createdProjectId}/plan/apply`,
+      headers: { cookie: clientCookie },
+      payload: { plan: generatedPlan },
+    });
+    expect(applyRes.statusCode).toBe(200);
+    const applyBody = JSON.parse(applyRes.body);
+    expect(applyBody.success).toBe(true);
+
+    // Ensure Gantt load works on the newly planned project
+    const ganttRes = await server.inject({
+      method: 'GET',
+      url: `/api/gantt/${createdProjectId}/load`,
+    });
+    expect(ganttRes.statusCode).toBe(200);
+    const ganttBody = JSON.parse(ganttRes.body);
+    expect(ganttBody.tasks.rows.some((r: { milestone: boolean }) => r.milestone)).toBe(true);
+    expect(ganttBody.tasks.rows.some((r: { milestone: boolean }) => !r.milestone)).toBe(true);
+  });
 });

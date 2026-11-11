@@ -1,7 +1,10 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   PlanSchema,
+  PlanSuccessSchema,
+  PlanErrorSchema,
   type PlanOutput,
   type PlanSuccessOutput,
   type ComputedPlan,
@@ -11,6 +14,8 @@ import {
   type LlmCompletionResponse,
 } from '@milestone/shared';
 import { validatePlanGraph, computeSchedule } from './scheduler.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export interface PlannerInput {
   brief: string;
@@ -62,13 +67,15 @@ const SUBMIT_PLAN_TOOL: LlmToolDefinition = {
       },
       tasks: {
         type: 'array',
+        minItems: 6,
+        maxItems: 18,
         description: '6 to 18 delivery tasks with dependencies and durations in working days (0.5 steps).',
         items: {
           type: 'object',
           required: ['id', 'name', 'durationDays', 'dependsOn'],
           properties: {
             id: { type: 'string', pattern: '^t\\d{1,2}$' },
-            name: { type: 'string' },
+            name: { type: 'string', description: 'Short task title (3 to 80 characters, required).' },
             durationDays: { type: 'number', minimum: 0.5, maximum: 10 },
             dependsOn: { type: 'array', items: { type: 'string' } },
           },
@@ -76,13 +83,15 @@ const SUBMIT_PLAN_TOOL: LlmToolDefinition = {
       },
       milestones: {
         type: 'array',
+        minItems: 3,
+        maxItems: 5,
         description: '3 to 5 payment milestones with acceptance criteria, percentages, and deliverable types.',
         items: {
           type: 'object',
           required: ['id', 'name', 'afterTaskIds', 'paymentPercent', 'deliverableType', 'acceptanceCriteria', 'reviewHint'],
           properties: {
             id: { type: 'string', pattern: '^m\\d$' },
-            name: { type: 'string' },
+            name: { type: 'string', description: 'Short milestone title (3 to 60 characters, required).' },
             afterTaskIds: { type: 'array', items: { type: 'string' } },
             paymentPercent: { type: 'integer', minimum: 5, maximum: 40 },
             deliverableType: { type: 'string', enum: ['text', 'repo', 'url', 'image', 'document'] },
@@ -92,13 +101,31 @@ const SUBMIT_PLAN_TOOL: LlmToolDefinition = {
               minItems: 2,
               maxItems: 5,
             },
-            reviewHint: { type: 'string' },
+            reviewHint: { type: 'string', description: 'Short guidance (max 200 characters) telling a reviewer what to inspect.' },
           },
         },
       },
     },
   },
 };
+
+function extractZodIssueMessages(rawArgs: unknown): string[] {
+  const isErrorPayload =
+    rawArgs !== null &&
+    typeof rawArgs === 'object' &&
+    !Array.isArray(rawArgs) &&
+    typeof (rawArgs as Record<string, unknown>).error === 'string' &&
+    ((rawArgs as Record<string, unknown>).error as string).trim().length > 0;
+
+  const branchResult = isErrorPayload
+    ? PlanErrorSchema.safeParse(rawArgs)
+    : PlanSuccessSchema.safeParse(rawArgs);
+
+  if (!branchResult.success) {
+    return branchResult.error.errors.map((e) => `${e.path.join('.') || 'root'}: ${e.message}`);
+  }
+  return ['root: Output did not satisfy PlanSchema constraints'];
+}
 
 export class PlannerService {
   private llm: LlmPort;
@@ -111,10 +138,16 @@ export class PlannerService {
   }
 
   private loadSystemPrompt(): string {
-    // Look up prompt file
-    const promptPath = join(process.cwd(), 'apps', 'api', 'src', 'ai', 'prompts', `${this.promptVersion}.md`);
-    if (existsSync(promptPath)) {
-      return readFileSync(promptPath, 'utf8').trim();
+    // Look up prompt file regardless of cwd (repo root vs apps/api)
+    const candidates = [
+      join(process.cwd(), 'apps', 'api', 'src', 'ai', 'prompts', `${this.promptVersion}.md`),
+      join(__dirname, 'prompts', `${this.promptVersion}.md`),
+      join(__dirname, '..', '..', 'src', 'ai', 'prompts', `${this.promptVersion}.md`),
+    ];
+    for (const promptPath of candidates) {
+      if (existsSync(promptPath)) {
+        return readFileSync(promptPath, 'utf8').trim();
+      }
     }
     // Fallback embedded
     return `You are the Planner for Milestone, a tool that helps a client and a freelancer agree on a fair, verifiable project plan before any money moves.
@@ -181,7 +214,11 @@ ${input.brief.trim()}
         }
       } else if (response.content) {
         try {
-          rawArgs = JSON.parse(response.content);
+          const cleaned = response.content
+            .trim()
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '');
+          rawArgs = JSON.parse(cleaned);
         } catch {
           rawArgs = null;
         }
@@ -213,7 +250,7 @@ ${input.brief.trim()}
       // 1. Zod schema validation
       const parseResult = PlanSchema.safeParse(rawArgs);
       if (!parseResult.success) {
-        const zodErrors = parseResult.error.errors.map((e) => `${e.path.join('.') || 'root'}: ${e.message}`);
+        const zodErrors = extractZodIssueMessages(rawArgs);
         validationHistory.push(zodErrors);
 
         if (attempt < maxAttempts) {

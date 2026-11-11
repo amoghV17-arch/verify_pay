@@ -60,6 +60,20 @@ export const NewProjectWizard: React.FC = () => {
   const [brief, setBrief] = useState('');
   const [totalBudget, setTotalBudget] = useState(8000);
   const [durationHint, setDurationHint] = useState('4 weeks');
+  const [demoCapUsd, setDemoCapUsd] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/system/mode')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((m) => {
+        if (m?.demoBudgetCapActive && typeof m?.maxDemoBudgetCents === 'number') {
+          const capUsd = Math.floor(m.maxDemoBudgetCents / 100);
+          setDemoCapUsd(capUsd);
+          setTotalBudget((prev) => (prev > capUsd ? Math.min(450, capUsd) : prev));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Plan state
   const [computedPlan, setComputedPlan] = useState<ComputedPlan | null>(null);
@@ -94,7 +108,7 @@ export const NewProjectWizard: React.FC = () => {
     const s = SAMPLE_BRIEFS[idx];
     setTitle(s.title);
     setBrief(s.brief);
-    setTotalBudget(s.budget);
+    setTotalBudget(demoCapUsd !== null && s.budget > demoCapUsd ? Math.min(450, demoCapUsd) : s.budget);
     setDurationHint(s.duration);
   };
 
@@ -111,21 +125,39 @@ export const NewProjectWizard: React.FC = () => {
       // 1. Create or ensure project draft exists in DB
       let targetProjectId = projectId;
       if (!targetProjectId) {
-        const createRes = await fetch('/api/projects', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Persona': 'client',
-          },
-          body: JSON.stringify({
-            title: title || 'New Milestone Project',
-            brief,
-            totalBudget,
-          }),
-        });
+        const postDraft = () =>
+          fetch('/api/projects', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Persona': 'client',
+            },
+            body: JSON.stringify({
+              title: title || 'New Milestone Project',
+              brief,
+              totalBudget,
+            }),
+          });
+
+        let createRes = await postDraft();
+        if (createRes.status === 403) {
+          await fetch('/api/auth/persona', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona: 'client' }),
+          });
+          createRes = await postDraft();
+        }
 
         if (!createRes.ok) {
-          throw new Error('Failed to create project draft');
+          const errBody = await createRes.json().catch(() => null);
+          throw new Error(
+            errBody?.message ||
+              errBody?.error ||
+              `Failed to create project draft (HTTP ${createRes.status})`
+          );
         }
         const createData = await createRes.json();
         targetProjectId = createData.project.id;
@@ -135,6 +167,7 @@ export const NewProjectWizard: React.FC = () => {
       // 2. Call AI Planner endpoint
       const planRes = await fetch('/api/projects/plan', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-Persona': 'client',
@@ -146,9 +179,9 @@ export const NewProjectWizard: React.FC = () => {
         }),
       });
 
-      const planData = await planRes.json();
+      const planData = await planRes.json().catch(() => ({}));
       if (!planRes.ok || !planData.success) {
-        throw new Error(planData.error || 'Failed to generate plan');
+        throw new Error(planData.message || planData.error || `Failed to generate plan (HTTP ${planRes.status})`);
       }
 
       const plan = planData.plan as ComputedPlan;

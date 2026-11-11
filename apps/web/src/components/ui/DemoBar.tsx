@@ -92,6 +92,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
   const [sandboxBuyer, setSandboxBuyer] = useState<{ email: string; password?: string } | null>(null);
   const [payoutEmail, setPayoutEmail] = useState<string>('arjun-sandbox@freelance.dev');
   const [copiedBuyerKey, setCopiedBuyerKey] = useState<string | null>(null);
+  const [isLiveSandbox, setIsLiveSandbox] = useState<boolean>(false);
 
   useEffect(() => {
     fetch('/api/demo/status')
@@ -99,6 +100,15 @@ export const DemoBar: React.FC<DemoBarProps> = ({
       .then((d) => {
         if (d.sandboxBuyer) setSandboxBuyer(d.sandboxBuyer);
         if (d.freelancerPayoutEmail) setPayoutEmail(d.freelancerPayoutEmail);
+      })
+      .catch(() => {});
+
+    fetch('/api/system/mode')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((m) => {
+        if (m && m.paypal === 'sandbox' && m.llm?.live && m.webhookConfigured) {
+          setIsLiveSandbox(true);
+        }
       })
       .catch(() => {});
   }, []);
@@ -203,12 +213,14 @@ export const DemoBar: React.FC<DemoBarProps> = ({
         ...style,
       }}
     >
-      <ModeTruthBanner showWhenLive={false} />
+      <ModeTruthBanner showWhenLive={true} />
       {/* Top row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <Sparkles size={15} color="var(--teal-on-dark)" />
-          <span style={{ fontWeight: 600 }}>Demo mode: sandbox prototype</span>
+          <span style={{ fontWeight: 600 }}>
+            {isLiveSandbox ? 'LIVE SANDBOX VERIFIED' : 'Demo mode: sandbox prototype'}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <button

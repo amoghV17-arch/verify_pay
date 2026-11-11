@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { getRecentExternalCalls, getWebhookReceiptLog } from '../services/externalCalls.js';
+import { MAX_DEMO_BUDGET_CENTS } from '../services/abuseGuards.js';
 import { getDb } from '../db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -10,8 +11,13 @@ export async function registerSystemRoutes(server: FastifyInstance): Promise<voi
 
   // 1. GET /api/system/mode - Truth about current backend execution environment
   server.get('/api/system/mode', async () => {
-    const isLiveLlm = config.LLM_PROVIDER !== 'fixture' && !!config.LLM_API_KEY;
-    const isWebhookConfigured = Boolean(config.PAYPAL_WEBHOOK_ID && config.PAYPAL_WEBHOOK_ID.trim().length > 0);
+    const isLiveLlm = Boolean(
+      config.LLM_PROVIDER && config.LLM_PROVIDER !== 'fixture' && config.LLM_API_KEY
+    );
+    const isWebhookConfigured = Boolean(
+      config.PAYPAL_WEBHOOK_ID && config.PAYPAL_WEBHOOK_ID.trim().length > 0
+    );
+    const isDemoBudgetCap = Boolean(config.DEMO_MODE || process.env.DEMO_MODE === 'true');
 
     return {
       paypal: config.PAYPAL_ENV === 'sandbox' ? 'sandbox' : 'mock',
@@ -20,7 +26,9 @@ export async function registerSystemRoutes(server: FastifyInstance): Promise<voi
         model: config.LLM_MODEL || 'fixture-model',
         live: isLiveLlm,
       },
-      demoMode: config.DEMO_MODE === true || config.NODE_ENV !== 'production',
+      demoMode: isDemoBudgetCap || config.NODE_ENV !== 'production',
+      demoBudgetCapActive: isDemoBudgetCap,
+      maxDemoBudgetCents: MAX_DEMO_BUDGET_CENTS,
       webhookConfigured: isWebhookConfigured,
       version: '0.9.0',
       commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local-dev',

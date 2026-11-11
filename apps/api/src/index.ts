@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.js';
 import { loadConfig, type PayPalPort } from '@milestone/shared';
 import { buildServer } from './server.js';
 import { initDb } from './db/index.js';

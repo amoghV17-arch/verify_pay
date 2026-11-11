@@ -38,6 +38,18 @@ export const EnvSchema = z
     REVIEW_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.75),
     ASSISTED_RELEASE_WINDOW_SECONDS: z.coerce.number().int().positive().default(20),
 
+    // Demo & abuse guardrails
+    DEMO_MODE: z
+      .union([z.boolean(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'boolean') return val;
+        return ['true', '1', 'yes', 'on'].includes(val.trim().toLowerCase());
+      })
+      .optional(),
+    DEMO_SANDBOX_BUYER_EMAIL: z.string().optional(),
+    DEMO_SANDBOX_BUYER_PASSWORD: z.string().optional(),
+    DAILY_LLM_CAP: z.coerce.number().int().positive().optional(),
+
     // Bryntum
     BRYNTUM_PACKAGE: z.enum(['trial', 'licensed']).default('trial'),
   })

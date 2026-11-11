@@ -26,9 +26,27 @@ export const ClientShell: React.FC = () => {
   const [projectTitle, setProjectTitle] = useState<string>('');
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    fetch('/api/auth/me', {
+      credentials: 'include',
+      headers: { 'X-Persona': 'client' },
+    })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then(async (data) => {
+        if (data?.user?.role === 'freelancer') {
+          const switchRes = await fetch('/api/auth/persona', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona: 'client' }),
+            credentials: 'include',
+          });
+          if (switchRes.ok) {
+            const switched = await switchRes.json();
+            if (switched?.user?.name) {
+              setUserName(switched.user.name);
+              return;
+            }
+          }
+        }
         if (data?.user?.name) {
           setUserName(data.user.name);
         }
