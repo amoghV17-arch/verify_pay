@@ -92,7 +92,7 @@ export function buildServer(
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     frameguard: { action: 'sameorigin' },
     contentSecurityPolicy: {
-      reportOnly: options?.cspReportOnly ?? true,
+      reportOnly: options?.cspReportOnly ?? false,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", 'https://www.paypal.com', 'https://www.sandbox.paypal.com'],

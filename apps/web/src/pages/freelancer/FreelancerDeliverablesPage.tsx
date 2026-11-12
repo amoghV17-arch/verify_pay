@@ -17,6 +17,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { mapStatusToMoneyState } from '../../lib/projectHelpers.js';
 import { EvidenceChip, type DeliverableType } from '../../components/ui/EvidenceChip.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { apiRawFetch } from '../../lib/api.js';
 import { SubmitSlideOver, type DeliverableKind } from '../../components/freelancer/SubmitSlideOver.js';
 import { AppealModal } from '../../components/AppealModal.js';
 import {
@@ -86,18 +87,9 @@ export const FreelancerDeliverablesPage: React.FC = () => {
       }
       try {
         const [delivRes, msRes, revRes] = await Promise.all([
-          fetch(`/api/projects/${projectId}/deliverables`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }).catch(() => null),
-          fetch(`/api/projects/${projectId}/milestones`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }),
-          fetch(`/api/projects/${projectId}/reviews`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }).catch(() => null),
+          apiRawFetch(`/api/projects/${projectId}/deliverables`).catch(() => null),
+          apiRawFetch(`/api/projects/${projectId}/milestones`),
+          apiRawFetch(`/api/projects/${projectId}/reviews`).catch(() => null),
         ]);
 
         if (delivRes && delivRes.ok) {
@@ -153,10 +145,8 @@ export const FreelancerDeliverablesPage: React.FC = () => {
     if (!projectId) return;
     setIsSyncingPayout(true);
     try {
-      await fetch(`/api/projects/${projectId}/reconcile`, {
+      await apiRawFetch(`/api/projects/${projectId}/reconcile`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'freelancer' },
       });
       await loadData(false);
     } catch {
@@ -182,10 +172,8 @@ export const FreelancerDeliverablesPage: React.FC = () => {
   useEffect(() => {
     if (!projectId || !hasReleasingState) return;
     const reconcileInterval = setInterval(() => {
-      void fetch(`/api/projects/${projectId}/reconcile`, {
+      void apiRawFetch(`/api/projects/${projectId}/reconcile`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'freelancer' },
       }).then(() => loadData(false)).catch(() => undefined);
     }, 10000);
     return () => clearInterval(reconcileInterval);

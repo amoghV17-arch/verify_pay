@@ -4,6 +4,7 @@
  * with real-time SSE progress streaming.
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { apiRawFetch } from '../lib/api.js';
 
 interface AppealModalProps {
   milestoneId: string;
@@ -50,11 +51,10 @@ export const AppealModal: React.FC<AppealModalProps> = ({
     setFeedback(null);
 
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/appeal`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/appeal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ explanation: explanation.trim() }),
-        credentials: 'include',
       });
 
       if (!res.ok) {

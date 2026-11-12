@@ -599,3 +599,4 @@ export const registerAccountRoutes: FastifyPluginAsync = async (server) => {
     });
   });
 };
+

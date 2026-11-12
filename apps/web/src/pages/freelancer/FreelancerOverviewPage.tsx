@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
+import { apiRawFetch } from '../../lib/api.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import {
@@ -61,10 +62,7 @@ export const FreelancerOverviewPage: React.FC = () => {
       try {
         setIsLoading(true);
 
-        const res = await fetch(`/api/projects/${id}`, {
-          credentials: 'include',
-          headers: { 'X-Persona': 'freelancer' },
-        });
+        const res = await apiRawFetch(`/api/projects/${id}`);
 
         if (!res.ok) {
           throw new Error('Failed to load project');

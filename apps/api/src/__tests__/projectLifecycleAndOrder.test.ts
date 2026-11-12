@@ -26,7 +26,7 @@ import {
 } from '../services/milestoneOrder.js';
 import { formatActivityRecord } from '../services/activityFormatter.js';
 import { buildServer } from '../server.js';
-import { COOKIE_CLIENT, COOKIE_FREELANCER, createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 import { loadConfig } from '@milestone/shared';
 import type { FastifyInstance } from 'fastify';
 
@@ -36,8 +36,8 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
   let releaseService: ReleaseService;
   let ledgerService: LedgerService;
   let server: FastifyInstance;
-  let clientCookieHeader: string;
-  let freelancerCookieHeader: string;
+  let clientHeaders: Record<string, string>;
+  let freelancerHeaders: Record<string, string>;
 
   const testProjectId = 'proj_lifecycle_order_test';
 
@@ -59,20 +59,20 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     server = buildServer(config, { paypalAdapter: mockPayPal });
     await server.ready();
 
-    const clientToken = await createSessionToken({
+    const clientUser = await createTestUserSession({
       userId: 'user_client_01',
       role: 'client',
       name: 'Sarah Lin (Acme Corp)',
       email: 'sarah@acme-corp.com',
     });
-    const freelancerToken = await createSessionToken({
+    const freelancerUser = await createTestUserSession({
       userId: 'user_freelancer_01',
       role: 'freelancer',
       name: 'Arjun Mehta',
       email: 'arjun@freelance.dev',
     });
-    clientCookieHeader = `${COOKIE_CLIENT}=${clientToken}`;
-    freelancerCookieHeader = `${COOKIE_FREELANCER}=${freelancerToken}`;
+    clientHeaders = clientUser.headers;
+    freelancerHeaders = freelancerUser.headers;
   }, 60000);
 
   afterAll(async () => {
@@ -268,7 +268,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const res = await server.inject({
       method: 'GET',
       url: `/api/projects/${testProjectId}/milestones`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as Array<{ id: string }>;
@@ -282,7 +282,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const res = await server.inject({
       method: 'GET',
       url: `/api/projects/${testProjectId}/ledger`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const data = JSON.parse(res.body);
@@ -323,7 +323,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const res = await server.inject({
       method: 'GET',
       url: `/api/projects/${testProjectId}/activity`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const data = JSON.parse(res.body);
@@ -344,7 +344,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const ganttRes1 = await server.inject({
       method: 'GET',
       url: `/api/gantt/${testProjectId}/load`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(ganttRes1.statusCode).toBe(200);
     const gantt1 = JSON.parse(ganttRes1.body);
@@ -370,7 +370,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const ganttRes2 = await server.inject({
       method: 'GET',
       url: `/api/gantt/${testProjectId}/load`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(ganttRes2.statusCode).toBe(200);
     const gantt2 = JSON.parse(ganttRes2.body);
@@ -402,7 +402,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const listRes = await server.inject({
       method: 'GET',
       url: '/api/projects',
-      headers: { cookie: freelancerCookieHeader },
+      headers: { ...freelancerHeaders },
     });
     expect(listRes.statusCode).toBe(200);
     const listBody = JSON.parse(listRes.body);
@@ -425,7 +425,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const freelancerPatch = await server.inject({
       method: 'PATCH',
       url: `/api/projects/${testProjectId}`,
-      headers: { cookie: freelancerCookieHeader },
+      headers: { ...freelancerHeaders },
       payload: { status: 'cancelled' },
     });
     expect(freelancerPatch.statusCode).toBe(403);
@@ -433,7 +433,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const freelancerDelete = await server.inject({
       method: 'DELETE',
       url: `/api/projects/${testProjectId}`,
-      headers: { cookie: freelancerCookieHeader },
+      headers: { ...freelancerHeaders },
     });
     expect(freelancerDelete.statusCode).toBe(403);
 
@@ -441,7 +441,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const clientPatch = await server.inject({
       method: 'PATCH',
       url: `/api/projects/${testProjectId}`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
       payload: { status: 'cancelled' },
     });
     expect(clientPatch.statusCode).toBe(200);
@@ -452,7 +452,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const clientDelete = await server.inject({
       method: 'DELETE',
       url: `/api/projects/${testProjectId}`,
-      headers: { cookie: clientCookieHeader },
+      headers: { ...clientHeaders },
     });
     expect(clientDelete.statusCode).toBe(200);
     expect(JSON.parse(clientDelete.body)).toEqual({
@@ -492,7 +492,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const clientListRes = await server.inject({
       method: 'GET',
       url: '/api/projects',
-      headers: { cookie: clientCookieHeader, 'x-persona': 'client' },
+      headers: { ...clientHeaders },
     });
     expect(clientListRes.statusCode).toBe(200);
     const clientList = JSON.parse(clientListRes.body).projects as Array<{ id: string }>;
@@ -501,7 +501,7 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     const freelancerListRes = await server.inject({
       method: 'GET',
       url: '/api/projects',
-      headers: { cookie: freelancerCookieHeader, 'x-persona': 'freelancer' },
+      headers: { ...freelancerHeaders },
     });
     expect(freelancerListRes.statusCode).toBe(200);
     const freelancerList = JSON.parse(freelancerListRes.body).projects as Array<{ id: string }>;

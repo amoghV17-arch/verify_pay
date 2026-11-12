@@ -218,6 +218,10 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
           project: demoProject,
           client: clientUser,
           freelancer: freelancerUser,
+          tokens: {
+            clientToken: clientSess.rawToken,
+            freelancerToken: freelancerSess.rawToken,
+          },
         },
       });
     }

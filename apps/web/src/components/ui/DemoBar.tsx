@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Sparkles, ChevronRight, RotateCcw, Split, Key, Check, Copy } from 'lucide-react';
 import { ModeTruthBanner } from './ModeTruthBanner.js';
+import { apiRawFetch } from '../../lib/api.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface DemoBarProps {
   currentStep?: number;
@@ -113,29 +115,31 @@ export const DemoBar: React.FC<DemoBarProps> = ({
       .catch(() => {});
   }, []);
 
+  const { refreshAuth } = useAuth();
+
   async function handleSwitch(role: 'client' | 'freelancer') {
     if (onSwitchPersona) {
       onSwitchPersona(role);
       return;
     }
     try {
-      await fetch('/api/demo/login-as', {
+      await apiRawFetch('/api/demo/login-as', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ persona: role }),
-        credentials: 'include',
       });
+      await refreshAuth();
     } catch {
-      // Ignore network errors in mock mode
+      // Ignore network errors
     }
-    navigate(role === 'client' ? '/client/projects' : '/freelancer/projects');
+    navigate(role === 'client' ? '/client' : '/freelancer');
   }
 
   async function handleReset() {
     setIsResetting(true);
     setResetMessage(null);
     try {
-      const res = await fetch('/api/demo/reset', { method: 'POST', credentials: 'include' });
+      const res = await apiRawFetch('/api/demo/reset', { method: 'POST', body: JSON.stringify({}) });
       if (res.ok) {
         setResetMessage('Demo reset successfully');
       } else {

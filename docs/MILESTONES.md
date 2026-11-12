@@ -333,63 +333,63 @@ Acceptance: complete inventory and plan in docs/DECISIONS.md; owner approval bef
 ## M8s A1 Screen 1 and PublicShell polish
 Estimate: 3 h
 Goal: fix all Screen 1 defects, add PublicShell auth-aware nav and footer links, add SEO metadata and Open Graph preview assets.
-- [ ] Apply all 9 Screen 1 fixes on /get-started and /join (single logo, sentence-case eyebrows/labels, compliant security copy, Sample label on progress, auth-first CTAs, .sr-only CSS, title/badge state consistency)
-- [ ] Update PublicShell header (Log in + Get started when signed out; Open workspace + account menu when signed in) and footer (Help, Terms, Privacy, Status)
-- [ ] Add favicon, apple-touch-icon, Open Graph preview PNG, and meta tags in index.html
+- [x] Apply all 9 Screen 1 fixes on /get-started and /join (single logo, sentence-case eyebrows/labels, compliant security copy, Sample label on progress, auth-first CTAs, .sr-only CSS, title/badge state consistency)
+- [x] Update PublicShell header (Log in + Get started when signed out; Open workspace + account menu when signed in) and footer (Help, Terms, Privacy, Status)
+- [x] Add favicon, apple-touch-icon, Open Graph preview PNG, and meta tags in index.html
 Acceptance: Screen 1 checklist items all fixed; code compiles and dev server starts.
 
 ## M8t A2 Auth backend core, security headers, and email system
 Estimate: 8 h
 Goal: schema migrations for accounts/sessions/tokens/auth_events/notifications/outbox, scrypt/argon2 hashing, opaque cookie sessions, auth + account API routes, CSP/Helmet/rate limits, EmailPort.
-- [ ] Run additive Drizzle migrations for users (password_hash, email_verified, payout_paypal_email, headline, default_role, is_demo, deleted_at, etc.), sessions, email_tokens, auth_events, notifications, notification_prefs, email_outbox, invites.invited_email
-- [ ] Implement password hashing, HIBP check, timing-safe login/lockout, opaque SHA-256 session cookie (`milestone_sid`, CSRF double-submit)
-- [ ] Implement auth, verification, password reset, onboarding, settings, payout, and notifications endpoints
-- [ ] Implement EmailPort (DevOutboxAdapter + /demo/mailbox when DEMO_MODE=true, ResendAdapter, SmtpAdapter) and Security Headers / CSP
-- [ ] Wire optional Google/GitHub OAuth if configured via env
+- [x] Run additive Drizzle migrations for users (password_hash, email_verified, payout_paypal_email, headline, default_role, is_demo, deleted_at, etc.), sessions, email_tokens, auth_events, notifications, notification_prefs, email_outbox, invites.invited_email
+- [x] Implement password hashing, HIBP check, timing-safe login/lockout, opaque SHA-256 session cookie (`milestone_sid`, CSRF double-submit)
+- [x] Implement auth, verification, password reset, onboarding, settings, payout, and notifications endpoints
+- [x] Implement EmailPort (DevOutboxAdapter + /demo/mailbox when DEMO_MODE=true, ResendAdapter, SmtpAdapter) and Security Headers / CSP
+- [x] Wire optional Google/GitHub OAuth if configured via env
 Acceptance: all auth and settings endpoints compile cleanly and dev server starts.
 
 ## M8u A3 Ownership, membership authorization, and user_id migration
 Estimate: 6 h
 Goal: replace X-Persona, ms_client/ms_freelancer, and fallback user_client_01/user_freelancer_01 with strict session authentication and project membership checks.
-- [ ] Require session auth on protected endpoints and enforce project membership (clientId vs freelancerId) across projects, milestones, gantt, fund, proof, invites, and receipt shares
-- [ ] Update release.ts to read freelancer payout email from users.payout_paypal_email (fallback to project snapshot / DEMO_FREELANCER_PAYPAL_EMAIL in demo mode)
-- [ ] Implement one-time migration mapping user_client_01/user_freelancer_01 projects to demo/real accounts and delete /api/auth/persona + X-Persona
+- [x] Require session auth on protected endpoints and enforce project membership (clientId vs freelancerId) across projects, milestones, gantt, fund, proof, invites, and receipt shares
+- [x] Update release.ts to read freelancer payout email from users.payout_paypal_email (fallback to project snapshot / DEMO_FREELANCER_PAYPAL_EMAIL in demo mode)
+- [x] Implement one-time migration mapping user_client_01/user_freelancer_01 projects to demo/real accounts and delete /api/auth/persona + X-Persona
 Acceptance: cross-account access returns 403; unauthenticated protected calls return 401; code compiles and dev server starts.
 
 ## M8v A4 Frontend auth screens, route guards, onboarding, settings
 Estimate: 7 h
 Goal: build public auth pages, client route guards with next redirects, onboarding wizard, and tabbed settings + notifications views.
-- [ ] Build /signup, /login, /check-email, /verify-email/:token, /forgot-password, /reset-password/:token, and OAuth callbacks
-- [ ] Build AuthContext and RequireAuth / RedirectIfAuth guards preserving ?next=
-- [ ] Build /onboarding (role intent, PayPal payout email verification, first project CTA)
-- [ ] Build /settings/* (Profile, Payouts, Security, Notifications) and /notifications inbox page
-- [ ] Update /get-started and /join/:token to route through real account sign-in/signup and verify invite ownership rules
+- [x] Build /signup, /login, /check-email, /verify-email/:token, /forgot-password, /reset-password/:token, and OAuth callbacks
+- [x] Build AuthContext and RequireAuth / RedirectIfAuth guards preserving ?next=
+- [x] Build /onboarding (role intent, PayPal payout email verification, first project CTA)
+- [x] Build /settings/* (Profile, Payouts, Security, Notifications) and /notifications inbox page
+- [x] Update /get-started and /join/:token to route through real account sign-in/signup and verify invite ownership rules
 Acceptance: full signup -> verify -> onboarding -> settings flow compiles cleanly and dev server starts.
 
 ## M8w A5 Shell navigation, workspace switcher, notifications, help & legal pages
 Estimate: 6 h
 Goal: unify WorkspaceShell with role switcher, account menu, notification bell, breadcrumbs, mobile drawer, and public support/legal pages.
-- [ ] Implement unified WorkspaceShell with workspace mode switcher (Client / Freelancer) backed by real user memberships
-- [ ] Add topbar notification bell + unread badge, user account dropdown, and project-scoped breadcrumbs
-- [ ] Implement responsive mobile navigation drawer
-- [ ] Build /help, /terms, and /privacy pages with plain-English policies and sandbox disclosure
+- [x] Implement unified WorkspaceShell with workspace mode switcher (Client / Freelancer) backed by real user memberships
+- [x] Add topbar notification bell + unread badge, user account dropdown, and project-scoped breadcrumbs
+- [x] Implement responsive mobile navigation drawer
+- [x] Build /help, /terms, and /privacy pages with plain-English policies and sandbox disclosure
 Acceptance: signed-in and signed-out shells navigate all routes without persona cookies or hardcoded workspace labels.
 
 ## M8x A6 Demo isolation, DEMO_MODE gating, Playwright helpers, seed cleanup
 Estimate: 5 h
 Goal: gate demo surfaces on DEMO_MODE=true, enforce visitor-scoped demo session isolation, move DemoBar into pill/drawer, keep seed data clean.
-- [ ] Gate /api/demo/*, /demo*, and /demo/mailbox on DEMO_MODE=true; return 404 when false
-- [ ] Refactor DemoBar to compact "Demo mode" top-bar pill + drawer using isolated visitor sessions without switching real users
-- [ ] Isolate demo user accounts (is_demo=true, .invalid emails) and auto-expire demo workspaces after 24h
-- [ ] Clean seed.ts to avoid polluting real workspaces and update e2e/Playwright auth helpers for real session login
+- [x] Gate /api/demo/*, /demo*, and /demo/mailbox on DEMO_MODE=true; return 404 when false
+- [x] Refactor DemoBar to compact "Demo mode" top-bar pill + drawer using isolated visitor sessions without switching real users
+- [x] Isolate demo user accounts (is_demo=true, .invalid emails) and auto-expire demo workspaces after 24h
+- [x] Clean seed.ts to avoid polluting real workspaces and update e2e/Playwright auth helpers for real session login
 Acceptance: DEMO_MODE=false cleanly hides all demo controls and routes; code compiles and dev server starts.
 
 ## M8y A7 Full verification, E2E test suite, security checks, screenshot review
 Estimate: 5 h
 Goal: add unit/integration/E2E coverage for auth, ownership, invites, payouts, Screen 1, and DEMO_MODE=false; pass pnpm verify and screenshot audit.
-- [ ] Run pnpm test, pnpm lint, pnpm typecheck, pnpm build, and full pnpm verify
-- [ ] Add/pass E2E tests: full signup/verify/login/reset, cross-user 403 isolation, invite ownership rules, payout email binding, Screen 1 visual assertions, DEMO_MODE=false smoke
-- [ ] Run screenshot review at 1440, 1024, and 390 px across light views and verify live Render deploy / email delivery checklist
+- [x] Run pnpm test, pnpm lint, pnpm typecheck, pnpm build, and full pnpm verify
+- [x] Add/pass E2E tests: full signup/verify/login/reset, cross-user 403 isolation, invite ownership rules, payout email binding, Screen 1 visual assertions, DEMO_MODE=false smoke
+- [x] Run screenshot review at 1440, 1024, and 390 px across light views and verify live Render deploy / email delivery checklist
 Acceptance: pnpm verify green; zero prohibited copy; owner sign-off.
 
 ## M9 The settle moment and polish (feature freeze)

@@ -110,3 +110,4 @@ CREATE TABLE IF NOT EXISTS "oauth_identities" (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "oauth_identities_provider_subject_uidx" ON "oauth_identities" ("provider", "subject");
+

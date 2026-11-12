@@ -2,16 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { buildServer } from '../server.js';
 import { initDb, closeDb, getDb } from '../db/index.js';
 import { seedDatabase } from '../db/seed.js';
-import { createSessionToken } from '../auth/index.js';
 import { milestones } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { loadConfig } from '@milestone/shared';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 
 describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite', () => {
   let server: ReturnType<typeof buildServer>;
-  let clientCookie: string;
-  let freelancerCookie: string;
+  let clientHeaders: Record<string, string>;
+  let freelancerHeaders: Record<string, string>;
   let dualCookies: string;
+  let clientCsrf: string;
+  let freelancerCsrf: string;
 
   beforeEach(async () => {
     await initDb({ useMemory: true });
@@ -23,24 +25,32 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
       PORT: '8080',
       PAYPAL_ENV: 'mock',
       LLM_PROVIDER: 'fixture',
+      DEMO_MODE: 'true',
     });
     server = buildServer(config);
 
-    const clientToken = await createSessionToken({
+    const clientUser = await createTestUserSession({
       userId: 'user_client_01',
       role: 'client',
       name: 'Sarah Lin (Acme Corp)',
+      slot: 'client',
+      config,
     });
-    const freelancerToken = await createSessionToken({
+    const freelancerUser = await createTestUserSession({
       userId: 'user_freelancer_01',
       role: 'freelancer',
       name: 'Arjun Mehta',
+      slot: 'freelancer',
+      config,
     });
 
-    clientCookie = `ms_client=${clientToken}; milestone_session=${clientToken}`;
-    freelancerCookie = `ms_freelancer=${freelancerToken}; milestone_session=${freelancerToken}`;
-    // Both cookies present at once (as in /demo/split)
-    dualCookies = `ms_client=${clientToken}; ms_freelancer=${freelancerToken}`;
+    clientHeaders = clientUser.headers;
+    freelancerHeaders = freelancerUser.headers;
+    clientCsrf = clientUser.csrfToken;
+    freelancerCsrf = freelancerUser.csrfToken;
+
+    // Both cookies present simultaneously (as in /demo/split)
+    dualCookies = `${clientUser.cookie}; ${freelancerUser.cookie}`;
   });
 
   afterEach(async () => {
@@ -55,7 +65,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/projects',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { brief: 'New client project brief', title: 'Brand Project' },
         });
         expect(clientRes.statusCode).toBe(201);
@@ -63,7 +73,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/projects',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: { brief: 'Freelancer trying to create project' },
         });
         expect(freelancerRes.statusCode).toBe(403);
@@ -116,7 +126,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/plan/apply',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload,
         });
         expect(clientRes.statusCode).toBe(200);
@@ -124,7 +134,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/plan/apply',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload,
         });
         expect(freelancerRes.statusCode).toBe(403);
@@ -134,18 +144,18 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch/milestones/ms-04/criteria',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: {
             criteria: [{ id: 'c4-1', description: 'Updated criteria description' }],
           },
         });
-        // Note: proj_brand_launch is funded, so criteria is locked (400) for client, but 403 for freelancer
-        expect(clientRes.statusCode).toBe(400); // 400 because criteria locked after funding, not 403
+        // Note: proj_brand_launch is funded in seed, so criteria is locked (400) for client, but 403 for freelancer
+        expect(clientRes.statusCode).toBe(400);
 
         const freelancerRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch/milestones/ms-04/criteria',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: {
             criteria: [{ id: 'c4-1', description: 'Freelancer tampering criteria' }],
           },
@@ -161,7 +171,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientCreate = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/invites',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
         expect(clientCreate.statusCode).toBe(201);
         const { invite } = clientCreate.json();
@@ -169,7 +179,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerCreate = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/invites',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerCreate.statusCode).toBe(403);
 
@@ -177,14 +187,14 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRevoke = await server.inject({
           method: 'POST',
           url: `/api/invites/${invite.id}/revoke`,
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerRevoke.statusCode).toBe(403);
 
         const clientRevoke = await server.inject({
           method: 'POST',
           url: `/api/invites/${invite.id}/revoke`,
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
         expect(clientRevoke.statusCode).toBe(200);
       });
@@ -193,14 +203,14 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/fund/order',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
         expect(clientRes.statusCode).toBe(200);
 
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/fund/order',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerRes.statusCode).toBe(403);
       });
@@ -209,7 +219,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { autonomyMode: 'auto', releaseWindowSeconds: 30 },
         });
         expect(clientRes.statusCode).toBe(200);
@@ -217,7 +227,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: { autonomyMode: 'manual' },
         });
         expect(freelancerRes.statusCode).toBe(403);
@@ -226,28 +236,34 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
 
     // 3. Accept invite, submit deliverable, appeal, update progress
     describe('Group 3: Freelancer Actions (Submit, Appeal, Progress)', () => {
-      it('Client cannot accept invite with client persona (403); Freelancer can accept (200)', async () => {
+      it('Client cannot accept own invite (403); Freelancer can accept (200)', async () => {
         const inviteRes = await server.inject({
           method: 'POST',
           url: '/api/projects/proj_brand_launch/invites',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
         const { invite } = inviteRes.json();
 
-        // Client attempt
+        // Client attempt to accept own invite
         const clientAccept = await server.inject({
           method: 'POST',
           url: `/api/invites/${invite.code}/accept`,
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
-          payload: { name: 'Client Trying Accept', email: 'client@acme.com' },
+          headers: { ...clientHeaders },
+          payload: { paypalEmail: 'client-sandbox@acme.com' },
         });
         expect(clientAccept.statusCode).toBe(403);
 
-        // Freelancer attempt
+        // Freelancer attempt with a fresh user session
+        const newFreelancer = await createTestUserSession({
+          userId: 'user_freelancer_new_01',
+          email: 'freelancer.new@example.com',
+          role: 'freelancer',
+        });
         const freelancerAccept = await server.inject({
           method: 'POST',
           url: `/api/invites/${invite.code}/accept`,
-          payload: { name: 'New Freelancer', email: 'freelancer@test.com' },
+          headers: { ...newFreelancer.headers },
+          payload: { paypalEmail: 'freelancer.new-sandbox@example.com' },
         });
         expect(freelancerAccept.statusCode).toBe(200);
       });
@@ -260,7 +276,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/submit',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { kind: 'document', payload: { documentUrl: 'https://example.com/wireframes.pdf' } },
         });
         expect(clientRes.statusCode).toBe(403);
@@ -268,7 +284,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/submit',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: { kind: 'document', payload: { documentUrl: 'https://example.com/wireframes.pdf' } },
         });
         expect(freelancerRes.statusCode).toBe(202);
@@ -282,7 +298,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-03/appeal',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { explanation: 'Client appealing milestone verdict' },
         });
         expect(clientRes.statusCode).toBe(403);
@@ -290,7 +306,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-03/appeal',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: { explanation: 'Freelancer comprehensive appeal explanation here.' },
         });
         expect(freelancerRes.statusCode).toBe(202);
@@ -300,7 +316,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const clientRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch/tasks/t7/progress',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { percentDone: 100 },
         });
         expect(clientRes.statusCode).toBe(403);
@@ -308,7 +324,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'PATCH',
           url: '/api/projects/proj_brand_launch/tasks/t7/progress',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
           payload: { percentDone: 95 },
         });
         expect(freelancerRes.statusCode).toBe(200);
@@ -321,14 +337,14 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/release',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerRes.statusCode).toBe(403);
 
         const clientRes = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/release',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
         expect(clientRes.statusCode).toBe(200);
       });
@@ -337,21 +353,21 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const freelancerObject = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/object',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerObject.statusCode).toBe(403);
 
         const freelancerChanges = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/request-changes',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
         expect(freelancerChanges.statusCode).toBe(403);
 
         const clientChanges = await server.inject({
           method: 'POST',
           url: '/api/milestones/ms-02/request-changes',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
           payload: { reason: 'Please refine color contrast' },
         });
         expect(clientChanges.statusCode).toBe(200);
@@ -364,7 +380,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const res = await server.inject({
           method: 'GET',
           url: '/api/projects/proj_brand_launch',
-          headers: { cookie: clientCookie, 'x-persona': 'client' },
+          headers: { ...clientHeaders },
         });
 
         expect(res.statusCode).toBe(200);
@@ -378,7 +394,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
         const res = await server.inject({
           method: 'GET',
           url: '/api/projects/proj_brand_launch',
-          headers: { cookie: freelancerCookie, 'x-persona': 'freelancer' },
+          headers: { ...freelancerHeaders },
         });
 
         expect(res.statusCode).toBe(200);
@@ -389,27 +405,29 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
     });
   });
 
-  describe('Dual Cookies & X-Persona Routing (/demo/split compatibility)', () => {
-    it('selects client role when X-Persona: client even if both cookies are present', async () => {
+  describe('Dual Cookies & X-Session-Slot Routing (/demo/split compatibility)', () => {
+    it('selects client role when X-Session-Slot: client even if both cookies are present', async () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
         headers: {
           cookie: dualCookies,
-          'x-persona': 'client',
+          'x-csrf-token': clientCsrf,
+          'x-session-slot': 'client',
         },
       });
       expect(res.statusCode).toBe(201);
     });
 
-    it('selects freelancer role when X-Persona: freelancer even if both cookies are present', async () => {
+    it('selects freelancer role when X-Session-Slot: freelancer even if both cookies are present', async () => {
       // Freelancer should be forbidden from creating invites
       const res = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
         headers: {
           cookie: dualCookies,
-          'x-persona': 'freelancer',
+          'x-csrf-token': freelancerCsrf,
+          'x-session-slot': 'freelancer',
         },
       });
       expect(res.statusCode).toBe(403);
@@ -422,7 +440,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
       const createRes = await server.inject({
         method: 'POST',
         url: '/api/milestones/ms-01/share',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
 
       expect(createRes.statusCode).toBe(201);
@@ -445,7 +463,7 @@ describe('M8d Phase P3: Server-Side Authorization Matrix & Dual Sessions Suite',
       const revokeRes = await server.inject({
         method: 'POST',
         url: '/api/milestones/ms-01/share/revoke',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       expect(revokeRes.statusCode).toBe(200);
 

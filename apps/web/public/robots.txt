@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /get-started
+Allow: /safety
+Allow: /help
+Allow: /status
+Allow: /terms
+Allow: /privacy
+Disallow: /client/
+Disallow: /freelancer/
+Disallow: /settings/
+Disallow: /onboarding
+Disallow: /notifications
+Disallow: /demo/
+Disallow: /api/
+
+Sitemap: https://milestone.example.com/sitemap.xml
+

@@ -297,3 +297,4 @@ export function registerNotificationEventListener(config: AppConfig, emailPort: 
     })();
   });
 }
+

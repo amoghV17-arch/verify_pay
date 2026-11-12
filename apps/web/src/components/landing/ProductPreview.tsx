@@ -425,7 +425,7 @@ export const ProductPreview: React.FC = () => {
                 type="button"
                 role="tab"
                 aria-selected={isSelected}
-                aria-label={`Jump to ${s.name} simulation stage`}
+                aria-label={`${idx + 1}. ${s.name}: Jump to simulation stage`}
                 onMouseEnter={() => setCurrentState(idx as PreviewState)}
                 onFocus={() => setCurrentState(idx as PreviewState)}
                 onClick={() => setCurrentState(idx as PreviewState)}

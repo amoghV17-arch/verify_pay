@@ -14,6 +14,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { mapStatusToMoneyState } from '../../lib/projectHelpers.js';
 import { EvidenceChip, type DeliverableType } from '../../components/ui/EvidenceChip.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   useSystemLlmLabel,
   formatModelLabel,
@@ -78,10 +79,7 @@ export const ClientDeliverablesPage: React.FC = () => {
         }
         setError(null);
 
-        const res = await fetch(`/api/projects/${id}/deliverables`, {
-          credentials: 'include',
-          headers: { 'X-Persona': 'client' },
-        });
+        const res = await apiRawFetch(`/api/projects/${id}/deliverables`);
 
         if (!res.ok) {
           throw new Error(`Failed to load deliverables: ${res.statusText}`);
@@ -125,10 +123,8 @@ export const ClientDeliverablesPage: React.FC = () => {
   useEffect(() => {
     if (!id || !hasReleasingState) return;
     const reconcileInterval = setInterval(() => {
-      void fetch(`/api/projects/${id}/reconcile`, {
+      void apiRawFetch(`/api/projects/${id}/reconcile`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'client' },
       }).then(() => fetchData(false)).catch(() => undefined);
     }, 10000);
     return () => clearInterval(reconcileInterval);
@@ -138,10 +134,8 @@ export const ClientDeliverablesPage: React.FC = () => {
     if (!id) return;
     setIsSyncingPayout(true);
     try {
-      await fetch(`/api/projects/${id}/reconcile`, {
+      await apiRawFetch(`/api/projects/${id}/reconcile`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'client' },
       });
       await fetchData(false);
     } catch {
@@ -155,12 +149,10 @@ export const ClientDeliverablesPage: React.FC = () => {
     setReleasingMilestoneId(milestoneId);
     setError(null);
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/release`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/release`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
       });
       if (res.ok) {

@@ -45,8 +45,11 @@ describe('M10 Concurrency & Ledger Invariant Suite (PostgreSQL / PGlite)', () =>
     // Ensure test users exist
     await db.insert(schema.users).values([
       { id: 'user_client_01', email: 'client@example.com', name: 'Sarah Lin' },
-      { id: 'user_freelancer_01', email: 'freelancer@example.com', name: 'Arjun Mehta' },
-    ]).onConflictDoNothing();
+      { id: 'user_freelancer_01', email: 'freelancer@example.com', name: 'Arjun Mehta', payoutPaypalEmail: 'sb-freelancer@personal.example.com' },
+    ]).onConflictDoUpdate({
+      target: schema.users.id,
+      set: { payoutPaypalEmail: 'sb-freelancer@personal.example.com' },
+    });
   });
 
   it(`executes 10 concurrent release transactions safely against ${isRealPostgres ? 'Real PostgreSQL' : 'PGlite'}`, async () => {

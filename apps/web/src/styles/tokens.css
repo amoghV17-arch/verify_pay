@@ -154,3 +154,65 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Form & Feedback Utilities */
+.ms-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ms-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ms-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.ms-input:focus {
+  border-color: var(--teal);
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.ms-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.ms-alert-danger {
+  background-color: #fdf2f1;
+  border: 1px solid #f0c2be;
+  color: #8f241c;
+}
+
+.ms-alert-info {
+  background-color: var(--teal-soft);
+  border: 1px solid rgba(51, 125, 112, 0.3);
+  color: var(--ink);
+}
+
+.ms-alert-warning {
+  background-color: #fef9ec;
+  border: 1px solid #f2dca6;
+  color: #714b09;
+}
+
+

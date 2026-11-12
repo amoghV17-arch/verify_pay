@@ -160,3 +160,4 @@ export function summarizeUserAgent(userAgent?: string): string {
 
   return os ? `${browser} on ${os}` : browser;
 }
+

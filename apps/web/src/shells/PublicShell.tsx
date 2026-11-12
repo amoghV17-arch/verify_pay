@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button.js';
 import { DemoBar } from '../components/ui/DemoBar.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { authenticated, user, config, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -135,17 +138,53 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
           </nav>
 
           {/* Action CTAs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Link to="/join" className="hide-on-mobile" style={{ textDecoration: 'none' }}>
-              <Button variant="quiet" size="sm">
-                Join a project
-              </Button>
-            </Link>
-            <Link to="/get-started" style={{ textDecoration: 'none' }}>
-              <Button variant="primary" size="sm">
-                Start a project
-              </Button>
-            </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            {authenticated && user ? (
+              <>
+                <Link to="/settings" className="hide-on-mobile" style={{ textDecoration: 'none' }}>
+                  <Button variant="quiet" size="sm">
+                    Settings
+                  </Button>
+                </Link>
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  className="hide-on-mobile"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/');
+                  }}
+                >
+                  Sign out
+                </Button>
+                <Link
+                  to={user.lastWorkspace === 'freelancer' ? '/freelancer' : '/client'}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Button variant="primary" size="sm">
+                    Open workspace
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/join" className="hide-on-mobile" style={{ textDecoration: 'none' }}>
+                  <Button variant="quiet" size="sm">
+                    Join a project
+                  </Button>
+                </Link>
+                <Link to="/login" style={{ textDecoration: 'none' }}>
+                  <Button variant="secondary" size="sm">
+                    Log in
+                  </Button>
+                </Link>
+                <Link to="/get-started" style={{ textDecoration: 'none' }}>
+                  <Button variant="primary" size="sm">
+                    Get started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -265,13 +304,13 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
             }}
           >
             <span>© 2026 Milestone. Built for the PayPal & AI Hackathon.</span>
-            <span>PayPal Sandbox Active • Powered by Bryntum Gantt Pro</span>
+            <span>PayPal Sandbox • Bryntum Gantt</span>
           </div>
         </div>
       </footer>
 
-      {/* Demo bar at bottom left */}
-      <DemoBar />
+      {/* Demo bar (shown only when DEMO_MODE=true) */}
+      {config.demoMode && <DemoBar />}
     </div>
   );
 };

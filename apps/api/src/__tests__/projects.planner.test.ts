@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { buildServer } from '../server.js';
 import { initDb, getDb, schema, seedDatabase } from '../db/index.js';
 import { eq } from 'drizzle-orm';
-import { createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 import { loadConfig, type ComputedPlan } from '@milestone/shared';
 
 describe('Project Planner API Endpoints', () => {
@@ -85,16 +85,15 @@ describe('Project Planner API Endpoints', () => {
     await db.update(schema.projects).set({ status: 'draft' }).where(eq(schema.projects.id, projectId));
 
     // Apply the plan as client
-    const token = await createSessionToken({
+    const clientUser = await createTestUserSession({
       userId: 'user_client_01',
       role: 'client',
     });
-    const clientCookie = `milestone_session=${token}`;
 
     const applyRes = await server.inject({
       method: 'POST',
       url: `/api/projects/${projectId}/plan/apply`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientUser.headers },
       payload: { plan: generatedPlan },
     });
 
@@ -117,17 +116,16 @@ describe('Project Planner API Endpoints', () => {
   });
 
   it('POST /api/projects/:id/plan/apply scopes task & milestone IDs for newly created projects', async () => {
-    const token = await createSessionToken({ userId: 'user_client_01', role: 'client' });
-    const clientCookie = `milestone_session=${token}`;
+    const clientUser = await createTestUserSession({ userId: 'user_client_01', role: 'client' });
 
     const createRes = await server.inject({
       method: 'POST',
       url: '/api/projects',
-      headers: { cookie: clientCookie },
+      headers: { ...clientUser.headers },
       payload: {
         title: 'Second Project Alongside Seed',
         brief: 'Build a customer retention data analytics pipeline and cohort dashboard',
-        totalBudget: 2400,
+        totalBudget: 400,
       },
     });
     expect(createRes.statusCode).toBe(201);
@@ -136,10 +134,10 @@ describe('Project Planner API Endpoints', () => {
     const planRes = await server.inject({
       method: 'POST',
       url: '/api/projects/plan',
-      headers: { cookie: clientCookie },
+      headers: { ...clientUser.headers },
       payload: {
         brief: 'Build a customer retention data analytics pipeline and cohort dashboard',
-        totalBudget: 2400,
+        totalBudget: 400,
       },
     });
     expect(planRes.statusCode).toBe(200);
@@ -148,7 +146,7 @@ describe('Project Planner API Endpoints', () => {
     const applyRes = await server.inject({
       method: 'POST',
       url: `/api/projects/${createdProjectId}/plan/apply`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientUser.headers },
       payload: { plan: generatedPlan },
     });
     expect(applyRes.statusCode).toBe(200);
@@ -159,6 +157,7 @@ describe('Project Planner API Endpoints', () => {
     const ganttRes = await server.inject({
       method: 'GET',
       url: `/api/gantt/${createdProjectId}/load`,
+      headers: { ...clientUser.headers },
     });
     expect(ganttRes.statusCode).toBe(200);
     const ganttBody = JSON.parse(ganttRes.body);

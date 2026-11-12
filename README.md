@@ -5,7 +5,7 @@
 [![CI / Verification](https://img.shields.io/badge/Verification-Passing%20(217%20unit%20%2B%2078%20e2e)-emerald)](https://github.com/amoghV17-arch/verify_pay)
 [![Hosted Demo](https://img.shields.io/badge/Hosted%20Demo-verify--pay.onrender.com-blue)](https://verify-pay.onrender.com)
 [![PayPal](https://img.shields.io/badge/PayPal-Sandbox%20Integrated-003087?logo=paypal)](https://developer.paypal.com)
-[![Bryntum Gantt](https://img.shields.io/badge/Gantt-Bryntum%20Pro%20v6.2.5-orange)](https://www.bryntum.com/products/gantt)
+[![Bryntum Gantt](https://img.shields.io/badge/Gantt-Bryntum%20Gantt%20v6.2.5-orange)](https://www.bryntum.com/products/gantt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
 Built for the hackathon **"Build What's Next with PayPal and AI"**.
@@ -18,13 +18,13 @@ Built for the hackathon **"Build What's Next with PayPal and AI"**.
 
 Freelancers and small agencies—particularly those delivering digital work cross-border—routinely face late payments, scope creep, or outright ghosting at the final invoice. Conversely, clients fear paying upfront for deliverables they cannot yet inspect. 
 
-Existing marketplace escrow solutions charge heavy platform fees (up to 20%), force rigid workflows, and detach contract milestones from actual project schedules. Informal contracts rely entirely on unenforceable trust.
+Existing freelance platforms charge heavy platform fees (up to 20%), force rigid workflows, and detach contract milestones from actual project schedules. Informal contracts rely entirely on unenforceable trust.
 
 ## The Solution
 
 **Milestone** connects project management, AI verification, and financial payouts into a unified loop:
 1. **The Gantt is the contract:** A client inputs a plain-language project brief. An AI planner generates a live **Bryntum Gantt** with realistic dependencies, calendar schedules, milestones, and verifiable acceptance criteria.
-2. **Milestone holding balance:** The client funds the contract via **PayPal Sandbox Checkout**. Funds are held securely for the project, giving the freelancer confidence that money is committed before work starts.
+2. **Milestone holding balance:** The client funds the contract via **PayPal Sandbox Checkout**. Funds are held in PayPal Sandbox for the project, giving the freelancer confidence that money is committed before work starts.
 3. **AI Proof Reviewer:** When the freelancer completes a milestone, an AI reviewer inspects the work (fetching URLs, querying public GitHub repositories) and produces objective, per-criterion evidence with confidence scores.
 4. **Automated Payouts:** If acceptance criteria pass, **PayPal Payouts** releases milestone funds directly to the freelancer. Clients choose their desired autonomy mode: manual client approval, an assisted time-window objection period, or full autonomous payout.
 5. **The Settle Moment:** Every payment animates across the Gantt with visual balance updates, sound effects, and cryptographic ledger transparency.
@@ -34,7 +34,7 @@ Existing marketplace escrow solutions charge heavy platform fees (up to 20%), fo
 ## Live Demo & Screenshots
 
 - **Hosted URL:** [https://verify-pay.onrender.com](https://verify-pay.onrender.com)
-- **Pre-configured Personas:** Sarah Lin (Client, Acme Corp) and Arjun Mehta (Freelancer). Switch personas instantly in the header rail with zero login friction.
+- **Dedicated User Accounts:** Real user authentication powered by `crypto.scrypt` password hashing, opaque SHA-256 session tokens, double-submit CSRF protection, and email notifications. In demo mode, judges can switch between Client and Freelancer roles or launch an isolated split session with one click.
 
 ### 1. Interactive Bryntum Gantt Workspace
 *Live dependencies, critical milestones with currency badges, and real-time funding progress.*
@@ -65,7 +65,7 @@ flowchart TD
 
     subgraph Service["Single Deployable on Render (Fastify API)"]
         Static["@fastify/static (Serves SPA & Assets at /)"]
-        Auth["Persona Auth & JWT Sessions"]
+        Auth["Account & Session Auth (crypto.scrypt, CSRF, EmailPort)"]
         Routes["Project, Gantt Sync, & Milestone Routes"]
         Ledger["Append-Only Financial Ledger Service"]
         Reconciler["PayPal Webhook & Ledger Reconciler"]
@@ -252,8 +252,8 @@ Measures deliverable review accuracy and adversarial resistance:
 
 Financial transactions are strictly separated from AI generation. Milestone implements multiple layers of software and database-level invariants:
 
-1. **Milestone Holding Balance (Not Escrow):** Funds captured from the client are held as a project holding balance in the business PayPal sandbox account. We explicitly avoid unregulated "escrow" claims.
-2. **Zero-Sum Integer Math:** All monetary calculations use integer cents internally. We mathematically guarantee:
+1. **Milestone Holding Balance:** Funds captured from the client are held as a project holding balance in the business PayPal sandbox account. We explicitly avoid unregulated holding claims.
+2. **Zero-Sum Integer Math:** All monetary calculations use integer cents internally. We mathematically enforce:
    $$\text{project.total\_cents} = \sum \text{milestone.amount\_cents}$$
    $$\text{holding\_balance} = \text{funded\_cents} - \text{paid\_cents}$$
 3. **Database-Level Row Locking (`FOR UPDATE`):** When releasing a milestone, Milestone executes an atomic PostgreSQL transaction that locks both the project row and the milestone row:
@@ -309,7 +309,7 @@ Milestone follows defense-in-depth principles to ensure an LLM can never trigger
 
 Milestone is an engineered hackathon prototype demonstrating technical feasibility in the PayPal Sandbox environment. Bringing Milestone to commercial production requires:
 
-1. **Regulatory Licensing & Custody:** Operating real-money milestone holding requires regulated money-transmitter licenses (MTL) or formal partnership with a licensed banking/escrow institution.
+1. **Regulatory Licensing & Custody:** Operating real-money milestone holding requires regulated money-transmitter licenses (MTL) or formal partnership with a licensed banking institution.
 2. **KYC / AML Compliance:** Integrating identity verification and Know-Your-Customer / Anti-Money-Laundering checks for all transacting clients and freelancers.
 3. **Dispute Resolution & Arbitration:** Providing human-in-the-loop arbitration workflows, evidence submission windows, and legal terms of service for contested milestones.
 4. **Chargebacks & Reversals:** Handling credit card chargebacks, dispute webhooks, and clawback accounting within the append-only ledger.

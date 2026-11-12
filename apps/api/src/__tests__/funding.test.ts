@@ -6,15 +6,15 @@ import { seedDatabase } from '../db/seed.js';
 import { buildServer } from '../server.js';
 import { MockPayPalAdapter } from '../paypal/mockAdapter.js';
 import { projects, milestones, ledgerEntries, paypalEvents } from '../db/schema.js';
-import { createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 import { LedgerService } from '../services/ledger.js';
 
 describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
   let db: AppDatabase;
   let server: FastifyInstance;
   let mockPayPal: MockPayPalAdapter;
-  let clientCookie: string;
-  let freelancerCookie: string;
+  let clientHeaders: Record<string, string>;
+  let freelancerHeaders: Record<string, string>;
 
   const testProjectId = 'proj_unfunded';
 
@@ -51,18 +51,18 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     );
     await server.ready();
 
-    // 4. Generate auth cookies
-    const clientToken = await createSessionToken({
+    // 4. Generate auth sessions
+    const clientUser = await createTestUserSession({
       userId: 'user_client_01',
       role: 'client',
     });
-    clientCookie = `milestone_session=${clientToken}`;
+    clientHeaders = clientUser.headers;
 
-    const freelancerToken = await createSessionToken({
+    const freelancerUser = await createTestUserSession({
       userId: 'user_freelancer_01',
       role: 'freelancer',
     });
-    freelancerCookie = `milestone_session=${freelancerToken}`;
+    freelancerHeaders = freelancerUser.headers;
   }, 60000);
 
   afterAll(async () => {
@@ -120,7 +120,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/order`,
       headers: {
-        cookie: clientCookie,
+        ...clientHeaders,
         'paypal-request-id': 'req_test_create_01',
       },
     });
@@ -137,7 +137,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/order`,
       headers: {
-        cookie: freelancerCookie,
+        ...freelancerHeaders,
       },
     });
 
@@ -149,7 +149,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     const orderRes = await server.inject({
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/order`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientHeaders },
     });
     const { orderId } = orderRes.json();
 
@@ -157,7 +157,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     const captureRes = await server.inject({
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/capture`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientHeaders },
       payload: { orderId },
     });
 
@@ -284,7 +284,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/capture`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientHeaders },
       payload: { orderId: 'ord_should_fail' },
     });
 
@@ -323,7 +323,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/order`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         returnUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_unfunded',
         cancelUrl: 'http://localhost:5173/client/new?step=4&projectId=proj_unfunded&paypalCancel=1',
@@ -340,7 +340,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: `/api/projects/${testProjectId}/fund/order`,
-      headers: { cookie: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         returnUrl: 'javascript:alert(1)',
       },
@@ -361,7 +361,7 @@ describe('M3 Funding, Webhooks, and Ledger Test Suite', () => {
       const res = await server.inject({
         method: 'POST',
         url: `/api/projects/${testProjectId}/fund/capture`,
-        headers: { cookie: clientCookie },
+        headers: { ...clientHeaders },
         payload: { orderId: 'ord_unapproved' },
       });
 

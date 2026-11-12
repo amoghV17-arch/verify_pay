@@ -2,8 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { AuthLayout } from '../components/auth/AuthLayout.js';
 import { Briefcase, UserCheck, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.js';
 
 export const GetStartedPage: React.FC = () => {
+  const { authenticated } = useAuth();
+  const clientHref = authenticated ? '/client/new' : '/signup?intent=client';
+  const freelancerHref = authenticated ? '/join' : '/signup?intent=freelancer';
+
   return (
     <AuthLayout subtitle="Milestone replaces vague scope arguments with objective acceptance criteria, sandbox funding, and verifiable payouts.">
       <div>
@@ -37,7 +42,7 @@ export const GetStartedPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Card 1: I'm hiring */}
           <Link
-            to="/signup?intent=client"
+            to={clientHref}
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
             <div
@@ -114,7 +119,7 @@ export const GetStartedPage: React.FC = () => {
 
           {/* Card 2: I'm delivering work */}
           <Link
-            to="/signup?intent=freelancer"
+            to={freelancerHref}
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
             <div

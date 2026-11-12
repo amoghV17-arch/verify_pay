@@ -244,6 +244,12 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     '/api/projects',
     { preHandler: [requireAuth()] },
     async (request, reply) => {
+      if (request.user?.role === 'freelancer') {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: 'Only clients can create projects. Switch to the client workspace to create a project.',
+        });
+      }
       const db = getDb();
       const { title, brief, totalBudget } = request.body || {};
       const briefValidation = validateBriefLength(brief || '');
@@ -251,14 +257,14 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         return reply.status(400).send({ error: 'ValidationError', message: briefValidation.error });
       }
 
+      const appConfig = (server as unknown as { appConfig?: AppConfig }).appConfig;
+      const isDemoUser = Boolean(request.user?.isDemo);
+      const isDemoCap = isDemoUser || Boolean(appConfig?.DEMO_MODE);
+
       const id = `proj_${randomUUID().substring(0, 8)}`;
       const numericBudget = Number(totalBudget);
-      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : 2000;
+      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : (isDemoCap ? 400 : 2000);
       const totalCents = Math.round(safeBudget * 100);
-
-      const appConfig = (server as unknown as { appConfig?: AppConfig }).appConfig;
-      const isDemoUser = Boolean(request.user!.isDemo);
-      const isDemoCap = isDemoUser || Boolean(appConfig?.DEMO_MODE);
       const budgetValidation = validateDemoBudget(totalCents, isDemoCap);
       if (!budgetValidation.valid) {
         return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });

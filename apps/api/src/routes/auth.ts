@@ -91,9 +91,7 @@ function checkProgressiveLimit(
 }
 
 function recordFailureBucket(key: string): void {
-  const now = Date.now();
   const bucket = authAttempts.get(key) || { timestamps: [], failures: 0 };
-  bucket.timestamps.push(now);
   bucket.failures += 1;
   authAttempts.set(key, bucket);
 }

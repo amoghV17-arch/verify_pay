@@ -10,6 +10,7 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   extractLedgerBalances,
   formatDateTimeSafe,
@@ -69,8 +70,8 @@ export const ClientPaymentsPage: React.FC = () => {
         setError(null);
 
         const [projRes, ledgerRes] = await Promise.all([
-          fetch(`/api/projects/${id}`, { credentials: 'include', headers: { 'X-Persona': 'client' } }),
-          fetch(`/api/projects/${id}/ledger`, { credentials: 'include', headers: { 'X-Persona': 'client' } }),
+          apiRawFetch(`/api/projects/${id}`),
+          apiRawFetch(`/api/projects/${id}/ledger`),
         ]);
 
         if (!projRes.ok || !ledgerRes.ok) {
@@ -128,9 +129,7 @@ export const ClientPaymentsPage: React.FC = () => {
   const handleExportAudit = async () => {
     if (!id) return;
     try {
-      const res = await fetch(`/api/projects/${id}/audit`, {
-        headers: { 'X-Persona': 'client' },
-      });
+      const res = await apiRawFetch(`/api/projects/${id}/audit`);
       if (res.ok) {
         const auditData = await res.json();
         const blob = new Blob([JSON.stringify(auditData, null, 2)], { type: 'application/json' });
@@ -152,11 +151,10 @@ export const ClientPaymentsPage: React.FC = () => {
   const handleShareReceipt = async (milestoneId: string) => {
     setIsSharing(true);
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/share`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
       });
 
@@ -178,11 +176,10 @@ export const ClientPaymentsPage: React.FC = () => {
   // Revoke receipt share link
   const handleRevokeShare = async (milestoneId: string) => {
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/share/revoke`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/share/revoke`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
       });
       if (res.ok) {

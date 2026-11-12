@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { ComputedPlan, ScheduledMilestone, DeliverableType } from '@milestone/shared';
 import { formatCents, distributePercentages } from '@milestone/shared';
 import { MilestoneGantt } from './Gantt.js';
+import { apiRawFetch } from '../lib/api.js';
 
 interface PlanReviewScreenProps {
   initialPlan: ComputedPlan;
@@ -205,10 +206,9 @@ export const PlanReviewScreen: React.FC<PlanReviewScreenProps> = ({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/plan/apply`, {
+      const res = await apiRawFetch(`/api/projects/${projectId}/plan/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ plan: currentPlan }),
       });
 

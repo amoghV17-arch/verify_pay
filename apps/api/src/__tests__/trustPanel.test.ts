@@ -2,9 +2,11 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { buildServer } from '../server.js';
 import { initDb, seedDatabase } from '../db/index.js';
 import { loadConfig } from '@milestone/shared';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 
 describe('Trust Panel & Audit API Endpoints', () => {
   let server: Awaited<ReturnType<typeof buildServer>>;
+  let clientHeaders: Record<string, string>;
   const projectId = 'proj_brand_launch';
 
   beforeAll(async () => {
@@ -17,12 +19,15 @@ describe('Trust Panel & Audit API Endpoints', () => {
     const db = await initDb({ useMemory: true });
     await seedDatabase(db);
     server = buildServer(config);
+    const client = await createTestUserSession({ userId: 'user_client_01', role: 'client' });
+    clientHeaders = client.headers;
   }, 60000);
 
   it('GET /api/projects/:id/activity returns activity trail', async () => {
     const res = await server.inject({
       method: 'GET',
       url: `/api/projects/${projectId}/activity`,
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
@@ -34,6 +39,7 @@ describe('Trust Panel & Audit API Endpoints', () => {
     const res = await server.inject({
       method: 'GET',
       url: `/api/milestones/ms-01/reviews`,
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
@@ -47,6 +53,7 @@ describe('Trust Panel & Audit API Endpoints', () => {
     const res = await server.inject({
       method: 'GET',
       url: `/api/projects/${projectId}/audit`,
+      headers: { ...clientHeaders },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);

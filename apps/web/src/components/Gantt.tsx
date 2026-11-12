@@ -6,6 +6,7 @@ import './Gantt.css';
 
 import { formatCents } from '@milestone/shared';
 import { MilestoneTaskModel } from '../models/MilestoneTaskModel.js';
+import { getCookie } from '../lib/api.js';
 
 export function getStatusGlyph(status?: string): string {
   switch (status) {
@@ -129,6 +130,7 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
       projectConfig.autoLoad = false;
       projectConfig.autoSync = false;
     } else if (projectId) {
+      const csrf = getCookie('ms_csrf');
       projectConfig.transport = {
         load: {
           url: `/api/gantt/${projectId}/load`,
@@ -137,6 +139,7 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
         sync: {
           url: `/api/gantt/${projectId}/sync`,
           credentials: 'include',
+          headers: csrf ? { 'X-CSRF-Token': csrf } : undefined,
         },
       };
       projectConfig.autoLoad = true;
@@ -147,6 +150,16 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
     }
 
     const project = new ProjectModel(projectConfig);
+
+    project.on('beforeSend', (ev: { requestConfig?: { headers?: Record<string, string> } }) => {
+      const latestCsrf = getCookie('ms_csrf');
+      if (latestCsrf && ev?.requestConfig) {
+        ev.requestConfig.headers = {
+          ...(ev.requestConfig.headers || {}),
+          'X-CSRF-Token': latestCsrf,
+        };
+      }
+    });
 
     if (onSyncSuccess) {
       project.on('sync', () => {
