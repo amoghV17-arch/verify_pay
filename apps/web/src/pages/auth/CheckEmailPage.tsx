@@ -62,15 +62,18 @@ export const CheckEmailPage: React.FC = () => {
           </p>
         </div>
 
-        {config.emailProvider === 'outbox' && config.demoMode && user?.isDemo && (
-          <div className="ms-alert ms-alert-info" role="note">
-            <span>
-              Demo outbox mode is active. View stored demo messages in the{' '}
+        {config.emailProvider === 'outbox' && (
+          <div className="ms-alert ms-alert-info" role="note" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div>
+              <strong>Development outbox active:</strong> External email delivery (Resend / SMTP) is not configured in this environment, so messages are stored locally.
+            </div>
+            <div>
+              You can view stored messages in the{' '}
               <Link to="/demo/mailbox" style={{ color: 'var(--teal)', fontWeight: 600 }}>
                 Demo mailbox
               </Link>
               .
-            </span>
+            </div>
           </div>
         )}
 

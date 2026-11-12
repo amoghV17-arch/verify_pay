@@ -276,7 +276,7 @@ export const registerAuthRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(users.email, normalizedEmail))
       .limit(1);
 
-    if (existingUser) {
+    if (existingUser && existingUser.passwordHash) {
       // Never disclose account existence when verification is active (§5.3)
       if (verificationMode !== 'off') {
         await recordAuthEvent({
@@ -299,28 +299,54 @@ export const registerAuthRoutes: FastifyPluginAsync = async (server) => {
       });
     }
 
-    const newUser = await createAccountUser({
-      name: parsed.data.name,
-      email: normalizedEmail,
-      password: parsed.data.password,
-      intent: parsed.data.intent,
-      company: parsed.data.company,
-      emailVerified: verificationMode === 'off',
-    });
+    let userToUse: typeof users.$inferSelect;
+    if (existingUser && !existingUser.passwordHash) {
+      // Existing placeholder or invited record claiming their account
+      const passwordHash = await hashPassword(parsed.data.password);
+      const [claimedUser] = await db
+        .update(users)
+        .set({
+          name: parsed.data.name.trim(),
+          displayName: parsed.data.name.trim(),
+          passwordHash,
+          company: parsed.data.company?.trim() || existingUser.company,
+          lastWorkspace: parsed.data.intent || existingUser.lastWorkspace || 'client',
+          emailVerifiedAt: verificationMode === 'off' ? new Date() : existingUser.emailVerifiedAt,
+          lastLoginAt: new Date(),
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+
+      await db
+        .insert(notificationPrefs)
+        .values({ userId: existingUser.id })
+        .onConflictDoNothing();
+
+      userToUse = claimedUser;
+    } else {
+      userToUse = await createAccountUser({
+        name: parsed.data.name,
+        email: normalizedEmail,
+        password: parsed.data.password,
+        intent: parsed.data.intent,
+        company: parsed.data.company,
+        emailVerified: verificationMode === 'off',
+      });
+    }
 
     await recordAuthEvent({
-      userId: newUser.id,
+      userId: userToUse.id,
       type: 'signup',
       ip: request.ip,
-      meta: { intent: parsed.data.intent },
+      meta: { intent: parsed.data.intent, claimed: Boolean(existingUser) },
       secret: cfg.SESSION_SECRET,
     });
 
-    if (verificationMode !== 'off') {
+    if (verificationMode !== 'off' && !userToUse.emailVerifiedAt) {
       const rawToken = generateOpaqueToken(32);
       await db.insert(emailTokens).values({
         id: `etok_${crypto.randomUUID()}`,
-        userId: newUser.id,
+        userId: userToUse.id,
         type: 'verify',
         tokenHash: sha256Hex(rawToken),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -330,12 +356,12 @@ export const registerAuthRoutes: FastifyPluginAsync = async (server) => {
       if (emailPort) {
         const verifyUrl = `${cfg.APP_BASE_URL.replace(/\/$/, '')}/verify-email/${rawToken}`;
         const rendered = renderEmailTemplate('verify_email', {
-          recipientName: newUser.displayName || newUser.name,
+          recipientName: userToUse.displayName || userToUse.name,
           actionUrl: verifyUrl,
         });
         await emailPort.send({
-          to: newUser.email,
-          recipientUserId: newUser.id,
+          to: userToUse.email,
+          recipientUserId: userToUse.id,
           template: 'verify_email',
           subject: rendered.subject,
           bodyText: rendered.bodyText,
@@ -348,7 +374,7 @@ export const registerAuthRoutes: FastifyPluginAsync = async (server) => {
     if (verificationMode !== 'required') {
       const slot = resolveRequestedSlot(request, cfg);
       const { rawToken, csrfToken } = await createUserSession({
-        userId: newUser.id,
+        userId: userToUse.id,
         ip: request.ip,
         userAgent: request.headers['user-agent'],
         slot,
@@ -362,11 +388,11 @@ export const registerAuthRoutes: FastifyPluginAsync = async (server) => {
       requiresVerification: verificationMode === 'required',
       checkEmail: verificationMode === 'required',
       user: {
-        id: newUser.id,
-        name: newUser.displayName || newUser.name,
-        email: newUser.email,
-        emailVerified: Boolean(newUser.emailVerifiedAt),
-        lastWorkspace: newUser.lastWorkspace,
+        id: userToUse.id,
+        name: userToUse.displayName || userToUse.name,
+        email: userToUse.email,
+        emailVerified: Boolean(userToUse.emailVerifiedAt),
+        lastWorkspace: userToUse.lastWorkspace,
       },
     });
   });

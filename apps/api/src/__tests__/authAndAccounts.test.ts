@@ -104,6 +104,43 @@ describe('Phase A7: Comprehensive Auth, Accounts, Security & Lifecycle Suite', (
       expect(res2.json().ok).toBe(true);
       expect(res2.json().checkEmail).toBe(true);
     });
+
+    it('claims an existing placeholder or invited user without password on signup', async () => {
+      const db = getDb();
+      await db.insert(users).values({
+        id: 'user_placeholder_claim_test',
+        name: 'Invited Person',
+        email: 'invited-person@example.com',
+        avatarColor: '#337D70',
+        lastWorkspace: 'client',
+        passwordHash: null,
+      });
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/signup',
+        headers: { origin: 'http://localhost:5173' },
+        payload: {
+          name: 'Invited Person Claimed',
+          email: 'invited-person@example.com',
+          password: 'Password123!Secure',
+          agreedToTerms: true,
+          intent: 'freelancer',
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const data = res.json();
+      expect(data.ok).toBe(true);
+      expect(data.user.id).toBe('user_placeholder_claim_test');
+
+      const [updated] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, 'user_placeholder_claim_test'));
+      expect(updated.passwordHash).not.toBeNull();
+      expect(updated.displayName).toBe('Invited Person Claimed');
+    });
   });
 
   describe('2. Authentication, Lockout, and Session Lifecycle', () => {

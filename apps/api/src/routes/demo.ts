@@ -305,13 +305,15 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
     }
   );
 
-  // 4. GET /api/demo/mailbox - Scoped virtual outbox for the signed-in demo account
+  // 4. GET /api/demo/mailbox - Scoped virtual outbox for the signed-in demo account (or any user in dev/outbox mode)
   server.get(
     '/api/demo/mailbox',
     { preHandler: [requireAuth()] },
     async (request, reply) => {
+      const cfg = getConfig();
       const u = request.user!;
-      if (!u.isDemo) {
+      const isDevOrOutbox = cfg.EMAIL_PROVIDER === 'outbox' || process.env.NODE_ENV !== 'production';
+      if (!u.isDemo && !isDevOrOutbox) {
         return reply.status(403).send({
           error: 'Forbidden',
           message: 'The virtual mailbox is only available for demo accounts.',

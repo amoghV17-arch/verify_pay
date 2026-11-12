@@ -18,14 +18,18 @@ interface OutboxRow {
 }
 
 export const DemoMailboxPage: React.FC = () => {
-  const { authenticated, user, refreshAuth } = useAuth();
+  const { authenticated, user, config, refreshAuth } = useAuth();
   const [messages, setMessages] = useState<OutboxRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isMailboxAllowed = Boolean(
+    authenticated && (user?.isDemo || config.emailProvider === 'outbox' || config.demoMode)
+  );
+
   const loadMailbox = useCallback(async () => {
-    if (!authenticated || !user?.isDemo) return;
+    if (!isMailboxAllowed) return;
     setLoading(true);
     setError(null);
     try {
@@ -40,7 +44,7 @@ export const DemoMailboxPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authenticated, user?.isDemo, selectedId]);
+  }, [isMailboxAllowed, selectedId]);
 
   useEffect(() => {
     void loadMailbox();
@@ -93,7 +97,7 @@ export const DemoMailboxPage: React.FC = () => {
         </div>
       )}
 
-      {!authenticated || !user?.isDemo ? (
+      {!isMailboxAllowed ? (
         <div
           style={{
             backgroundColor: 'var(--surface)',
@@ -109,10 +113,10 @@ export const DemoMailboxPage: React.FC = () => {
         >
           <Mail size={28} style={{ color: 'var(--teal)' }} />
           <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>
-            {authenticated ? 'Virtual mailbox is restricted to demo accounts' : 'Sign in as a demo persona to view stored messages'}
+            {authenticated ? 'Virtual mailbox is restricted in production' : 'Sign in to view stored messages'}
           </div>
           <p style={{ margin: 0, maxWidth: '460px', color: 'var(--ink-2)', fontSize: '0.9rem' }}>
-            Use either quick-switch button above to sign in with an ephemeral `isDemo` account, or return to{' '}
+            Use either quick-switch button above to sign in with an ephemeral demo account, or return to{' '}
             <Link to="/demo" style={{ color: 'var(--teal-ink)', fontWeight: 600 }}>
               the demo launcher
             </Link>
@@ -130,7 +134,7 @@ export const DemoMailboxPage: React.FC = () => {
             color: 'var(--ink-2)',
           }}
         >
-          No outbox emails captured yet for <strong>{user.email}</strong>. Trigger a project invite, funding event, review, or payout first.
+          No outbox emails captured yet for <strong>{user?.email || 'your account'}</strong>. Trigger a project invite, funding event, review, or payout first.
         </div>
       ) : (
         <div
