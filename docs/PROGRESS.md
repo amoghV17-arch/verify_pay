@@ -357,3 +357,15 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 - 2026-11-08 13:07 | M13 | overall 99% | GREEN | M8o L3, M8p L4, and M8q L5 complete: instrumentation, proof API & UI, three-pane view, status page, live acceptance suite, and 4-window runbook
 - 2026-11-08 14:13 | M13 | overall 99% | GREEN | Complete Milestones L3, L4, and L5 (instrumentation, proof API & UI, live acceptance)
 - 2026-11-12 16:03 | M8s | overall 75% | RED | Phase A0 complete: full persona/Screen 1 audit, schema migration list, route map, risks recorded in DECISIONS.md and M8r-M8y added to MILESTONES.md
+- Handoff (A0 -> A1):
+  - What was built:
+    - Read-only codebase audit of every persona assumption (`ms_client`/`ms_freelancer` cookies, `X-Persona` headers, `/api/auth/persona`, `user_client_01`/`user_freelancer_01` fallbacks, missing `requireProjectMember` ownership checks, and `release.ts` payout email fallback) and all 9 Screen 1 / `PublicShell` defects.
+    - Recorded the full inventory, additive Drizzle schema migration list (`users`, `sessions`, `email_tokens`, `auth_events`, `notifications`, `notification_prefs`, `email_outbox`, `oauth_identities`, `invites.invited_email`), public/signed-in/demo route map, endpoint refactor plan, and risk mitigations in `docs/DECISIONS.md` (`M8r`).
+    - Added phases A0–A7 (`M8r`–`M8y`) to `docs/MILESTONES.md` and marked A0 (`M8r`) complete (`acct-a0-done`).
+    - Verified compilation (`pnpm build` exited 0) and dev server startup (`http://localhost:5173/` and `http://localhost:8080/healthz` returned HTTP 200). Tests/E2E intentionally skipped per A0 rules.
+  - What is deliberately unfinished:
+    - Phase A1 (`M8s`): Screen 1 and `PublicShell` UI fixes, landing page state alignment, favicon/OG assets, and meta tags (waiting for owner approval of the A0 plan before editing product code).
+    - Phases A2–A7 (`M8t`–`M8y`): Auth/email backend, membership authorization, frontend auth/settings/onboarding screens, unified `WorkspaceShell`, `DEMO_MODE` gating, and full `pnpm verify` + E2E verification.
+  - Next session must know:
+    - Run in milestone mode: stop after each A-phase, tag `acct-<a#>-done`, and do not run tests/`pnpm verify`/Playwright until A7.
+    - Schedule reads RED on dashboard because `DEADLINE` in `docs/PROGRESS.md` is still `2026-11-08` (pre-existing hackathon date; owner controls `START_DATE`/`DEADLINE`).
