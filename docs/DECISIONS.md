@@ -712,6 +712,99 @@ flowchart TD
 - **Decision:** Created `e2e/acceptanceLive.spec.ts` (`pnpm acceptance:live`) which tests the full end-to-end lifecycle with canary inputs ($1,337.42 budget, Zebra Co, Quill), verifies proof reconciliation, and executes an artificial mismatch drill by tampering with a ledger entry, asserting that `matches: false` and `mismatch` are detected with 100% accuracy.
 - **Why:** Guarantees that the proof system is tamper-evident and provides dependable verification ahead of final video recording and submission.
 
+## M8r Phase A0 Accounts, Auth & Professional Shell Audit and Plan
+
+### 1. Context, Decision & Why (Architecture Pivot)
+- **Context:** Milestone currently uses a passwordless dual-cookie persona switcher (`ms_client`, `ms_freelancer`, `X-Persona`, `POST /api/auth/persona`) that falls back to `user_client_01` and `user_freelancer_01` when unauthenticated, lacks project-membership authorization on most endpoints, exposes `<DemoBar />` unconditionally, and has unpolished Screen 1 / `PublicShell` UX.
+- **Decision:** Execute phases A0–A7 (`M8r`–`M8y` in `docs/MILESTONES.md` per `docs/AUTH_AND_ACCOUNTS.md`) to replace persona switching with real email+password accounts (`scrypt` or `@node-rs/argon2`), opaque SHA-256 cookie sessions (`milestone_sid`) + CSRF double-submit, server-side `requireProjectMember` ownership checks, unified `WorkspaceShell` + `AuthContext` route guards, `EmailPort` (Outbox / Resend / SMTP), `@fastify/helmet` CSP, and strict `DEMO_MODE=true` gating.
+- **Why:** Prevents cross-account data leaks, binds PayPal payouts to the authenticated freelancer's `users.payout_paypal_email`, removes prohibited security claims (`secure sandbox funding`, `payment protection`) and persona workarounds from Screen 1, and preserves isolated `/demo` judging flows when `DEMO_MODE=true`.
+
+### 2. Persona Assumption Inventory (Every Place Assuming a Persona)
+
+#### Backend Auth, Core & Database
+- `apps/api/src/auth/index.ts`:
+  - Dual persona cookies (`COOKIE_CLIENT = 'ms_client'`, `COOKIE_FREELANCER = 'ms_freelancer'`, `COOKIE_LEGACY = 'milestone_session'`) storing stateless HS256 JWT `{ userId, role }`.
+  - Global `preHandler` resolving active cookie via `X-Persona` request header or `/client` / `/freelancer` URL prefix.
+  - `POST /api/auth/persona`: switches role/user to `user_client_01` / `user_freelancer_01` without credentials.
+  - `GET /api/auth/me`: returns `{ authenticated: true, user: { id: 'user_client_01', role: 'client', name: 'Client' } }` even when unauthenticated.
+  - `requireRole`: falls back unauthenticated callers to `'client'` (`request.user ? request.user.role : 'client'`).
+  - `requireProjectMember`: falls back to role-based access when `!userId` and is omitted from most routes.
+- `apps/api/src/db/schema.ts`:
+  - `users` table only stores `id`, `name`, `email`, `avatar`, `createdAt` (no `password_hash`, `email_verified`, `payout_paypal_email`, `is_demo`, `failed_login_count`, `locked_until`, `deleted_at`, nor `sessions` / `email_tokens` / `auth_events` / `notifications` / `notification_prefs` / `email_outbox`).
+- `apps/api/src/db/seed.ts`:
+  - Seeds hardcoded `user_client_01`, `user_freelancer_01`, `proj_brand_launch`, `MILE-MOCKINVITE`, and `mock-share-token` directly outside account signup/demo isolation.
+- `apps/api/src/services/abuseGuards.ts`:
+  - `cleanupOldDemoSessions` cleans legacy `client_vis_*` / `freelancer_vis_*` persona IDs.
+
+#### Backend Routes & Services
+- `apps/api/src/routes/projects.ts`:
+  - `GET /api/projects` filters by `isFreelancer` via `request.user?.role` / `X-Persona` instead of filtering by `eq(projects.clientId, userId)` or `eq(projects.freelancerId, userId)`.
+  - `GET /api/projects/:id` derives `autonomyMode` visibility from `X-Persona` / role instead of `proj.clientId === userId` vs `proj.freelancerId === userId`.
+  - `POST /api/projects` falls back `clientId` to `'user_client_01'`.
+  - `GET /tasks`, `GET /milestones`, `GET /deliverables`, `GET /reviews`, `GET /activity`, `GET /audit`, `PATCH`, `DELETE`, `POST /plan/apply`, criteria & task progress routes lack `requireProjectMember`.
+- `apps/api/src/routes/milestones.ts`:
+  - `POST /submit` falls back `userId` to `'user_freelancer_01'`; `submit`, `reviews`, `release`, `object`, `request-changes`, `appeal`, `scheduler/tick`, and `reconcile` lack project membership (`proj.clientId` / `proj.freelancerId`) enforcement.
+- `apps/api/src/routes/gantt.ts`:
+  - `GET /load` lacks auth/membership; `POST /sync` checks `user.role` instead of project membership (`proj.clientId === userId || proj.freelancerId === userId`).
+- `apps/api/src/routes/fund.ts`:
+  - `POST /order` and `/capture` use `requireRole(['client'])` and check `project.freelancerId` rather than `project.clientId === userId`; `/ledger` and `/events` (SSE with wildcard CORS) lack auth/membership.
+- `apps/api/src/routes/proof.ts`:
+  - `GET /api/proof/projects/:id` lacks auth/membership (or demo-session gating).
+- `apps/api/src/routes/invites.ts`:
+  - `POST /accept` blocks `X-Persona === 'client'` / `role === 'client'` instead of enforcing signed-in user membership (`invite.createdBy !== userId`, `project.clientId !== userId`), optional `invitedEmail` match, and non-empty `payout_paypal_email`; issues `ms_freelancer` persona cookie on accept.
+- `apps/api/src/routes/receiptShares.ts`:
+  - `POST /share` and `/revoke` check `requireRole(['client'])` without `proj.clientId === userId`; `GET /shared/:shareId` retains `'Sarah Lin'`, `'Arjun Mehta'`, `'BATCH-PAYOUT-MS01-MOCK'` fallback strings.
+- `apps/api/src/routes/demo.ts`:
+  - Not gated on `DEMO_MODE=true`; `GET /api/demo/status` returns hardcoded `personas.client` (`user_client_01`) and `personas.freelancer` (`user_freelancer_01`); `POST /api/demo/login-as` sets persona cookies for seeded IDs; `POST /api/demo/session` uses `client-{visId}@demo.milestone.dev` instead of `.invalid` + `is_demo` user isolation.
+- `apps/api/src/services/release.ts`:
+  - Reads `proj.freelancerPaypalEmail || process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'arjun-sandbox@freelance.dev'` instead of reading `users.payout_paypal_email` from the freelancer's verified user record at release time.
+
+#### Frontend Shells, Pages & Components
+- `apps/web/src/router.tsx`: Zero `RequireAuth` / `RedirectIfAuth` guards on `/client/*` or `/freelancer/*`; missing `/signup`, `/login`, `/verify-email/:token`, `/check-email`, `/forgot-password`, `/reset-password/:token`, `/onboarding`, `/settings/*`, `/notifications`, `/help`, `/terms`, `/privacy`, `/demo/mailbox`.
+- `apps/web/src/shells/ClientShell.tsx` & `apps/web/src/shells/FreelancerShell.tsx`: Send `X-Persona`, auto-switch persona via `POST /api/auth/persona`, lack workspace switcher / account menu / notification bell, hardcode fallback breadcrumb `'Workspace'` and uppercase `'FREELANCER WORKSPACE'`, and render `<DemoBar />` unconditionally.
+- `apps/web/src/shells/PublicShell.tsx`: Header shows `Join a project` / `Start a project` instead of `Log in` / `Get started` (signed out) or `Open workspace` + account menu (signed in); footer uses uppercase `'PRODUCT'` / `'TRUST & CODE'`, omits `/help`, `/terms`, `/privacy`; renders `<DemoBar />` unconditionally.
+- `apps/web/src/pages/GetStartedPage.tsx`: Routes straight to `/client/new` and `/join` rather than `/signup?intent=client` and `/signup?intent=freelancer`.
+- `apps/web/src/pages/freelancer/JoinFlowPage.tsx`: Uses `X-Persona: freelancer`, exposes `Try sample invite code: MILE-MOCKINVITE`, and collects unauthenticated name/email/PayPal form directly instead of verifying signed-in account + saved payout email.
+- `apps/web/src/components/ui/DemoBar.tsx`: Renders unconditionally regardless of `DEMO_MODE`, switches users via `/api/demo/login-as`, overlaps bottom-left UI (`fixed bottom: 1rem, left: 1rem`), and points Step 1 to non-existent `/client/projects/new`.
+- `apps/web/src/pages/client/NewProjectWizard.tsx`, `Client*.tsx`, `Freelancer*.tsx`, `ReviewPage.tsx`, `SubmitSlideOver.tsx`, and legacy `App.tsx`: Send `X-Persona` headers and/or call `/api/auth/persona` across fetch handlers.
+
+### 3. Screen 1 & PublicShell Defect Inventory (Fixed in A1)
+1. **Duplicate logo (`GetStartedPage.tsx`):** `PublicShell` header logo + second logo in left aside column. Keep top nav logo only.
+2. **All-caps micro-labels (`GetStartedPage.tsx`, `JoinFlowPage.tsx`, `PublicShell.tsx`, `ProductPreview.tsx`, `FreelancerShell.tsx`, `DemoBar.tsx`):** Convert `"THE STANDARD FLOW"`, `"GET STARTED"`, `"PRODUCT"`, `"TRUST & CODE"`, `"SAMPLE PROJECT"`, `"ACCEPTANCE CRITERIA"`, `"FREELANCER WORKSPACE"`, `"5-BEAT DEMO JOURNEY"` to sentence case or clean Title Case.
+3. **Prohibited security phrasing:** Remove `"secure sandbox funding"` (`GetStartedPage.tsx`) and `"payment protection"` (`JoinFlowPage.tsx`); replace with `"Milestone funding in PayPal Sandbox"` and `"Funds stay in your client PayPal balance or Milestone's PayPal Sandbox merchant holding until agreed criteria pass."`
+4. **`LifecycleProgress` without context (`GetStartedPage.tsx`):** Label clearly as `"Sample project flow"` with muted subtitle; remove distracting auto-loop animation.
+5. **Unauthenticated direct links (`GetStartedPage.tsx`):** Route `"Start a project"` CTA to `/signup?intent=client` (or `/client/new` if signed in) and `"Accept an invite"` CTA to `/signup?intent=freelancer` (or `/join` if signed in).
+6. **PublicShell nav & footer (`PublicShell.tsx`):** Add `Log in` + `Get started` when signed out, `Open workspace` + account menu when signed in; add `/help`, `/terms`, `/privacy` footer links.
+7. **Screen-reader CSS (`ProductPreview.tsx` + `tokens.css`):** Define `.sr-only` utility class in `tokens.css` so `<span className="sr-only">` does not remain visible/layout-affecting.
+8. **ProductPreview title vs state mismatch (`ProductPreview.tsx`):** Align sample milestone title `"Interactive Prototype"` with badge `"Under AI Review"` (avoid `"Verified"` when unverified).
+9. **Sample invite shortcut on `/join` (`JoinFlowPage.tsx`):** Remove `"Try sample invite code: MILE-MOCKINVITE"` from `/join`; keep sample walkthrough solely inside `DEMO_MODE=true` `/demo`.
+
+### 4. Schema Migration Plan (Additive Drizzle Migrations from `0002_*` -> `0003_*`+)
+Existing `users` table is extended cleanly rather than replaced:
+- **Alter `users`:** `password_hash TEXT`, `email_verified BOOLEAN NOT NULL DEFAULT false`, `email_verified_at TIMESTAMP`, `headline TEXT`, `payout_paypal_email TEXT`, `payout_email_verified BOOLEAN NOT NULL DEFAULT false`, `default_role TEXT NOT NULL DEFAULT 'client'` (`'client' | 'freelancer' | 'both'`), `is_demo BOOLEAN NOT NULL DEFAULT false`, `last_login_at TIMESTAMP`, `failed_login_count INTEGER NOT NULL DEFAULT 0`, `locked_until TIMESTAMP`, `deleted_at TIMESTAMP`, `updated_at TIMESTAMP NOT NULL DEFAULT now()`.
+- **Create `sessions`:** `id TEXT PRIMARY KEY` (SHA-256 hash of 32-byte cookie secret), `user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, `active_workspace TEXT NOT NULL DEFAULT 'client'`, `ip_prefix TEXT`, `user_agent TEXT`, `expires_at TIMESTAMP NOT NULL`, `revoked_at TIMESTAMP`, `created_at TIMESTAMP NOT NULL DEFAULT now()`.
+- **Create `email_tokens`:** `id TEXT PRIMARY KEY`, `user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, `kind TEXT NOT NULL` (`'verify_email' | 'reset_password' | 'change_email' | 'verify_payout'`), `token_hash TEXT NOT NULL`, `new_value TEXT`, `expires_at TIMESTAMP NOT NULL`, `used_at TIMESTAMP`, `created_at TIMESTAMP NOT NULL DEFAULT now()`.
+- **Create `auth_events`:** `id TEXT PRIMARY KEY`, `user_id TEXT`, `email TEXT`, `event_type TEXT NOT NULL`, `ip_prefix TEXT`, `user_agent TEXT`, `metadata JSONB`, `created_at TIMESTAMP NOT NULL DEFAULT now()`.
+- **Create `notifications` & `notification_prefs`:** `notifications` (`id`, `user_id`, `project_id`, `kind`, `title`, `body`, `link_url`, `read_at`, `created_at`); `notification_prefs` (`user_id PRIMARY KEY`, `email_invites`, `email_submissions`, `email_reviews`, `email_payouts`, `inapp_all`).
+- **Create `email_outbox`:** `id`, `to_email`, `subject`, `html`, `text`, `kind`, `sent_via`, `status`, `created_at` (drives `/demo/mailbox` when `DEMO_MODE=true`).
+- **Create `oauth_identities` (optional env-gated):** `id`, `user_id`, `provider` (`'google' | 'github'`), `provider_user_id`, `email`, `created_at` with unique `(provider, provider_user_id)`.
+- **Alter `invites`:** add nullable `invited_email TEXT`.
+- **Legacy migration hook (A3):** One-time idempotent migration converts `user_client_01` / `user_freelancer_01` onto `is_demo=true` `.invalid` demo user rows, deletes persona/cookie auth code, and retains `projects.freelancer_paypal_email` as historical snapshot populated from `users.payout_paypal_email`.
+
+### 5. Route Map & Authorization Plan
+- **Public signed-out routes:** `/`, `/get-started`, `/signup`, `/login`, `/check-email`, `/verify-email/:token`, `/forgot-password`, `/reset-password/:token`, `/auth/oauth/:provider/callback`, `/join`, `/join/:token`, `/receipt/:shareId`, `/receipts/shared/:shareId`, `/status`, `/safety`, `/help`, `/terms`, `/privacy`, `/styleguide`.
+- **Signed-in routes (`RequireAuth` preserving `?next=`):** `/onboarding`, `/settings`, `/settings/profile`, `/settings/payouts`, `/settings/security`, `/settings/notifications`, `/notifications`, `/client` (`Dashboard`), `/client/new`, `/client/projects/:id` (+ sub-tabs: `overview`, `gantt`, `proof`), `/client/projects/:id/milestones/:mid`, `/freelancer` (`Dashboard`), `/freelancer/projects/:id`, `/freelancer/projects/:id/milestones/:mid`.
+- **Redirect rule (`RedirectIfAuth`):** `/signup`, `/login`, `/forgot-password`, `/reset-password/:token` redirect already-authenticated users to `/onboarding` (if `payout_paypal_email` missing and intent requires it) or `default_role` workspace (`/client` / `/freelancer`).
+- **Demo-gated routes (`DEMO_MODE === true`, 404 when false):** `/demo`, `/demo/split`, `/demo/proof`, `/demo/mailbox`, `/api/demo/*`.
+- **Server membership enforcement:** Every project-scoped API checks `sessionUserId` against `project.clientId` (client actions: fund, release, object, request changes, share receipt, manage invites, edit plan/criteria) or `project.freelancerId` (freelancer actions: submit deliverable, update task progress, appeal), or either member (read workspace/Gantt/proof/ledger/SSE/notifications). Cross-account access strictly returns `403`.
+
+### 6. Key Risks & Mitigations
+- **Password hashing on Windows + Linux (Render):** `@node-rs/argon2` native binaries may require platform prebuilds; verify install during A2, with Node built-in `crypto.scrypt` + timing-safe compare (`crypto.timingSafeEqual`) + HIBP k-anonymity prefix lookup as reliable zero-native-build fallback if `@node-rs/argon2` fails on Windows or Render.
+- **Strict CSP vs PayPal JS SDK & Bryntum Gantt:** `@fastify/helmet` CSP must explicitly whitelist `https://www.paypal.com`, `https://www.sandbox.paypal.com`, and `'unsafe-eval'`/`worker-src`/`style-src` requirements if needed by Bryntum/Vite, rolled out in report-only mode first in A2 and verified against E2E + Sandbox checkout in A7 before tightening.
+- **Email deliverability:** Support `EMAIL_PROVIDER=outbox` cleanly for local/dev and `RESEND` / `SMTP` for hosted Render without blocking core flows; when `EMAIL_PROVIDER=outbox` and `DEMO_MODE=true`, `/demo/mailbox` displays emails for live walkthroughs.
+- **Existing E2E / API test suite during transition:** Many existing tests call `X-Persona` or seeded IDs. Per phase rules (`A0`–`A6`), do not run or rewrite tests until A3–A6 endpoints stabilize and A7 executes the full `pnpm verify` + E2E overhaul.
+
+
 
 
 

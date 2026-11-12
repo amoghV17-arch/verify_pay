@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-08T14:13:58.974Z
+Generated: 2026-11-12T16:03:59.834Z
 
-Overall (hours-weighted): [####################]  99%   Day 5/5, 1 day(s) left   Schedule: GREEN
-Current milestone: M13 Video and submission
+Overall (hours-weighted): [###############.....]  75%   Day 5/5, 0 day(s) left   Schedule: RED
+Current milestone: M8s A1 Screen 1 and PublicShell polish
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -40,6 +40,14 @@ Current milestone: M13 Video and submission
 | M8o L3 Instrumentation | 4 | 5/5 | [####################] 100% |
 | M8p L4 Proof API and UI | 5 | 5/5 | [####################] 100% |
 | M8q L5 Live acceptance and runbook rehearsal | 4 | 4/4 | [####################] 100% |
+| M8r A0 Audit and plan (read-only) | 2 | 4/4 | [####################] 100% |
+| M8s A1 Screen 1 and PublicShell polish | 3 | 0/3 | [....................]   0% |
+| M8t A2 Auth backend core, security headers, and email system | 8 | 0/5 | [....................]   0% |
+| M8u A3 Ownership, membership authorization, and user_id migration | 6 | 0/3 | [....................]   0% |
+| M8v A4 Frontend auth screens, route guards, onboarding, settings | 7 | 0/5 | [....................]   0% |
+| M8w A5 Shell navigation, workspace switcher, notifications, help & legal pages | 6 | 0/4 | [....................]   0% |
+| M8x A6 Demo isolation, DEMO_MODE gating, Playwright helpers, seed cleanup | 5 | 0/4 | [....................]   0% |
+| M8y A7 Full verification, E2E test suite, security checks, screenshot review | 5 | 0/3 | [....................]   0% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -348,3 +356,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
 
 - 2026-11-08 13:07 | M13 | overall 99% | GREEN | M8o L3, M8p L4, and M8q L5 complete: instrumentation, proof API & UI, three-pane view, status page, live acceptance suite, and 4-window runbook
 - 2026-11-08 14:13 | M13 | overall 99% | GREEN | Complete Milestones L3, L4, and L5 (instrumentation, proof API & UI, live acceptance)
+- 2026-11-12 16:03 | M8s | overall 75% | RED | Phase A0 complete: full persona/Screen 1 audit, schema migration list, route map, risks recorded in DECISIONS.md and M8r-M8y added to MILESTONES.md
