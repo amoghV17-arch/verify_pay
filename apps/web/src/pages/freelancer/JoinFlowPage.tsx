@@ -196,7 +196,7 @@ export const JoinFlowPage: React.FC = () => {
           </h1>
 
           <p style={{ margin: '0 0 2rem 0', color: 'var(--ink-2)', fontSize: '0.9375rem', lineHeight: 1.5 }}>
-            Enter your invitation code (e.g. <code>MILE-XXXXXXXXXX</code>) or direct invitation link to review the project milestones, observable acceptance criteria, and payment protection.
+            Enter your invitation code (e.g. <code>MILE-XXXXXXXXXX</code>) or direct invitation link to review the project milestones, observable acceptance criteria, and funds held for this project.
           </p>
 
           <form
@@ -232,19 +232,9 @@ export const JoinFlowPage: React.FC = () => {
             </Button>
           </form>
 
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-            <Button
-              type="button"
-              variant="quiet"
-              size="sm"
-              onClick={() => {
-                setInputCode('MILE-MOCKINVITE');
-                lookupInvite('MILE-MOCKINVITE');
-              }}
-            >
-              Try sample invite code: MILE-MOCKINVITE
-            </Button>
-          </div>
+          <p style={{ marginTop: '1rem', marginBottom: 0, fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
+            Don&apos;t have a code? Ask your client to send one.
+          </p>
 
           {errorMessage && (
             <div
@@ -281,15 +271,13 @@ export const JoinFlowPage: React.FC = () => {
           <div>
             <h2
               style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
                 color: 'var(--forest)',
                 margin: 0,
               }}
             >
-              Project Agreement Invitation
+              Project agreement invitation
             </h2>
             <h1
               className="font-display"
@@ -379,8 +367,8 @@ export const JoinFlowPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)', textTransform: 'uppercase' }}>
-                    Criteria Checked by AI Reviewer:
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)' }}>
+                    Criteria checked by AI reviewer
                   </span>
                   <ul style={{ margin: '0.35rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
                     {criteria.map((rawC: any, cIdx: number) => {

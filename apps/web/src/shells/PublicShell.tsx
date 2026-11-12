@@ -200,9 +200,9 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '3rem', fontSize: '0.875rem' }}>
+            <div style={{ display: 'flex', gap: '3rem', fontSize: '0.875rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                <strong style={{ fontSize: '0.8125rem', textTransform: 'uppercase', color: 'var(--ink)' }}>
+                <strong style={{ fontSize: '0.8125rem', color: 'var(--ink)' }}>
                   Product
                 </strong>
                 <a href="/#how-it-works" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
@@ -214,17 +214,32 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
                 <a href="/#for-freelancers" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
                   For freelancers
                 </a>
-                <Link to="/styleguide" style={{ color: 'var(--teal-ink)', textDecoration: 'none' }}>
-                  Component Styleguide
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <strong style={{ fontSize: '0.8125rem', color: 'var(--ink)' }}>
+                  Trust
+                </strong>
+                <Link to="/safety" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                  Safety and limits
+                </Link>
+                <Link to="/status" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                  Status
+                </Link>
+                <Link to="/help" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                  Help
                 </Link>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                <strong style={{ fontSize: '0.8125rem', textTransform: 'uppercase', color: 'var(--ink)' }}>
-                  Trust & Code
+                <strong style={{ fontSize: '0.8125rem', color: 'var(--ink)' }}>
+                  Legal
                 </strong>
-                <Link to="/safety" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
-                  Safety & limits
+                <Link to="/terms" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                  Prototype terms
+                </Link>
+                <Link to="/privacy" style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                  Privacy notice
                 </Link>
                 <a
                   href="https://github.com/amoghV17-arch/verify_pay"
@@ -234,9 +249,6 @@ export const PublicShell: React.FC<{ children?: React.ReactNode }> = ({ children
                 >
                   GitHub repository
                 </a>
-                <Link to="/demo/split" style={{ color: 'var(--teal-ink)', textDecoration: 'none' }}>
-                  Demo Split View
-                </Link>
               </div>
             </div>
           </div>

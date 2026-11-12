@@ -176,8 +176,8 @@ export const FreelancerShell: React.FC = () => {
 
         {/* Section Title */}
         {!isSidebarCollapsed && (
-          <div style={{ padding: '0.75rem 1rem 0.25rem', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-2)' }}>
-            Freelancer Workspace
+          <div style={{ padding: '0.75rem 1rem 0.25rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)' }}>
+            Freelancer workspace
           </div>
         )}
 

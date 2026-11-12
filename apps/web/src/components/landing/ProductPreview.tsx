@@ -131,8 +131,8 @@ export const ProductPreview: React.FC = () => {
     >
       {/* Screen reader only description */}
       <span className="sr-only">
-        Interactive preview showing a project milestone cycle: Milestone 3 Interactive Prototype
-        Verified at $2,400.00 progressing from Funded through Submitted, Verified, and Paid with automated acceptance checks.
+        Interactive preview showing a project milestone cycle: Milestone 3 Interactive prototype
+        at $2,400.00 progressing from Funded through Submitted, Verified, and Paid with automated acceptance checks.
       </span>
 
       {/* Top Context Bar: Sample Project & State Diamonds */}
@@ -160,8 +160,8 @@ export const ProductPreview: React.FC = () => {
             }}
             aria-hidden="true"
           />
-          <span style={{ fontWeight: 600, color: 'var(--ink-2)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            Sample Project
+          <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>
+            Sample project
           </span>
         </div>
 
@@ -236,7 +236,7 @@ export const ProductPreview: React.FC = () => {
                 margin: 0,
               }}
             >
-              Interactive Prototype Verified
+              Interactive prototype
             </h4>
           </div>
 
@@ -265,15 +265,13 @@ export const ProductPreview: React.FC = () => {
               fontSize: '0.75rem',
               fontWeight: 600,
               color: 'var(--ink-2)',
-              letterSpacing: '0.02em',
-              textTransform: 'uppercase',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               marginBottom: '0.15rem',
             }}
           >
-            <span>Acceptance Criteria</span>
+            <span>Acceptance criteria</span>
             <span
               style={{
                 color: isPaidStage ? 'var(--teal)' : 'var(--teal-ink)',
