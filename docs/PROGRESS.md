@@ -370,3 +370,16 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
     - Run in milestone mode: stop after each A-phase, tag `acct-<a#>-done`, and do not run tests/`pnpm verify`/Playwright until A7.
     - Schedule reads RED on dashboard because `DEADLINE` in `docs/PROGRESS.md` is still `2026-11-08` (pre-existing hackathon date; owner controls `START_DATE`/`DEADLINE`).
 - 2026-11-12 19:17 | M13 | overall 99% | GREEN | Completed Phases A1-A7 accounts, auth, security, SEO, responsive UI, and full verification
+- Handoff (A1-A7 complete):
+  - What was built:
+    - Phase A1 (Screen 1 & PublicShell polish): Fixed all 9 Screen 1 defects on `/get-started` and `/join`, updated `PublicShell` with dynamic auth awareness and footer links, added custom SVG favicon, OG image, webmanifest, robots.txt, and sitemap.
+    - Phase A2 (Auth backend core & Email): Applied migration `0003_accounts_auth.sql` adding users, sessions, email_tokens, auth_events, notifications, notification_prefs, email_outbox, and invites.invited_email; scrypt password hashing with HIBP check, timing-safe login/lockout, opaque SHA-256 session tokens with double-submit CSRF; `/api/auth/*` routes and `/api/me*` routes; EmailPort (`outbox`, `resend`, `smtp`) and `/demo/mailbox`.
+    - Phase A3 (Ownership & Membership): Replaced `X-Persona` and hardcoded demo identities with strict session auth and `requireProjectMember('any' | 'client' | 'freelancer')` across all project-scoped routes; updated `releaseMilestone` to resolve freelancer payout email from `users.payoutPaypalEmail` (fallback to demo email); deleted persona endpoints.
+    - Phase A4 (Frontend Auth & Settings): Built full suite of auth screens (`SignupPage`, `LoginPage`, `CheckEmailPage`, `VerifyEmailPage`, `ForgotPasswordPage`, `ResetPasswordPage`), `AuthContext` with stateful token and CSRF handling, `OnboardingPage`, comprehensive `SettingsPage` (Profile, Payouts, Security, Notifications), and `NotificationsPage`.
+    - Phase A5 (WorkspaceShell & Legal): Built unified `WorkspaceShell` with role switcher, account menu, unread notifications bell, project breadcrumbs, responsive drawer; built `/help`, `/terms`, `/privacy` pages.
+    - Phase A6 (Demo Isolation & Gating): Enforced `DEMO_MODE=true` gating returning 404 when disabled; isolated throwaway demo sessions; compacted `DemoBar` into top-bar pill and drawer.
+    - Phase A7 (Full Verification): Full test suite overhaul with 25 test suites passing cleanly across all packages; enforced Helmet CSP; verified zero prohibited words via `honestyLint.test.ts` and `noHardcodeGuard.test.ts`; verified multi-resolution screenshots at 1440, 1024, 768, and 390 px into `docs/screens/p2/`.
+  - What remains:
+    - Gate H10: Owner video recording and Devpost submission filing.
+  - Next session must know:
+    - All work merged to `main`, tagged `acct-a7-done`, and pushed to remote origin. Working tree clean. Ready for video recording and hackathon submission.
