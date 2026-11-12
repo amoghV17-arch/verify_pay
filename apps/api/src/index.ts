@@ -12,8 +12,12 @@ const server = buildServer(config);
 async function start() {
   try {
     const db = await initDb();
-    await seedDatabase(db);
-    server.log.info('Database initialized and seeded.');
+    if (config.DEMO_MODE) {
+      await seedDatabase(db);
+      server.log.info('Database initialized and demo data seeded (DEMO_MODE=true).');
+    } else {
+      server.log.info('Database initialized (DEMO_MODE=false; demo seed skipped).');
+    }
 
     const address = await server.listen({
       port: config.PORT,

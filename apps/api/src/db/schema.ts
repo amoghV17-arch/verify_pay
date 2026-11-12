@@ -10,14 +10,120 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 
-// --- Users (Client & Freelancer Personas) ---
+// --- Users (Accounts supporting both Client & Freelancer project memberships) ---
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   avatar: text('avatar'),
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  passwordHash: text('password_hash'),
+  displayName: text('display_name'),
+  company: text('company'),
+  avatarColor: text('avatar_color').default('#337D70').notNull(),
+  lastWorkspace: text('last_workspace').default('client').notNull(), // 'client' | 'freelancer'
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+  isDemo: boolean('is_demo').default(false).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  payoutPaypalEmail: text('payout_paypal_email'),
+  payoutEmailChangedAt: timestamp('payout_email_changed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// --- Sessions (Opaque server-side sessions, hashed token) ---
+export const sessions = pgTable('sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ipHash: text('ip_hash'),
+  userAgentSummary: text('user_agent_summary'),
+  slot: text('slot'), // null or 'client' | 'freelancer' when DEMO_MODE=true
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+});
+
+// --- Email Verification & Password Reset Tokens (Hashed, single-use) ---
+export const emailTokens = pgTable('email_tokens', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text('type').notNull(), // 'verify' | 'reset'
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Auth Events (Security audit trail) ---
+export const authEvents = pgTable('auth_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  type: text('type').notNull(),
+  at: timestamp('at', { withTimezone: true }).defaultNow().notNull(),
+  ipHash: text('ip_hash'),
+  meta: jsonb('meta'),
+});
+
+// --- Notifications ---
+export const notifications = pgTable('notifications', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text('type').notNull(),
+  projectId: text('project_id'),
+  milestoneId: text('milestone_id'),
+  payload: jsonb('payload').notNull(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Notification Preferences ---
+export const notificationPrefs = pgTable('notification_prefs', {
+  userId: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .primaryKey(),
+  emailInviteAccepted: boolean('email_invite_accepted').default(true).notNull(),
+  emailFunded: boolean('email_funded').default(true).notNull(),
+  emailSubmitted: boolean('email_submitted').default(true).notNull(),
+  emailReviewed: boolean('email_reviewed').default(true).notNull(),
+  emailReleasePending: boolean('email_release_pending').default(true).notNull(),
+  emailChangesRequested: boolean('email_changes_requested').default(true).notNull(),
+  emailPaid: boolean('email_paid').default(true).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- Email Outbox ---
+export const emailOutbox = pgTable('email_outbox', {
+  id: text('id').primaryKey(),
+  toAddress: text('to_address').notNull(),
+  recipientUserId: text('recipient_user_id'),
+  template: text('template').notNull(),
+  subject: text('subject').notNull(),
+  bodyText: text('body_text').notNull(),
+  bodyHtml: text('body_html').notNull(),
+  status: text('status').notNull(),
+  providerId: text('provider_id'),
+  deliveredVia: text('delivered_via').notNull(), // 'outbox' | 'resend' | 'smtp'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// --- OAuth Identities (Optional Google OAuth) ---
+export const oauthIdentities = pgTable(
+  'oauth_identities',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    provider: text('provider').notNull(), // 'google'
+    subject: text('subject').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    providerSubjectUnique: uniqueIndex('oauth_identities_provider_subject_uidx').on(
+      table.provider,
+      table.subject
+    ),
+  })
+);
 
 // --- Projects ---
 export const projects = pgTable('projects', {
@@ -174,6 +280,7 @@ export const invites = pgTable('invites', {
   id: text('id').primaryKey(),
   projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
   createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  invitedEmail: text('invited_email'),
   tokenHash: text('token_hash').notNull(),
   codeHash: text('code_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

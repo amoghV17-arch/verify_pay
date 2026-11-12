@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { eq, and, isNull } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
 import { receiptShares, milestones, projects, ledgerEntries, users } from '../db/schema.js';
-import { requireRole } from '../auth/index.js';
+import { requireMilestoneMember } from '../auth/index.js';
 
 function hashShareId(shareId: string): string {
   return createHash('sha256').update(shareId.trim()).digest('hex');
@@ -13,7 +13,7 @@ export const registerReceiptShareRoutes: FastifyPluginAsync = async (server) => 
   // 1. POST /api/milestones/:id/share (Client creates receipt share link)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/share',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireMilestoneMember('client')] },
     async (request, reply) => {
       const { id: milestoneId } = request.params;
       const db = getDb();
@@ -119,34 +119,34 @@ export const registerReceiptShareRoutes: FastifyPluginAsync = async (server) => 
           },
           client: {
             id: client?.id,
-            name: client?.name || 'Sarah Lin',
+            name: client?.name || 'Client',
           },
           freelancer: {
             id: freelancer?.id,
-            name: freelancer?.name || 'Arjun Mehta',
+            name: freelancer?.name || 'Freelancer',
           },
           project: {
             id: project?.id,
             title: project?.title,
-            clientName: client?.name || 'Sarah Lin',
-            freelancerName: freelancer?.name || 'Arjun Mehta',
+            clientName: client?.name || 'Client',
+            freelancerName: freelancer?.name || 'Freelancer',
           },
           ledger: payoutEntry
             ? {
                 amountCents: payoutEntry.amountCents,
                 timestamp: payoutEntry.createdAt.toISOString(),
-                paypalPayoutBatchId: payoutEntry.paypalRef || 'BATCH-PAYOUT-MS01-MOCK',
+                paypalPayoutBatchId: payoutEntry.paypalRef || null,
               }
             : {
                 amountCents: milestone.amountCents,
                 timestamp: share.createdAt.toISOString(),
-                paypalPayoutBatchId: 'BATCH-PAYOUT-MS01-MOCK',
+                paypalPayoutBatchId: null,
               },
           settlement: payoutEntry
             ? {
                 type: payoutEntry.type,
                 amountCents: payoutEntry.amountCents,
-                paypalRef: payoutEntry.paypalRef || 'BATCH-PAYOUT-MS01-MOCK',
+                paypalRef: payoutEntry.paypalRef || null,
                 settledAt: payoutEntry.createdAt,
               }
             : null,
@@ -158,7 +158,7 @@ export const registerReceiptShareRoutes: FastifyPluginAsync = async (server) => 
   // 3. POST /api/milestones/:id/share/revoke (Client revokes receipt share link)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/share/revoke',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireMilestoneMember('client')] },
     async (request, reply) => {
       const { id: milestoneId } = request.params;
       const db = getDb();

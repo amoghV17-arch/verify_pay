@@ -17,7 +17,10 @@ export async function registerSystemRoutes(server: FastifyInstance): Promise<voi
     const isWebhookConfigured = Boolean(
       config.PAYPAL_WEBHOOK_ID && config.PAYPAL_WEBHOOK_ID.trim().length > 0
     );
-    const isDemoBudgetCap = Boolean(config.DEMO_MODE || process.env.DEMO_MODE === 'true');
+    const isDemoMode = Boolean(config.DEMO_MODE || process.env.DEMO_MODE === 'true');
+    const isRealEmail =
+      (config.EMAIL_PROVIDER === 'resend' && Boolean(config.RESEND_API_KEY)) ||
+      (config.EMAIL_PROVIDER === 'smtp' && Boolean(config.SMTP_HOST));
 
     return {
       paypal: config.PAYPAL_ENV === 'sandbox' ? 'sandbox' : 'mock',
@@ -26,10 +29,15 @@ export async function registerSystemRoutes(server: FastifyInstance): Promise<voi
         model: config.LLM_MODEL || 'fixture-model',
         live: isLiveLlm,
       },
-      demoMode: isDemoBudgetCap || config.NODE_ENV !== 'production',
-      demoBudgetCapActive: isDemoBudgetCap,
+      demoMode: isDemoMode,
+      demoBudgetCapActive: isDemoMode,
       maxDemoBudgetCents: MAX_DEMO_BUDGET_CENTS,
       webhookConfigured: isWebhookConfigured,
+      emailProvider: config.EMAIL_PROVIDER || 'outbox',
+      emailVerification: config.EMAIL_VERIFICATION || 'soft',
+      resetAvailable: isRealEmail,
+      googleAuthEnabled: Boolean(config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET),
+      supportEmail: config.SUPPORT_EMAIL || null,
       version: '0.9.0',
       commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local-dev',
     };

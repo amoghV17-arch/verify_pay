@@ -23,24 +23,61 @@ export const PREPARED_DELIVERABLES = {
 };
 
 export async function seedDatabase(db: AppDatabase): Promise<void> {
-  const { users, projects, tasks, dependencies, milestones, deliverables, reviews, ledgerEntries, activity } = schema;
+  const { users, notificationPrefs, projects, tasks, dependencies, milestones, deliverables, reviews, ledgerEntries, activity } = schema;
+  const now = new Date();
 
-  // 1. Seed Demo Personas
+  // 1. Seed Demo Personas (strictly marked isDemo=true with RFC 2606 .invalid addresses)
   const clientUser = {
     id: 'user_client_01',
     name: 'Sarah Lin (Acme Corp)',
-    email: 'sarah@acme-corp.com',
+    displayName: 'Sarah Lin',
+    company: 'Acme Corp',
+    email: 'sarah-demo@example.invalid',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    avatarColor: '#337D70',
+    emailVerifiedAt: now,
+    lastWorkspace: 'client' as const,
+    isDemo: true,
   };
 
   const freelancerUser = {
     id: 'user_freelancer_01',
     name: 'Arjun Mehta',
-    email: 'arjun@freelance.dev',
+    displayName: 'Arjun Mehta',
+    email: 'arjun-demo@example.invalid',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    avatarColor: '#2A6358',
+    emailVerifiedAt: now,
+    lastWorkspace: 'freelancer' as const,
+    payoutPaypalEmail: process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com',
+    payoutEmailChangedAt: now,
+    isDemo: true,
   };
 
-  await db.insert(users).values([clientUser, freelancerUser]).onConflictDoNothing();
+  await db
+    .insert(users)
+    .values(clientUser)
+    .onConflictDoUpdate({
+      target: users.id,
+      set: { isDemo: true, emailVerifiedAt: now },
+    });
+
+  await db
+    .insert(users)
+    .values(freelancerUser)
+    .onConflictDoUpdate({
+      target: users.id,
+      set: {
+        isDemo: true,
+        emailVerifiedAt: now,
+        payoutPaypalEmail: freelancerUser.payoutPaypalEmail,
+      },
+    });
+
+  await db
+    .insert(notificationPrefs)
+    .values([{ userId: clientUser.id }, { userId: freelancerUser.id }])
+    .onConflictDoNothing();
 
   // 2. Seed Project
   const project = {

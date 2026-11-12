@@ -7,6 +7,7 @@ import {
   ledgerEntries,
   payoutBatches,
   activity,
+  users,
 } from '../db/schema.js';
 import { LedgerService } from './ledger.js';
 import {
@@ -208,11 +209,36 @@ export class ReleaseService {
     const effectiveKey = idempotencyKey || (attempt && attempt > 1 ? `release:${m.id}:att${attempt}` : `release:${m.id}`);
     const effectiveSenderBatchId = senderBatchId || (attempt && attempt > 1 ? `ms_${m.id}_att${attempt}` : `ms_${m.id}`);
 
-    // 2. Call PayPal Payouts with unique sender_batch_id and Request-Id
+    // 2. Call PayPal Payouts with destination resolved from freelancer's profile at release time
+    const freelancerRow = proj.freelancerId
+      ? (
+          await this.client
+            .select({ payoutPaypalEmail: users.payoutPaypalEmail, email: users.email })
+            .from(users)
+            .where(eq(users.id, proj.freelancerId))
+            .limit(1)
+        )[0]
+      : undefined;
+
     const receiverEmail =
+      freelancerRow?.payoutPaypalEmail ||
       proj.freelancerPaypalEmail ||
-      process.env.DEMO_FREELANCER_PAYPAL_EMAIL ||
-      'arjun-sandbox@freelance.dev';
+      (proj.isDemo ? process.env.DEMO_FREELANCER_PAYPAL_EMAIL : undefined);
+
+    if (!receiverEmail) {
+      await this.failMilestonePayout({
+        milestoneId: m.id,
+        projectId: proj.id,
+        reason: 'Freelancer payout PayPal sandbox email is not configured.',
+      });
+      return {
+        success: false,
+        milestoneId: m.id,
+        status: 'approved',
+        message: 'Payout destination missing: freelancer must save their PayPal sandbox email in Payout settings.',
+        idempotencyKey: effectiveKey,
+      };
+    }
 
     let payoutResult: PayPalPayoutResult;
     try {

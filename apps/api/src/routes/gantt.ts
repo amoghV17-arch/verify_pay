@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eq, inArray, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { getDb, schema } from '../db/index.js';
+import { requireProjectMember } from '../auth/index.js';
 import {
   computeDerivedTaskPercentMap,
   syncProjectCompletionStatus,
@@ -27,6 +28,7 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
   // GET /api/gantt/:projectId/load
   server.get<{ Params: { projectId: string } }>(
     '/api/gantt/:projectId/load',
+    { preHandler: [requireProjectMember('any')] },
     async (request: FastifyRequest<{ Params: { projectId: string } }>, reply: FastifyReply) => {
       const db = getDb();
       const { projectId } = request.params;
@@ -160,26 +162,11 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
   // POST /api/gantt/:projectId/sync
   server.post<{ Params: { projectId: string }; Body: BryntumSyncPayload }>(
     '/api/gantt/:projectId/sync',
+    { preHandler: [requireProjectMember('any')] },
     async (request: FastifyRequest<{ Params: { projectId: string }; Body: BryntumSyncPayload }>, reply: FastifyReply) => {
       const db = getDb();
       const { projectId } = request.params;
       const { requestId, tasks: taskChanges, dependencies: depChanges } = request.body || {};
-
-      // Role check on every mutation
-      const user = request.user;
-      if (!user) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: 'Authentication session required to sync Gantt mutations.',
-        });
-      }
-
-      if (!['client', 'freelancer'].includes(user.role)) {
-        return reply.status(403).send({
-          error: 'Forbidden',
-          message: `Role "${user.role}" is not authorized to modify Gantt schedule. Must be client or freelancer.`,
-        });
-      }
 
       const [proj] = await db.select().from(projects).where(eq(projects.id, projectId));
       if (!proj) {

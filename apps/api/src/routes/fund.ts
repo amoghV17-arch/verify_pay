@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
 import { projects, ledgerEntries } from '../db/schema.js';
-import { requireRole } from '../auth/index.js';
+import { requireProjectMember, requireVerifiedEmailIfNeeded } from '../auth/index.js';
 import { LedgerService, toLedgerBalances, formatLedgerEntry } from '../services/ledger.js';
 import { sseHub } from '../services/sse.js';
 import { PayPalPort } from '@milestone/shared';
@@ -35,7 +35,7 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
   // 1. Create Funding Order
   server.post<{ Params: { id: string }; Body: unknown }>(
     '/api/projects/:id/fund/order',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireVerifiedEmailIfNeeded(), requireProjectMember('client')] },
     async (request, reply) => {
       const { id: projectId } = request.params;
       const bodyParsed = CreateOrderBodySchema.safeParse(request.body ?? {});
@@ -116,7 +116,7 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
   // 2. Capture Funding Order
   server.post<{ Params: { id: string }; Body: unknown }>(
     '/api/projects/:id/fund/capture',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireVerifiedEmailIfNeeded(), requireProjectMember('client')] },
     async (request, reply) => {
       const { id: projectId } = request.params;
       const parsed = CaptureBodySchema.safeParse(request.body);
@@ -232,6 +232,7 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
   // 3. Project Ledger & Summary
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/ledger',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const { id: projectId } = request.params;
       const db = getDb();
@@ -254,13 +255,13 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
   // 4. Server-Sent Events (SSE) Stream
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/events',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const { id: projectId } = request.params;
 
       reply.raw.setHeader('Content-Type', 'text/event-stream');
       reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
       reply.raw.setHeader('Connection', 'keep-alive');
-      reply.raw.setHeader('Access-Control-Allow-Origin', '*');
 
       const clientId = `client_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       reply.raw.write(`: sse connected for project ${projectId}\n\n`);

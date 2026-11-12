@@ -97,11 +97,13 @@ export class InviteService {
   async createInvite(params: {
     projectId: string;
     createdBy?: string;
+    invitedEmail?: string;
     expiryDays?: number;
     maxUses?: number;
   }): Promise<{
     id: string;
     projectId: string;
+    invitedEmail: string | null;
     token: string;
     code: string;
     expiresAt: Date;
@@ -113,11 +115,13 @@ export class InviteService {
     const expiryDays = params.expiryDays ?? 7;
     const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
     const maxUses = params.maxUses ?? 1;
+    const invitedEmail = params.invitedEmail?.trim().toLowerCase() || null;
 
     await db.insert(invites).values({
       id,
       projectId: params.projectId,
       createdBy: params.createdBy || null,
+      invitedEmail,
       tokenHash,
       codeHash,
       expiresAt,
@@ -128,6 +132,7 @@ export class InviteService {
     return {
       id,
       projectId: params.projectId,
+      invitedEmail,
       token,
       code,
       expiresAt,
@@ -198,93 +203,145 @@ export class InviteService {
   }
 
   /**
-   * Accepts an invitation: creates/updates freelancer user, assigns to project, marks invite used.
+   * Accepts an invitation for an authenticated user.
+   * Enforces own-invite block, optional email targeting, and payout email requirement.
    */
-  async acceptInvite(
+  async acceptInviteForUser(
     tokenOrCode: string,
-    params: { name: string; email: string; paypalEmail?: string }
-  ): Promise<{
-    success: boolean;
-    user: { id: string; name: string; email: string; role: 'freelancer' };
-    project: { id: string; title: string };
-  } | null> {
+    user: {
+      userId: string;
+      name: string;
+      email: string;
+      payoutPaypalEmail: string | null;
+    },
+    opts?: { paypalEmail?: string }
+  ): Promise<
+    | {
+        ok: true;
+        project: { id: string; title: string };
+        paypalEmail: string;
+      }
+    | {
+        ok: false;
+        status: 400 | 403 | 404;
+        error: string;
+        message: string;
+      }
+  > {
     const db = getDb();
     const invite = await this.findValidInvite(tokenOrCode);
-    if (!invite) return null;
-
-    const email = params.email.trim().toLowerCase();
-    const name = params.name.trim();
-    const paypalEmail = params.paypalEmail?.trim() || email;
-
-    let freelancerUser: { id: string; name: string; email: string };
-
-    // Find existing user by email or create new one
-    const [existingUser] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (existingUser) {
-      freelancerUser = existingUser;
-    } else {
-      const newUserId = `user_fl_${randomUUID().slice(0, 8)}`;
-      const [created] = await db
-        .insert(users)
-        .values({
-          id: newUserId,
-          name,
-          email,
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
-        })
-        .returning();
-      freelancerUser = created;
+    if (!invite) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'InvalidInvitation',
+        message: 'This invitation is no longer valid.',
+      };
     }
 
-    // Update project with freelancer and record invite acceptance
     const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, invite.projectId))
+      .limit(1);
+
+    if (!project) {
+      return {
+        ok: false,
+        status: 404,
+        error: 'InvalidInvitation',
+        message: 'This invitation is no longer valid.',
+      };
+    }
+
+    if (invite.createdBy === user.userId || project.clientId === user.userId) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'Forbidden',
+        message: 'You cannot accept your own project invitation. Share the invite link with your freelancer instead.',
+      };
+    }
+
+    if (invite.invitedEmail && invite.invitedEmail.toLowerCase() !== user.email.toLowerCase()) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'InviteEmailMismatch',
+        message: 'This invitation was issued for a different email address.',
+      };
+    }
+
+    const suppliedPaypal = opts?.paypalEmail?.trim().toLowerCase();
+    const finalPaypalEmail = suppliedPaypal || user.payoutPaypalEmail?.trim().toLowerCase() || '';
+    if (!finalPaypalEmail) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'PayoutEmailRequired',
+        message: 'Add your PayPal Sandbox payout email before accepting this project.',
+      };
+    }
+
+    const now = new Date();
+    const userUpdates: Partial<typeof users.$inferInsert> = {
+      lastWorkspace: 'freelancer',
+    };
+    if (suppliedPaypal && suppliedPaypal !== user.payoutPaypalEmail?.toLowerCase()) {
+      userUpdates.payoutPaypalEmail = suppliedPaypal;
+      userUpdates.payoutEmailChangedAt = now;
+    }
+
+    await db.update(users).set(userUpdates).where(eq(users.id, user.userId));
+
+    const [updatedProject] = await db
       .update(projects)
       .set({
-        freelancerId: freelancerUser.id,
-        freelancerPaypalEmail: paypalEmail,
-        updatedAt: new Date(),
+        freelancerId: user.userId,
+        freelancerPaypalEmail: finalPaypalEmail,
+        updatedAt: now,
       })
-      .where(eq(projects.id, invite.projectId))
+      .where(eq(projects.id, project.id))
       .returning();
 
-    if (!project) return null;
+    if (!updatedProject) {
+      return {
+        ok: false,
+        status: 404,
+        error: 'NotFound',
+        message: 'Project not found.',
+      };
+    }
 
-    // Update invite usage
     await db
       .update(invites)
       .set({
         usedCount: invite.usedCount + 1,
-        acceptedBy: freelancerUser.id,
-        acceptedAt: new Date(),
+        acceptedBy: user.userId,
+        acceptedAt: now,
       })
       .where(eq(invites.id, invite.id));
 
-    // Log audit activity
     await db.insert(activity).values({
       id: `act_${randomUUID().slice(0, 8)}`,
-      projectId: project.id,
+      projectId: updatedProject.id,
       actor: 'freelancer',
       kind: 'invite_accepted',
-      text: `${name} accepted the project invitation.`,
+      text: `${user.name} accepted the project invitation.`,
       meta: {
         inviteId: invite.id,
-        freelancerId: freelancerUser.id,
-        paypalEmail,
+        freelancerId: user.userId,
+        paypalEmail: finalPaypalEmail,
       },
     });
 
     return {
-      success: true,
-      user: {
-        id: freelancerUser.id,
-        name: freelancerUser.name,
-        email: freelancerUser.email,
-        role: 'freelancer',
-      },
+      ok: true,
       project: {
-        id: project.id,
-        title: project.title,
+        id: updatedProject.id,
+        title: updatedProject.title,
       },
+      paypalEmail: finalPaypalEmail,
     };
   }
 }
