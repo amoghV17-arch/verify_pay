@@ -2,31 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FolderKanban, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
-import { ProjectRow } from '../../components/ui/ProjectRow.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
-
-interface ProjectSummary {
-  id: string;
-  title: string;
-  brief: string;
-  totalCents: number;
-  status: string;
-  clientId: string;
-  freelancerId: string | null;
-  isDemo: boolean;
-  createdAt: string;
-}
-
-interface ProjectLedgerSummary {
-  heldCents: number;
-  paidCents: number;
-  fundedCents: number;
-}
+import {
+  ProjectCategoryList,
+  type ProjectListItem,
+} from '../../components/ui/ProjectCategoryList.js';
+import {
+  extractLedgerBalances,
+  isProjectCompletedStatus,
+  type NormalizedBalances,
+} from '../../lib/projectHelpers.js';
 
 export const FreelancerProjectsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [projectsList, setProjectsList] = useState<ProjectSummary[]>([]);
-  const [ledgerMap, setLedgerMap] = useState<Record<string, ProjectLedgerSummary>>({});
+  const [projectsList, setProjectsList] = useState<ProjectListItem[]>([]);
+  const [ledgerMap, setLedgerMap] = useState<Record<string, NormalizedBalances>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [inviteCodeInput, setInviteCodeInput] = useState('');
 
@@ -38,6 +28,7 @@ export const FreelancerProjectsPage: React.FC = () => {
         setIsLoading(true);
 
         const res = await fetch('/api/projects', {
+          credentials: 'include',
           headers: {
             'X-Persona': 'freelancer',
           },
@@ -48,21 +39,25 @@ export const FreelancerProjectsPage: React.FC = () => {
         }
 
         const data = await res.json();
-        if (isMounted && data.projects) {
-          setProjectsList(data.projects);
+        if (isMounted && Array.isArray(data.projects)) {
+          const loadedProjects: ProjectListItem[] = data.projects;
+          setProjectsList(loadedProjects);
 
-          const ledgers: Record<string, ProjectLedgerSummary> = {};
+          const ledgers: Record<string, NormalizedBalances> = {};
           await Promise.all(
-            data.projects.map(async (p: ProjectSummary) => {
+            loadedProjects.map(async (p) => {
+              if (p.balances) {
+                ledgers[p.id] = extractLedgerBalances(p.balances);
+                return;
+              }
               try {
-                const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`);
+                const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`, {
+                  credentials: 'include',
+                  headers: { 'X-Persona': 'freelancer' },
+                });
                 if (ledgerRes.ok) {
                   const ledgerData = await ledgerRes.json();
-                  ledgers[p.id] = {
-                    heldCents: ledgerData.balances?.heldCents ?? 0,
-                    paidCents: ledgerData.balances?.paidCents ?? 0,
-                    fundedCents: ledgerData.balances?.fundedCents ?? 0,
-                  };
+                  ledgers[p.id] = extractLedgerBalances(ledgerData);
                 }
               } catch {
                 // Ignore per-project ledger error
@@ -92,20 +87,13 @@ export const FreelancerProjectsPage: React.FC = () => {
     };
   }, []);
 
-  function getStateSentence(project: ProjectSummary): string {
-    if (project.status === 'draft' || project.status === 'planned') {
-      return 'Waiting for client to fund holding balance in PayPal Sandbox.';
+  function getNextAction(project: ProjectListItem): { label: string; action: () => void } {
+    if (isProjectCompletedStatus(project)) {
+      return {
+        label: 'Receipts',
+        action: () => navigate(`/freelancer/projects/${project.id}/payments`),
+      };
     }
-    if (project.status === 'funded' || project.status === 'active') {
-      return 'Funded and locked in PayPal sandbox. You can start working.';
-    }
-    if (project.status === 'closed') {
-      return 'Project completed. All milestone payouts released.';
-    }
-    return 'Active milestone agreement';
-  }
-
-  function getNextAction(project: ProjectSummary): { label: string; action: () => void } {
     if (project.status === 'funded' || project.status === 'active') {
       return {
         label: 'Deliverables',
@@ -230,28 +218,13 @@ export const FreelancerProjectsPage: React.FC = () => {
 
       {/* Projects List */}
       {!isLoading && projectsList.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {projectsList.map((project) => {
-            const nextAction = getNextAction(project);
-            const ledger = ledgerMap[project.id] || { heldCents: 0, paidCents: 0, fundedCents: 0 };
-
-            return (
-              <ProjectRow
-                key={project.id}
-                id={project.id}
-                title={project.title}
-                stateSentence={getStateSentence(project)}
-                heldCents={ledger.heldCents}
-                paidCents={ledger.paidCents}
-                totalCents={project.totalCents}
-                nextActionLabel={nextAction.label}
-                onNextAction={nextAction.action}
-                onClick={() => navigate(`/freelancer/projects/${project.id}`)}
-                isDemo={project.isDemo}
-              />
-            );
-          })}
-        </div>
+        <ProjectCategoryList
+          projects={projectsList}
+          ledgerMap={ledgerMap}
+          role="freelancer"
+          getNextAction={getNextAction}
+          onProjectClick={(project) => navigate(`/freelancer/projects/${project.id}`)}
+        />
       )}
 
       {/* Empty State per §7.1 */}

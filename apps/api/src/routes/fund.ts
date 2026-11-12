@@ -4,7 +4,7 @@ import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
 import { projects, ledgerEntries } from '../db/schema.js';
 import { requireRole } from '../auth/index.js';
-import { LedgerService } from '../services/ledger.js';
+import { LedgerService, toLedgerBalances, formatLedgerEntry } from '../services/ledger.js';
 import { sseHub } from '../services/sse.js';
 import { PayPalPort } from '@milestone/shared';
 
@@ -245,7 +245,8 @@ export const registerFundRoutes: FastifyPluginAsync<FundRoutesOptions> = async (
 
       return reply.send({
         summary,
-        entries,
+        balances: toLedgerBalances(summary),
+        entries: entries.map(formatLedgerEntry),
       });
     }
   );

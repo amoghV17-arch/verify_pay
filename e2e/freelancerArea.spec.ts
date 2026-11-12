@@ -202,4 +202,18 @@ test.describe('Phase P5: Freelancer Area Suite', () => {
       });
     }
   });
+
+  test('Freelancer projects page displays category tabs and synced Locked/Earned amounts without $0.00 fallback', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/freelancer');
+
+    await expect(page.getByTestId('project-filter-all')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('project-filter-ongoing')).toBeVisible();
+    await expect(page.getByTestId('project-filter-completed')).toBeVisible();
+
+    const brandRow = page.getByTestId('project-row-proj_brand_launch');
+    await expect(brandRow).toBeVisible();
+    await expect(brandRow).toContainText('$6,800.00');
+    await expect(brandRow).toContainText('$1,200.00');
+  });
 });

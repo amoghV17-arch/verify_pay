@@ -9,7 +9,12 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
-import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.js';
+import {
+  extractLedgerBalances,
+  isMilestoneSettled,
+  mapStatusToMoneyState,
+} from '../../lib/projectHelpers.js';
 
 interface MilestoneData {
   id: string;
@@ -31,30 +36,6 @@ interface ProjectData {
   freelancerId: string | null;
   isDemo: boolean;
   createdAt: string;
-}
-
-function mapStatusToMoneyState(status: string): MoneyState {
-  switch (status) {
-    case 'paid':
-    case 'closed':
-      return 'paid';
-    case 'releasing':
-      return 'releasing';
-    case 'approved':
-    case 'awaiting_client':
-      return 'needs_decision';
-    case 'changes_requested':
-      return 'changes_requested';
-    case 'submitted':
-    case 'in_review':
-    case 'appealed':
-      return 'in_review';
-    case 'funded':
-    case 'active':
-      return 'funded';
-    default:
-      return 'agreed';
-  }
 }
 
 export const FreelancerOverviewPage: React.FC = () => {
@@ -81,6 +62,7 @@ export const FreelancerOverviewPage: React.FC = () => {
         setIsLoading(true);
 
         const res = await fetch(`/api/projects/${id}`, {
+          credentials: 'include',
           headers: { 'X-Persona': 'freelancer' },
         });
 
@@ -103,11 +85,12 @@ export const FreelancerOverviewPage: React.FC = () => {
           );
           setMilestones(normalized);
           if (data.ledger) {
+            const balances = extractLedgerBalances(data.ledger);
             setLedger({
               totalCents: data.ledger.totalCents || data.project.totalCents,
-              fundedCents: data.ledger.fundedCents || 0,
-              paidCents: data.ledger.paidCents || 0,
-              heldCents: data.ledger.heldCents || 0,
+              fundedCents: balances.fundedCents,
+              paidCents: balances.paidCents,
+              heldCents: balances.heldCents,
             });
           }
         }
@@ -128,6 +111,10 @@ export const FreelancerOverviewPage: React.FC = () => {
     };
   }, [id]);
 
+  const isAllMilestonesPaid = milestones.length > 0 && milestones.every((m) => isMilestoneSettled(m.status));
+  const isProjectCompleted = project?.status === 'closed' || isAllMilestonesPaid;
+  const isProjectCancelled = project?.status === 'cancelled' || project?.status === 'failed';
+
   // Determine active milestone for the freelancer
   const nextUpMilestone =
     milestones.find(
@@ -137,10 +124,11 @@ export const FreelancerOverviewPage: React.FC = () => {
         m.status === 'submitted' ||
         m.status === 'changes_requested' ||
         m.status === 'awaiting_client' ||
-        m.status === 'approved'
+        m.status === 'approved' ||
+        m.status === 'releasing'
     ) || milestones[0];
 
-  const isProjectFunded = project?.status === 'funded' || project?.status === 'active';
+  const isProjectFunded = project?.status === 'funded' || project?.status === 'active' || isProjectCompleted;
   const isMilestoneFunded = nextUpMilestone && (nextUpMilestone.status === 'funded' || nextUpMilestone.status === 'changes_requested');
 
   if (isLoading) {
@@ -251,7 +239,13 @@ export const FreelancerOverviewPage: React.FC = () => {
                   color: 'var(--forest)',
                 }}
               >
-                Next Up for Delivery
+                {isProjectCancelled
+                  ? project?.status === 'failed'
+                    ? 'Project Failed'
+                    : 'Project Cancelled'
+                  : isProjectCompleted
+                  ? 'Project Completed'
+                  : 'Next Up for Delivery'}
               </span>
               <h2
                 style={{
@@ -261,21 +255,52 @@ export const FreelancerOverviewPage: React.FC = () => {
                   margin: '0.25rem 0 0.2rem 0',
                 }}
               >
-                {nextUpMilestone.name}
+                {isProjectCompleted ? 'All milestones settled via PayPal' : nextUpMilestone.name}
               </h2>
               <span style={{ fontSize: '0.875rem', color: 'var(--ink-2)' }}>
-                Payment attached:{' '}
-                <strong style={{ color: 'var(--teal-ink)' }}>{formatCents(nextUpMilestone.amountCents)}</strong>
+                {isProjectCompleted ? (
+                  <>
+                    Total settled:{' '}
+                    <strong style={{ color: 'var(--teal-ink)' }}>{formatCents(ledger.paidCents)}</strong>
+                  </>
+                ) : (
+                  <>
+                    Payment attached:{' '}
+                    <strong style={{ color: 'var(--teal-ink)' }}>{formatCents(nextUpMilestone.amountCents)}</strong>
+                  </>
+                )}
               </span>
             </div>
 
             {/* Primary Action Button per §7.2 */}
             <div>
-              {isMilestoneFunded ? (
+              {isProjectCancelled ? (
+                <div
+                  style={{
+                    backgroundColor: 'var(--paper)',
+                    padding: '0.6rem 1rem',
+                    borderRadius: 'var(--radius-btn)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--ink-2)',
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  {project?.status === 'failed' ? 'Project marked failed.' : 'Project cancelled by client.'}
+                </div>
+              ) : isProjectCompleted ? (
                 <Button
                   variant="primary"
                   size="lg"
-                  onClick={() => navigate(`/freelancer/projects/${project.id}/deliverables?submit=${nextUpMilestone.id}`)}
+                  onClick={() => navigate(`/freelancer/projects/${project?.id}/payments`)}
+                  leftIcon={<CheckCircle2 size={16} />}
+                >
+                  View payments & receipts
+                </Button>
+              ) : isMilestoneFunded ? (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => navigate(`/freelancer/projects/${project?.id}/deliverables?submit=${nextUpMilestone.id}`)}
                   leftIcon={<Send size={16} />}
                 >
                   Submit deliverable
@@ -285,10 +310,20 @@ export const FreelancerOverviewPage: React.FC = () => {
                   <Clock size={16} className="animate-spin" />
                   <span>AI Review in progress...</span>
                 </div>
+              ) : nextUpMilestone.status === 'releasing' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--teal-ink)', fontSize: '0.875rem', fontWeight: 600 }}>
+                  <Clock size={16} />
+                  <span>Releasing PayPal payout...</span>
+                </div>
               ) : nextUpMilestone.status === 'approved' || nextUpMilestone.status === 'awaiting_client' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--teal-ink)', fontSize: '0.875rem', fontWeight: 600 }}>
                   <CheckCircle2 size={16} />
                   <span>Verified! Awaiting client release</span>
+                </div>
+              ) : isMilestoneSettled(nextUpMilestone.status) ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--forest)', fontSize: '0.875rem', fontWeight: 600 }}>
+                  <CheckCircle2 size={16} />
+                  <span>Settled via PayPal</span>
                 </div>
               ) : (
                 <div

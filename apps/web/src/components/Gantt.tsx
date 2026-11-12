@@ -295,6 +295,31 @@ export const MilestoneGantt = forwardRef<MilestoneGanttHandle, GanttProps>(({
 
     ganttInstanceRef.current = gantt;
 
+    if (!tasksData && projectId) {
+      project.on('load', () => {
+        try {
+          const allRecords = (gantt.taskStore?.allRecords || []) as MilestoneTaskModel[];
+          let minStart = Infinity;
+          let maxEnd = -Infinity;
+          for (const rec of allRecords) {
+            if ((rec as any).isRoot) continue;
+            const s = rec.startDate instanceof Date ? rec.startDate.getTime() : NaN;
+            const e = rec.endDate instanceof Date ? rec.endDate.getTime() : s;
+            if (!Number.isNaN(s) && s < minStart) minStart = s;
+            if (!Number.isNaN(e) && e > maxEnd) maxEnd = e;
+          }
+          if (minStart < Infinity && maxEnd > -Infinity) {
+            const dayMs = 24 * 60 * 60 * 1000;
+            const spanStart = new Date(minStart - 2 * dayMs);
+            const spanEnd = new Date(Math.max(maxEnd + 7 * dayMs, minStart + 21 * dayMs));
+            gantt.setTimeSpan(spanStart, spanEnd);
+          }
+        } catch {
+          // Ignore viewport resize timing issues when unmounting
+        }
+      });
+    }
+
     return () => {
       gantt.destroy();
       ganttInstanceRef.current = null;

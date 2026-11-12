@@ -14,6 +14,12 @@ import { TaskInspectorPanel, type TaskInspectorData } from '../components/schedu
 import { ScheduleListView } from '../components/schedule/ScheduleListView.js';
 import type { MilestoneTaskModel } from '../models/MilestoneTaskModel.js';
 import { ScheduleSkeleton } from '../components/schedule/ScheduleSkeleton.js';
+import {
+  deriveMilestoneProgressPercent,
+  formatLocalYmd,
+  getProjectStatusBadgeInfo,
+  isMilestoneSettled,
+} from '../lib/projectHelpers.js';
 
 export { ScheduleSkeleton };
 
@@ -89,7 +95,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
       }
     };
     fetchProject();
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   // Fetch tasks for list view fallback
   const fetchTasksData = useCallback(async () => {
@@ -120,9 +126,12 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
     const taskData: TaskInspectorData = {
       id: raw.id || '',
       name: raw.name || '',
-      startDate: typeof raw.startDate === 'object' ? raw.startDate?.toISOString?.()?.split('T')[0] : String(raw.startDate || ''),
+      startDate: formatLocalYmd(raw.startDate),
       duration: Number(raw.duration ?? 0),
-      percentDone: Number(raw.percentDone ?? 0),
+      percentDone: deriveMilestoneProgressPercent(
+        raw.paymentStatus,
+        raw.percentDone != null ? Number(raw.percentDone) : 0
+      ),
       milestone: Boolean(raw.milestone || raw.isMilestone),
       isMilestone: Boolean(raw.milestone || raw.isMilestone),
       milestoneId: raw.milestoneId,
@@ -248,20 +257,68 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ role = 'client' }) =
           >
             {project?.title || 'Project Schedule'}
           </h2>
-          <span
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(31, 122, 140, 0.12)',
-              color: 'var(--tide)',
-            }}
-          >
-            {project?.status || 'Active'}
-          </span>
+          {(() => {
+            const badge = getProjectStatusBadgeInfo({ status: project?.status });
+            const badgeColors =
+              badge.tone === 'forest'
+                ? { bg: 'rgba(21, 115, 71, 0.14)', fg: '#157347' }
+                : badge.tone === 'red'
+                ? { bg: 'rgba(200, 64, 47, 0.14)', fg: '#C8402F' }
+                : badge.tone === 'amber'
+                ? { bg: 'rgba(176, 122, 18, 0.15)', fg: '#825605' }
+                : badge.tone === 'neutral'
+                ? { bg: 'rgba(91, 107, 124, 0.14)', fg: 'var(--slate)' }
+                : { bg: 'rgba(31, 122, 140, 0.12)', fg: 'var(--tide)' };
+            const milestoneRows = tasks.filter(
+              (t: any) => Boolean(t.isMilestone || t.milestone || t.milestoneId || (t.amountCents && t.amountCents > 0))
+            );
+            const paidCount = milestoneRows.filter((t: any) => isMilestoneSettled(t.paymentStatus)).length;
+            const avgProgress =
+              tasks.length > 0
+                ? Math.round(
+                    tasks.reduce(
+                      (sum: number, t: any) => sum + deriveMilestoneProgressPercent(t.paymentStatus, t.percentDone),
+                      0
+                    ) / tasks.length
+                  )
+                : 0;
+            return (
+              <>
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    backgroundColor: badgeColors.bg,
+                    color: badgeColors.fg,
+                  }}
+                >
+                  {badge.label}
+                </span>
+                {tasks.length > 0 && (
+                  <span
+                    data-testid="schedule-overall-progress"
+                    style={{
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--chalk)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--ink-2)',
+                    }}
+                  >
+                    {milestoneRows.length > 0
+                      ? `${paidCount}/${milestoneRows.length} paid · ${avgProgress}%`
+                      : `${avgProgress}% complete`}
+                  </span>
+                )}
+              </>
+            );
+          })()}
           <span
             style={{
               fontSize: '0.6875rem',

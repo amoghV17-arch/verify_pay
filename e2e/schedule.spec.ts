@@ -218,4 +218,29 @@ test.describe('Phase P7: Schedule (Bryntum Gantt) Suite', () => {
       fullPage: true,
     });
   });
+
+  test('Schedule renders derived overall completion progress and 100% progress on paid milestones in Inspector', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/client/projects/proj_brand_launch/schedule');
+
+    // Overall progress pill reflects completed tasks/milestones (> 0%)
+    const overallProgress = page.getByTestId('schedule-overall-progress');
+    await expect(overallProgress).toBeVisible({ timeout: 15000 });
+    await expect(overallProgress).not.toContainText('0%');
+
+    // Switch to List view and inspect paid Milestone 1
+    await page.getByRole('button', { name: 'List' }).click();
+    const listView = page.getByTestId('schedule-list-view');
+    await expect(listView).toBeVisible({ timeout: 10000 });
+
+    const inspectMs1 = listView
+      .locator('tr', { hasText: 'Brand Strategy Approved' })
+      .locator('[data-testid^="inspect-btn-"]');
+    await inspectMs1.click();
+
+    const inspector = page.getByTestId('task-inspector-panel');
+    await expect(inspector).toBeVisible({ timeout: 10000 });
+    await expect(inspector).toContainText('100%');
+    await expect(inspector).not.toContainText('Invalid Date');
+  });
 });

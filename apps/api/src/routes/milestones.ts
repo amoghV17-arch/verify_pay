@@ -8,6 +8,7 @@ import { ReviewerService } from '../services/reviewer.js';
 import { AutonomySchedulerService } from '../services/autonomyScheduler.js';
 import { sseHub } from '../services/sse.js';
 import { formatReviewRecord } from '../services/reviewFormatter.js';
+import { syncMilestoneProgress } from '../services/milestoneOrder.js';
 import { createRateLimitHandler, checkAndRecordLlmCall } from '../services/abuseGuards.js';
 import { getDb } from '../db/index.js';
 import { milestones, deliverables, activity, reviews } from '../db/schema.js';
@@ -111,6 +112,8 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
         .update(milestones)
         .set({ status: 'in_review', updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id));
+
+      await syncMilestoneProgress(db, milestone.projectId, milestone.id, 'in_review');
 
       // Kick off reviewer asynchronously (do not await — returns 202 immediately)
       const projectId = milestone.projectId;
@@ -238,6 +241,8 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
         .set({ status: 'changes_requested', releaseAt: null, updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id));
 
+      await syncMilestoneProgress(db, milestone.projectId, milestone.id, 'changes_requested');
+
       // Record activity
       await db.insert(activity).values({
         id: randomUUID(),
@@ -285,6 +290,8 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
         .set({ status: 'changes_requested', releaseAt: null, updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id))
         .returning();
+
+      await syncMilestoneProgress(db, milestone.projectId, milestone.id, 'changes_requested');
 
       await db.insert(activity).values({
         id: randomUUID(),
@@ -359,6 +366,8 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
         .update(milestones)
         .set({ status: 'appealed', updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id));
+
+      await syncMilestoneProgress(db, milestone.projectId, milestone.id, 'appealed');
 
       await db.insert(activity).values({
         id: randomUUID(),

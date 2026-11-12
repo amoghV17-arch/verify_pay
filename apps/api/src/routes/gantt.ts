@@ -1,7 +1,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { getDb, schema } from '../db/index.js';
+import {
+  computeDerivedTaskPercentMap,
+  syncProjectCompletionStatus,
+} from '../services/milestoneOrder.js';
 
 interface BryntumSyncPayload {
   requestId?: number | string;
@@ -18,7 +22,7 @@ interface BryntumSyncPayload {
 }
 
 export async function registerGanttRoutes(server: FastifyInstance): Promise<void> {
-  const { projects, tasks, dependencies, milestones } = schema;
+  const { projects, tasks, dependencies, milestones, reviews } = schema;
 
   // GET /api/gantt/:projectId/load
   server.get<{ Params: { projectId: string } }>(
@@ -31,6 +35,9 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
       if (!proj) {
         return reply.status(404).send({ success: false, message: `Project "${projectId}" not found.` });
       }
+
+      const transitionedToClosed = await syncProjectCompletionStatus(db, projectId);
+      const effectiveProjectStatus = transitionedToClosed ? 'closed' : proj.status;
 
       const taskRows = await db
         .select()
@@ -48,12 +55,57 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
         .from(milestones)
         .where(eq(milestones.projectId, projectId));
 
+      const milestoneIds = milestoneRows.map((m) => m.id);
+      const latestReviewByMilestone = new Map<
+        string,
+        Map<string, { passed?: boolean; evidence?: string }>
+      >();
+      if (milestoneIds.length > 0) {
+        const reviewRows = await db
+          .select()
+          .from(reviews)
+          .where(inArray(reviews.milestoneId, milestoneIds))
+          .orderBy(desc(reviews.createdAt));
+
+        for (const rev of reviewRows) {
+          if (latestReviewByMilestone.has(rev.milestoneId)) continue;
+          const critMap = new Map<string, { passed?: boolean; evidence?: string }>();
+          const results = Array.isArray(rev.criteriaResults)
+            ? (rev.criteriaResults as Array<{
+                id?: string;
+                passed?: boolean;
+                evidence?: string;
+              }>)
+            : [];
+          results.forEach((cr, idx) => {
+            const entry = { passed: cr.passed, evidence: cr.evidence };
+            if (cr.id) critMap.set(cr.id, entry);
+            critMap.set(String(idx), entry);
+          });
+          latestReviewByMilestone.set(rev.milestoneId, critMap);
+        }
+      }
+
+      const derivedPercentMap = computeDerivedTaskPercentMap(taskRows, depRows, milestoneRows);
       const milestoneMap = new Map(milestoneRows.map((m) => [m.id, m]));
 
       // Format tasks according to Bryntum Model expectations
       const formattedTasks = taskRows.map((t) => {
         const ms = t.milestoneId ? milestoneMap.get(t.milestoneId) : undefined;
         const isMilestone = t.durationDays === 0 || !!t.milestoneId;
+        const critReviewMap = ms ? latestReviewByMilestone.get(ms.id) : undefined;
+        const hydratedCriteria = Array.isArray(ms?.criteria)
+          ? ms.criteria.map((c, idx) => {
+              const revInfo = critReviewMap?.get(c.id) ?? critReviewMap?.get(String(idx));
+              const isSettled =
+                ms.status === 'paid' || ms.status === 'approved' || ms.status === 'releasing';
+              return {
+                ...c,
+                passed: revInfo?.passed ?? (c.passed || isSettled),
+                evidence: revInfo?.evidence ?? c.evidence,
+              };
+            })
+          : undefined;
 
         return {
           id: t.id,
@@ -61,7 +113,7 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
           startDate: t.startDate,
           duration: t.durationDays,
           durationUnit: 'd',
-          percentDone: t.percentDone,
+          percentDone: derivedPercentMap.get(t.id) ?? t.percentDone,
           milestone: isMilestone,
           parentId: t.parentId,
           milestoneId: t.milestoneId,
@@ -69,9 +121,15 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
           amountCents: ms ? ms.amountCents : 0,
           paymentStatus: ms ? ms.status : (isMilestone ? 'unfunded' : undefined),
           deliverableType: ms?.deliverableType,
-          acceptanceCriteria: ms?.criteria,
+          acceptanceCriteria: hydratedCriteria,
         };
       });
+
+      const validStartDates = taskRows
+        .map((t) => t.startDate)
+        .filter((d): d is string => typeof d === 'string' && d.length >= 10)
+        .sort();
+      const earliestStartDate = validStartDates[0] || '2026-11-08';
 
       // Format dependencies according to Bryntum DependencyModel expectations
       const formattedDeps = depRows.map((d) => ({
@@ -86,7 +144,8 @@ export async function registerGanttRoutes(server: FastifyInstance): Promise<void
         success: true,
         project: {
           id: proj.id,
-          startDate: '2026-11-08',
+          status: effectiveProjectStatus,
+          startDate: earliestStartDate,
         },
         tasks: {
           rows: formattedTasks,

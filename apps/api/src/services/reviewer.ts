@@ -16,6 +16,7 @@ import { getDb, type AppDatabase } from '../db/index.js';
 import { milestones, deliverables, reviews, activity, projects } from '../db/schema.js';
 import { sseHub } from './sse.js';
 import { ReleaseService } from './release.js';
+import { syncMilestoneProgress } from './milestoneOrder.js';
 import {
   VerdictSchema,
   INJECTION_PHRASES,
@@ -348,6 +349,8 @@ export class ReviewerService {
         .set({ status: targetStatus, releaseAt, approvedBy, updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id));
 
+      await syncMilestoneProgress(this.db, projectId, milestone.id, targetStatus);
+
       sseHub.broadcast(projectId, 'milestone.status', {
         milestoneId: milestone.id,
         status: targetStatus,
@@ -619,6 +622,8 @@ export class ReviewerService {
         .update(milestones)
         .set({ status: targetStatus, releaseAt, approvedBy, updatedAt: new Date() })
         .where(eq(milestones.id, milestone.id));
+
+      await syncMilestoneProgress(this.db, projectId, milestone.id, targetStatus);
 
       sseHub.broadcast(projectId, 'milestone.status', {
         milestoneId: milestone.id,

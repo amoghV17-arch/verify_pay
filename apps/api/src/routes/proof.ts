@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { getDb } from '../db/index.js';
-import { projects, milestones, ledgerEntries, payoutBatches, paypalEvents } from '../db/schema.js';
+import { projects, ledgerEntries, payoutBatches, paypalEvents } from '../db/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
 import { getRecentExternalCalls, getWebhookReceiptLog } from '../services/externalCalls.js';
 import { createLlmPort } from '../ai/llmFactory.js';
+import { fetchOrderedMilestones } from '../services/milestoneOrder.js';
 import { PayPalPort } from '@milestone/shared';
 
 export interface ProofCheck {
@@ -38,10 +39,7 @@ export async function registerProofRoutes(server: FastifyInstance): Promise<void
       return reply.code(404).send({ error: 'Project not found' });
     }
 
-    const projectMilestones = await db
-      .select()
-      .from(milestones)
-      .where(eq(milestones.projectId, projectId));
+    const projectMilestones = await fetchOrderedMilestones(db, projectId);
 
     const ledger = await db
       .select()

@@ -9,6 +9,10 @@ import {
   activity,
 } from '../db/schema.js';
 import { LedgerService } from './ledger.js';
+import {
+  syncMilestoneProgress,
+  syncProjectCompletionStatus,
+} from './milestoneOrder.js';
 import { sseHub } from './sse.js';
 import { PayPalPort, PayPalPayoutResult } from '@milestone/shared';
 
@@ -178,6 +182,8 @@ export class ReleaseService {
           updatedAt: now,
         })
         .where(eq(milestones.id, m.id));
+
+      await syncMilestoneProgress(tx, proj.id, m.id, 'releasing');
 
       return {
         skip: false,
@@ -351,6 +357,7 @@ export class ReleaseService {
     }
 
     try {
+      let projectCompleted = false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.client.transaction(async (tx: any) => {
         // 1. Insert 'released' ledger entry (guarded by partial unique index one_released_per_milestone)
@@ -379,6 +386,8 @@ export class ReleaseService {
             updatedAt: now,
           })
           .where(eq(milestones.id, m.id));
+
+        await syncMilestoneProgress(tx, projectId, m.id, 'paid');
 
         if (params.payoutBatchId) {
           await tx
@@ -411,9 +420,12 @@ export class ReleaseService {
           },
           ts: now,
         });
+
+        // 4. Mark project closed once every milestone is paid
+        projectCompleted = await syncProjectCompletionStatus(tx, projectId);
       });
 
-      // 4. Broadcast live events
+      // 5. Broadcast live events
       sseHub.broadcast(projectId, 'milestone.status', {
         milestoneId: m.id,
         status: 'paid',
@@ -425,6 +437,13 @@ export class ReleaseService {
         milestoneId: m.id,
         amountCents,
       });
+
+      if (projectCompleted) {
+        sseHub.broadcast(projectId, 'project.status', {
+          projectId,
+          status: 'closed',
+        });
+      }
 
       return true;
     } catch (err: unknown) {

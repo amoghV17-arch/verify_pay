@@ -2,10 +2,11 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
-import { projects, users, milestones, invites } from '../db/schema.js';
+import { projects, users, invites } from '../db/schema.js';
 import { requireRole, createSessionToken, setRoleSessionCookie } from '../auth/index.js';
 import { InviteService, checkInviteRateLimit } from '../services/invite.js';
 import { createRateLimitHandler } from '../services/abuseGuards.js';
+import { fetchOrderedMilestones } from '../services/milestoneOrder.js';
 
 const AcceptBodySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -167,24 +168,19 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(users.id, project.clientId))
         .limit(1);
 
-      const projectMilestones = await db
-        .select({
-          id: milestones.id,
-          name: milestones.name,
-          amountCents: milestones.amountCents,
-          percent: milestones.percent,
-          criteria: milestones.criteria,
-          deliverableType: milestones.deliverableType,
-        })
-        .from(milestones)
-        .where(eq(milestones.projectId, project.id));
+      const projectMilestones = await fetchOrderedMilestones(db, project.id);
 
       const formattedMilestones = projectMilestones.map((m) => {
         const criteriaList: string[] = Array.isArray(m.criteria)
           ? m.criteria.map((c: any) => (typeof c === 'string' ? c : c?.description || c?.id || ''))
           : [];
         return {
-          ...m,
+          id: m.id,
+          name: m.name,
+          amountCents: m.amountCents,
+          percent: m.percent,
+          criteria: m.criteria,
+          deliverableType: m.deliverableType,
           title: m.name,
           acceptanceCriteria: criteriaList,
         };

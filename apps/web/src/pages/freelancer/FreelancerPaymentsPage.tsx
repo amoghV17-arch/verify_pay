@@ -12,9 +12,16 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
-import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { Dialog } from '../../components/ui/Dialog.js';
+import {
+  formatDateSafe,
+  formatDateTimeSafe,
+  isMilestoneFundedOrActive,
+  isMilestoneSettled,
+  mapStatusToMoneyState,
+} from '../../lib/projectHelpers.js';
 
 interface LedgerEntry {
   id: string;
@@ -26,6 +33,9 @@ interface LedgerEntry {
   paypalOrderId?: string;
   paypalCaptureId?: string;
   paypalPayoutBatchId?: string;
+  paypalTransactionId?: string;
+  paypalRef?: string;
+  createdAt?: string;
 }
 
 interface MilestoneSummary {
@@ -34,30 +44,7 @@ interface MilestoneSummary {
   amountCents: number;
   status: string;
   deliverableType?: string;
-}
-
-function mapStatusToMoneyState(status: string): MoneyState {
-  switch (status) {
-    case 'paid':
-    case 'closed':
-      return 'paid';
-    case 'releasing':
-      return 'releasing';
-    case 'approved':
-    case 'awaiting_client':
-      return 'needs_decision';
-    case 'changes_requested':
-      return 'changes_requested';
-    case 'submitted':
-    case 'in_review':
-    case 'appealed':
-      return 'in_review';
-    case 'funded':
-    case 'active':
-      return 'funded';
-    default:
-      return 'agreed';
-  }
+  updatedAt?: string;
 }
 
 export const FreelancerPaymentsPage: React.FC = () => {
@@ -124,11 +111,11 @@ export const FreelancerPaymentsPage: React.FC = () => {
   const totalAgreement = milestones.reduce((sum, m) => sum + m.amountCents, 0);
 
   const earnedTotal = milestones
-    .filter((m) => m.status === 'paid' || m.status === 'closed')
+    .filter((m) => isMilestoneSettled(m.status))
     .reduce((sum, m) => sum + m.amountCents, 0);
 
   const lockedTotal = milestones
-    .filter((m) => m.status === 'funded' || m.status === 'in_review' || m.status === 'submitted' || m.status === 'changes_requested')
+    .filter((m) => isMilestoneFundedOrActive(m.status))
     .reduce((sum, m) => sum + m.amountCents, 0);
 
   const handleCopy = (text: string, id: string) => {
@@ -307,20 +294,19 @@ export const FreelancerPaymentsPage: React.FC = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {milestones.map((milestone, idx) => {
-              const isPaid = milestone.status === 'paid' || milestone.status === 'closed';
-              const isLocked =
-                milestone.status === 'funded' ||
-                milestone.status === 'in_review' ||
-                milestone.status === 'submitted' ||
-                milestone.status === 'changes_requested';
+              const isPaid = isMilestoneSettled(milestone.status);
+              const isLocked = isMilestoneFundedOrActive(milestone.status);
               const payoutLedger = ledgerEntries.find(
                 (entry) =>
                   (entry.milestoneId === milestone.id || entry.referenceId === milestone.id) &&
-                  entry.type === 'released'
+                  (entry.type === 'released' || entry.type === 'release')
               );
 
               const transactionId =
                 payoutLedger?.paypalPayoutBatchId ||
+                payoutLedger?.paypalTransactionId ||
+                payoutLedger?.paypalRef ||
+                payoutLedger?.referenceId ||
                 (isPaid ? `PAYOUT-${milestone.id.toUpperCase()}-SANDBOX` : null);
 
               return (
@@ -373,7 +359,14 @@ export const FreelancerPaymentsPage: React.FC = () => {
                         </div>
                         <span style={{ fontSize: '0.75rem', color: 'var(--ink-2)' }}>
                           {isPaid
-                            ? `Settled on ${payoutLedger ? new Date(payoutLedger.timestamp).toLocaleDateString() : 'Nov 3, 2026'}`
+                            ? `Settled on ${formatDateSafe(
+                                payoutLedger?.timestamp || payoutLedger?.createdAt || milestone.updatedAt,
+                                'Settled in sandbox'
+                              )}`
+                            : milestone.status === 'releasing'
+                            ? 'Releasing payout via PayPal sandbox'
+                            : milestone.status === 'approved' || milestone.status === 'awaiting_client'
+                            ? 'AI approved — pending client payout release'
                             : isLocked
                             ? 'Funded and locked in PayPal sandbox'
                             : 'Awaiting client funding before commencement'}
@@ -541,14 +534,20 @@ export const FreelancerPaymentsPage: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem' }}>
                 <span style={{ color: 'var(--ink-2)' }}>Batch Reference ID</span>
                 <code style={{ fontFamily: 'monospace', color: 'var(--ink)' }}>
-                  {selectedReceiptMilestone.ledger?.paypalPayoutBatchId || 'Pending'}
+                  {selectedReceiptMilestone.ledger?.paypalPayoutBatchId ||
+                    selectedReceiptMilestone.ledger?.paypalTransactionId ||
+                    selectedReceiptMilestone.ledger?.paypalRef ||
+                    selectedReceiptMilestone.ledger?.referenceId ||
+                    'Pending'}
                 </code>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem' }}>
                 <span style={{ color: 'var(--ink-2)' }}>Settlement Timestamp</span>
                 <span style={{ color: 'var(--ink)' }}>
-                  {selectedReceiptMilestone.ledger?.timestamp
-                    ? new Date(selectedReceiptMilestone.ledger.timestamp).toUTCString()
+                  {selectedReceiptMilestone.ledger
+                    ? formatDateTimeSafe(
+                        selectedReceiptMilestone.ledger.timestamp || selectedReceiptMilestone.ledger.createdAt
+                      )
                     : 'Pending'}
                 </span>
               </div>

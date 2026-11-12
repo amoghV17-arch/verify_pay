@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { X, CheckCircle2, Clock, ExternalLink, Calendar, ShieldCheck } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { getStatusGlyph, formatStatusLabel } from '../Gantt.js';
+import {
+  deriveMilestoneProgressPercent,
+  formatLocalYmd,
+  isMilestoneSettled,
+} from '../../lib/projectHelpers.js';
 
 export interface TaskInspectorData {
   id: string;
@@ -61,7 +66,12 @@ export const TaskInspectorPanel: React.FC<TaskInspectorPanelProps> = ({
   const status = task.paymentStatus ?? (isMilestone ? 'unfunded' : '');
   const glyph = getStatusGlyph(status);
   const statusLabel = formatStatusLabel(status);
-  const percent = task.percentDone ?? 0;
+  const percent = deriveMilestoneProgressPercent(status, task.percentDone);
+  const criteriaAutoPassed =
+    isMilestoneSettled(status) ||
+    status === 'approved' ||
+    status === 'releasing' ||
+    status === 'awaiting_client';
   const criteria = task.acceptanceCriteria || [];
 
   return (
@@ -325,7 +335,7 @@ export const TaskInspectorPanel: React.FC<TaskInspectorPanelProps> = ({
             >
               <div style={{ fontSize: '0.6875rem', color: 'var(--slate)' }}>Start Date</div>
               <div className="mono" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)', marginTop: '2px' }}>
-                {task.startDate || 'Not scheduled'}
+                {formatLocalYmd(task.startDate) || 'Not scheduled'}
               </div>
             </div>
             <div
@@ -396,43 +406,46 @@ export const TaskInspectorPanel: React.FC<TaskInspectorPanelProps> = ({
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                {criteria.map((c, i) => (
-                  <div
-                    key={c.id || i}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '6px',
-                      backgroundColor: c.passed ? 'rgba(21, 115, 71, 0.04)' : 'var(--chalk)',
-                      border: `1px solid ${c.passed ? 'rgba(21, 115, 71, 0.2)' : 'var(--line)'}`,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                      <span style={{ marginTop: '2px', color: c.passed ? 'var(--settled)' : 'var(--slate)' }}>
-                        {c.passed ? <CheckCircle2 size={16} /> : <Clock size={16} />}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--ink)', fontWeight: 500, lineHeight: 1.4 }}>
-                          {c.description}
-                        </div>
-                        {c.evidence && (
-                          <div
-                            style={{
-                              fontSize: '0.75rem',
-                              color: 'var(--slate)',
-                              marginTop: '4px',
-                              fontFamily: 'monospace',
-                              backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                              padding: '3px 6px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            Evidence: {c.evidence}
+                {criteria.map((c, i) => {
+                  const isPassed = Boolean(c.passed) || criteriaAutoPassed;
+                  return (
+                    <div
+                      key={c.id || i}
+                      style={{
+                        padding: '0.75rem',
+                        borderRadius: '6px',
+                        backgroundColor: isPassed ? 'rgba(21, 115, 71, 0.04)' : 'var(--chalk)',
+                        border: `1px solid ${isPassed ? 'rgba(21, 115, 71, 0.2)' : 'var(--line)'}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <span style={{ marginTop: '2px', color: isPassed ? 'var(--settled)' : 'var(--slate)' }}>
+                          {isPassed ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--ink)', fontWeight: 500, lineHeight: 1.4 }}>
+                            {c.description}
                           </div>
-                        )}
+                          {c.evidence && (
+                            <div
+                              style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--slate)',
+                                marginTop: '4px',
+                                fontFamily: 'monospace',
+                                backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                                padding: '3px 6px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              Evidence: {c.evidence}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

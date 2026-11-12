@@ -4,6 +4,7 @@ import { Monitor, Eye, ExternalLink } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { getStatusGlyph, formatStatusLabel } from '../Gantt.js';
 import type { TaskInspectorData } from './TaskInspectorPanel.js';
+import { deriveMilestoneProgressPercent, formatLocalYmd } from '../../lib/projectHelpers.js';
 
 interface ScheduleListViewProps {
   tasks: TaskInspectorData[];
@@ -160,7 +161,7 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
                 const status = task.paymentStatus ?? (isMilestone ? 'unfunded' : '');
                 const glyph = getStatusGlyph(status);
                 const statusLabel = formatStatusLabel(status);
-                const percent = task.percentDone ?? 0;
+                const percent = deriveMilestoneProgressPercent(status, task.percentDone);
 
                 return (
                   <tr
@@ -221,7 +222,7 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
 
                     {/* Start Date */}
                     <td className="mono" style={{ padding: '0.875rem 1rem', color: 'var(--slate)', fontSize: '0.8125rem' }}>
-                      {task.startDate || '—'}
+                      {formatLocalYmd(task.startDate) || '—'}
                     </td>
 
                     {/* Duration */}

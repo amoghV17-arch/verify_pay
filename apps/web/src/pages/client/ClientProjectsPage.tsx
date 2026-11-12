@@ -1,116 +1,149 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, FolderKanban } from 'lucide-react';
+import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
-import { ProjectRow } from '../../components/ui/ProjectRow.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
-
-interface ProjectSummary {
-  id: string;
-  title: string;
-  brief: string;
-  totalCents: number;
-  status: string;
-  clientId: string;
-  freelancerId: string | null;
-  isDemo: boolean;
-  createdAt: string;
-}
-
-interface ProjectLedgerSummary {
-  heldCents: number;
-  paidCents: number;
-  fundedCents: number;
-}
+import { Dialog } from '../../components/ui/Dialog.js';
+import {
+  ProjectCategoryList,
+  type ProjectListItem,
+} from '../../components/ui/ProjectCategoryList.js';
+import {
+  extractLedgerBalances,
+  isProjectCompletedStatus,
+  type NormalizedBalances,
+} from '../../lib/projectHelpers.js';
 
 export const ClientProjectsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [projectsList, setProjectsList] = useState<ProjectSummary[]>([]);
-  const [ledgerMap, setLedgerMap] = useState<Record<string, ProjectLedgerSummary>>({});
+  const [projectsList, setProjectsList] = useState<ProjectListItem[]>([]);
+  const [ledgerMap, setLedgerMap] = useState<Record<string, NormalizedBalances>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const [projectToDelete, setProjectToDelete] = useState<ProjectListItem | null>(null);
+  const [projectToManage, setProjectToManage] = useState<ProjectListItem | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
 
-    async function fetchProjects() {
-      try {
-        setIsLoading(true);
-        setError(null);
+  const fetchProjects = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const res = await fetch('/api/projects', {
-          headers: {
-            'X-Persona': 'client',
-          },
-        });
+      const res = await fetch('/api/projects', {
+        credentials: 'include',
+        headers: {
+          'X-Persona': 'client',
+        },
+      });
 
-        if (!res.ok) {
-          throw new Error(`Failed to load projects: ${res.statusText}`);
-        }
-
-        const data = await res.json();
-        if (isMounted && data.projects) {
-          setProjectsList(data.projects);
-
-          // Fetch ledger balances for each project in parallel
-          const ledgers: Record<string, ProjectLedgerSummary> = {};
-          await Promise.all(
-            data.projects.map(async (p: ProjectSummary) => {
-              try {
-                const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`);
-                if (ledgerRes.ok) {
-                  const ledgerData = await ledgerRes.json();
-                  ledgers[p.id] = {
-                    heldCents: ledgerData.balances?.heldCents ?? 0,
-                    paidCents: ledgerData.balances?.paidCents ?? 0,
-                    fundedCents: ledgerData.balances?.fundedCents ?? 0,
-                  };
-                }
-              } catch {
-                // Ignore per-project ledger fetch error
-              }
-            })
-          );
-
-          if (isMounted) {
-            setLedgerMap(ledgers);
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setProjectsList([]);
-          setLedgerMap({});
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+      if (!res.ok) {
+        throw new Error(`Failed to load projects: ${res.statusText}`);
       }
-    }
 
-    fetchProjects();
-    return () => {
-      isMounted = false;
-    };
+      const data = await res.json();
+      const loadedProjects: ProjectListItem[] = Array.isArray(data.projects) ? data.projects : [];
+      setProjectsList(loadedProjects);
+
+      const ledgers: Record<string, NormalizedBalances> = {};
+      await Promise.all(
+        loadedProjects.map(async (p) => {
+          if (p.balances) {
+            ledgers[p.id] = extractLedgerBalances(p.balances);
+            return;
+          }
+          try {
+            const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`, {
+              credentials: 'include',
+              headers: { 'X-Persona': 'client' },
+            });
+            if (ledgerRes.ok) {
+              const ledgerData = await ledgerRes.json();
+              ledgers[p.id] = extractLedgerBalances(ledgerData);
+            }
+          } catch {
+            // Ignore per-project ledger fetch error
+          }
+        })
+      );
+
+      setLedgerMap(ledgers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load projects');
+      setProjectsList([]);
+      setLedgerMap({});
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  function getStateSentence(project: ProjectSummary): string {
-    if (!project.freelancerId) {
-      return 'Waiting for the freelancer to accept invitation';
-    }
-    if (project.status === 'draft' || project.status === 'planned') {
-      return 'Project agreement accepted. Fund holding balance to start.';
-    }
-    if (project.status === 'funded' || project.status === 'active') {
-      return 'Milestone in progress. Funds held for this project in PayPal Sandbox.';
-    }
-    if (project.status === 'closed') {
-      return 'All milestones completed and paid.';
-    }
-    return 'Active milestone agreement';
-  }
+  useEffect(() => {
+    void fetchProjects();
+  }, [fetchProjects]);
 
-  function getNextAction(project: ProjectSummary): { label: string; action: () => void } {
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+    setIsMutating(true);
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'X-Persona': 'client' },
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || 'Failed to delete project');
+      }
+      setProjectToDelete(null);
+      await fetchProjects();
+    } catch (err) {
+      setMutationError(err instanceof Error ? err.message : 'Failed to delete project');
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleUpdateProjectStatus = async (status: 'cancelled' | 'failed') => {
+    if (!projectToManage) return;
+    setIsMutating(true);
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectToManage.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Persona': 'client',
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || 'Failed to update project status');
+      }
+      setProjectToManage(null);
+      await fetchProjects();
+    } catch (err) {
+      setMutationError(err instanceof Error ? err.message : 'Failed to update project status');
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  function getNextAction(project: ProjectListItem): { label: string; action: () => void } {
+    if (
+      isProjectCompletedStatus(project) ||
+      project.status === 'cancelled' ||
+      project.status === 'failed'
+    ) {
+      return {
+        label: 'Open project',
+        action: () => navigate(`/client/projects/${project.id}`),
+      };
+    }
     if (!project.freelancerId) {
       return {
         label: 'View invite',
@@ -214,28 +247,21 @@ export const ClientProjectsPage: React.FC = () => {
 
       {/* Projects List */}
       {!isLoading && !error && projectsList.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {projectsList.map((project) => {
-            const nextAction = getNextAction(project);
-            const ledger = ledgerMap[project.id] || { heldCents: 0, paidCents: 0, fundedCents: 0 };
-
-            return (
-              <ProjectRow
-                key={project.id}
-                id={project.id}
-                title={project.title}
-                stateSentence={getStateSentence(project)}
-                heldCents={ledger.heldCents}
-                paidCents={ledger.paidCents}
-                totalCents={project.totalCents}
-                nextActionLabel={nextAction.label}
-                onNextAction={nextAction.action}
-                onClick={() => navigate(`/client/projects/${project.id}`)}
-                isDemo={project.isDemo}
-              />
-            );
-          })}
-        </div>
+        <ProjectCategoryList
+          projects={projectsList}
+          ledgerMap={ledgerMap}
+          role="client"
+          getNextAction={getNextAction}
+          onProjectClick={(project) => navigate(`/client/projects/${project.id}`)}
+          onManageStatus={(project) => {
+            setMutationError(null);
+            setProjectToManage(project);
+          }}
+          onDeleteProject={(project) => {
+            setMutationError(null);
+            setProjectToDelete(project);
+          }}
+        />
       )}
 
       {/* Empty State per docs/UI_IMPLEMENTATION.md §6.1 */}
@@ -248,6 +274,123 @@ export const ClientProjectsPage: React.FC = () => {
           onAction={() => navigate('/client/new')}
         />
       )}
+
+      {/* Delete Project Confirmation Dialog */}
+      <Dialog
+        isOpen={Boolean(projectToDelete)}
+        onClose={() => {
+          if (!isMutating) {
+            setProjectToDelete(null);
+            setMutationError(null);
+          }
+        }}
+        title="Delete project permanently?"
+        description={
+          projectToDelete
+            ? `This will remove "${projectToDelete.title}" along with its milestones, tasks, deliverables, reviews, and audit records.`
+            : undefined
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <Button
+              variant="secondary"
+              disabled={isMutating}
+              onClick={() => {
+                setProjectToDelete(null);
+                setMutationError(null);
+              }}
+            >
+              Keep project
+            </Button>
+            <Button
+              variant="destructive"
+              isLoading={isMutating}
+              onClick={handleConfirmDelete}
+              data-testid="confirm-delete-project-btn"
+            >
+              Delete project
+            </Button>
+          </div>
+        }
+      >
+        {projectToDelete && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem', color: 'var(--ink-2)' }}>
+            {(ledgerMap[projectToDelete.id]?.heldCents ?? extractLedgerBalances(projectToDelete).heldCents) > 0 && (
+              <div
+                style={{
+                  padding: '0.75rem',
+                  borderRadius: 'var(--radius-input)',
+                  backgroundColor: 'rgba(200, 64, 47, 0.08)',
+                  border: '1px solid rgba(200, 64, 47, 0.25)',
+                  color: '#C8402F',
+                }}
+              >
+                Note: {formatCents(ledgerMap[projectToDelete.id]?.heldCents ?? extractLedgerBalances(projectToDelete).heldCents)} is currently recorded in sandbox holding. Deleting removes local project records only.
+              </div>
+            )}
+            {mutationError && (
+              <div role="alert" style={{ color: '#C8402F', fontWeight: 500 }}>
+                {mutationError}
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
+
+      {/* Cancel / Mark Failed Dialog */}
+      <Dialog
+        isOpen={Boolean(projectToManage)}
+        onClose={() => {
+          if (!isMutating) {
+            setProjectToManage(null);
+            setMutationError(null);
+          }
+        }}
+        title="Update project status"
+        description={
+          projectToManage
+            ? `Choose how to categorize "${projectToManage.title}".`
+            : undefined
+        }
+      >
+        {projectToManage && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              Cancelled or failed projects are moved out of Ongoing and synced across both Client and Freelancer workspaces.
+            </p>
+            {mutationError && (
+              <div role="alert" style={{ color: '#C8402F', fontSize: '0.875rem', fontWeight: 500 }}>
+                {mutationError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Button
+                variant="secondary"
+                disabled={isMutating}
+                onClick={() => setProjectToManage(null)}
+              >
+                Back
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={isMutating}
+                onClick={() => handleUpdateProjectStatus('cancelled')}
+                data-testid="mark-project-cancelled-btn"
+              >
+                Cancel project
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isMutating}
+                onClick={() => handleUpdateProjectStatus('failed')}
+                data-testid="mark-project-failed-btn"
+              >
+                Mark as failed
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 };

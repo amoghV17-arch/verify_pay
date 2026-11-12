@@ -12,8 +12,15 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
-import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { Avatar } from '../../components/ui/Skeleton.js';
+import {
+  extractLedgerBalances,
+  formatTimeSafe,
+  isMilestoneSettled,
+  mapStatusToMoneyState,
+  normalizeActivityEvent,
+} from '../../lib/projectHelpers.js';
 
 interface MilestoneData {
   id: string;
@@ -45,30 +52,6 @@ interface ActivityEvent {
   type: string;
   description: string;
   timestamp: string;
-}
-
-function mapStatusToMoneyState(status: string): MoneyState {
-  switch (status) {
-    case 'paid':
-    case 'closed':
-      return 'paid';
-    case 'releasing':
-      return 'releasing';
-    case 'approved':
-    case 'awaiting_client':
-      return 'needs_decision';
-    case 'changes_requested':
-      return 'changes_requested';
-    case 'submitted':
-    case 'in_review':
-    case 'appealed':
-      return 'in_review';
-    case 'funded':
-    case 'active':
-      return 'funded';
-    default:
-      return 'agreed';
-  }
 }
 
 export const ClientOverviewPage: React.FC = () => {
@@ -106,9 +89,11 @@ export const ClientOverviewPage: React.FC = () => {
 
         const [projRes, activityRes] = await Promise.all([
           fetch(`/api/projects/${id}`, {
+            credentials: 'include',
             headers: { 'X-Persona': 'client' },
           }),
           fetch(`/api/projects/${id}/activity`, {
+            credentials: 'include',
             headers: { 'X-Persona': 'client' },
           }),
         ]);
@@ -136,19 +121,24 @@ export const ClientOverviewPage: React.FC = () => {
             setAutonomyMode(projData.project.autonomyMode);
           }
           if (projData.ledger) {
+            const balances = extractLedgerBalances(projData.ledger);
             setLedger({
               totalCents: projData.ledger.totalCents || projData.project.totalCents,
-              fundedCents: projData.ledger.fundedCents || 0,
-              paidCents: projData.ledger.paidCents || 0,
-              heldCents: projData.ledger.heldCents || 0,
+              fundedCents: balances.fundedCents,
+              paidCents: balances.paidCents,
+              heldCents: balances.heldCents,
             });
           }
         }
 
         if (activityRes.ok) {
           const actData = await activityRes.json();
-          if (isMounted && actData.activity) {
-            setRecentActivity(actData.activity.slice(0, 5));
+          if (isMounted && Array.isArray(actData.activity)) {
+            setRecentActivity(
+              actData.activity
+                .slice(0, 5)
+                .map((evt: unknown, idx: number) => normalizeActivityEvent(evt, idx)) as ActivityEvent[]
+            );
           }
         }
       } catch (err) {
@@ -273,6 +263,9 @@ export const ClientOverviewPage: React.FC = () => {
   // Next action computation per docs/UI_IMPLEMENTATION.md §6.3
   const readyToReleaseMilestone = milestones.find((m) => m.status === 'approved' || m.status === 'awaiting_client');
   const reviewMilestone = milestones.find((m) => m.status === 'in_review' || m.status === 'submitted');
+  const isAllPaid = milestones.length > 0 && milestones.every((m) => isMilestoneSettled(m.status));
+  const isProjectCompleted = project.status === 'closed' || isAllPaid;
+  const isProjectCancelled = project.status === 'cancelled' || project.status === 'failed';
 
   return (
     <div
@@ -417,7 +410,25 @@ export const ClientOverviewPage: React.FC = () => {
             </span>
           </div>
 
-          {!project.freelancerId ? (
+          {isProjectCancelled ? (
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)' }}>
+                {project.status === 'failed' ? 'Project marked failed' : 'Project cancelled'}
+              </h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--ink-2)' }}>
+                This agreement is closed and no further milestone payouts are scheduled.
+              </p>
+            </div>
+          ) : isProjectCompleted ? (
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--forest)' }}>
+                All milestones completed & settled via PayPal!
+              </h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--ink-2)' }}>
+                Every deliverable passed AI verification and payouts have been released to your freelancer.
+              </p>
+            </div>
+          ) : !project.freelancerId ? (
             <div>
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)' }}>
                 Waiting for freelancer to accept agreement
@@ -456,7 +467,7 @@ export const ClientOverviewPage: React.FC = () => {
           ) : (
             <div>
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)' }}>
-                Milestone 1 funded and active
+                {currentMilestone ? `${currentMilestone.name} funded and active` : 'Milestone funded and active'}
               </h3>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--ink-2)' }}>
                 Freelancer is preparing deliverable. You will be notified when submitted.
@@ -494,6 +505,12 @@ export const ClientOverviewPage: React.FC = () => {
                 {isReleasing ? 'Releasing...' : 'Release now'}
               </Button>
             </div>
+          ) : isProjectCompleted ? (
+            <Link to={`/client/projects/${project.id}/payments`} style={{ textDecoration: 'none' }}>
+              <Button variant="primary" leftIcon={<CheckCircle2 size={16} />}>
+                View payments & receipts
+              </Button>
+            </Link>
           ) : (
             <Link to={`/client/projects/${project.id}/deliverables`} style={{ textDecoration: 'none' }}>
               <Button variant="secondary" leftIcon={<PackageCheck size={16} />}>
@@ -759,7 +776,7 @@ export const ClientOverviewPage: React.FC = () => {
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, color: 'var(--ink)' }}>{event.description}</p>
                     <span style={{ fontSize: '0.6875rem', color: 'var(--ink-3)' }}>
-                      {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatTimeSafe(event.timestamp, 'Recent')}
                     </span>
                   </div>
                 </div>

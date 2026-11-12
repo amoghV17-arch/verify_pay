@@ -1,8 +1,10 @@
 import React from 'react';
 import { formatCents } from '@milestone/shared';
-import { Button } from './Button.js';
+import { Trash2, XCircle } from 'lucide-react';
+import { Button, IconButton } from './Button.js';
 import { StatusBadge, type MoneyState } from './StatusBadge.js';
 import { LifecycleProgress } from './LifecycleProgress.js';
+import type { ProjectStatusBadgeInfo } from '../../lib/projectHelpers.js';
 
 export interface ProjectRowProps {
   id: string;
@@ -15,9 +17,14 @@ export interface ProjectRowProps {
   onNextAction?: () => void;
   onClick?: () => void;
   isDemo?: boolean;
+  statusBadge?: ProjectStatusBadgeInfo;
+  milestoneProgressLabel?: string;
+  onManageStatus?: () => void;
+  onDeleteProject?: () => void;
 }
 
 export const ProjectRow: React.FC<ProjectRowProps> = ({
+  id,
   title,
   stateSentence,
   heldCents,
@@ -26,7 +33,19 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
   onNextAction,
   onClick,
   isDemo,
+  statusBadge,
+  milestoneProgressLabel,
+  onManageStatus,
+  onDeleteProject,
 }) => {
+  const badgeStyleMap: Record<ProjectStatusBadgeInfo['tone'], { bg: string; color: string; border: string }> = {
+    teal: { bg: 'rgba(31, 122, 140, 0.12)', color: 'var(--teal-ink)', border: 'rgba(31, 122, 140, 0.28)' },
+    forest: { bg: 'rgba(21, 115, 71, 0.12)', color: 'var(--forest)', border: 'rgba(21, 115, 71, 0.28)' },
+    amber: { bg: 'rgba(176, 122, 18, 0.14)', color: '#825605', border: 'rgba(176, 122, 18, 0.3)' },
+    red: { bg: 'rgba(200, 64, 47, 0.12)', color: '#C8402F', border: 'rgba(200, 64, 47, 0.28)' },
+    neutral: { bg: 'var(--paper)', color: 'var(--ink-2)', border: 'var(--line)' },
+  };
+  const badgeColors = statusBadge ? badgeStyleMap[statusBadge.tone] : null;
   return (
     <div
       onClick={onClick}
@@ -38,16 +57,18 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '1.5rem',
+        flexWrap: 'wrap',
+        gap: '1.25rem',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all var(--duration-fast) var(--ease-out)',
         boxShadow: 'var(--shadow-sm)',
         boxSizing: 'border-box',
       }}
+      data-testid={`project-row-${id}`}
     >
       {/* Title & Status Sentence */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <h3
             style={{
               fontSize: '1rem',
@@ -61,6 +82,39 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
           >
             {title}
           </h3>
+          {statusBadge && badgeColors && (
+            <span
+              data-testid={`project-status-badge-${id}`}
+              style={{
+                fontSize: '0.6875rem',
+                padding: '0.1rem 0.5rem',
+                borderRadius: 'var(--radius-chip)',
+                backgroundColor: badgeColors.bg,
+                border: `1px solid ${badgeColors.border}`,
+                color: badgeColors.color,
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              {statusBadge.label}
+            </span>
+          )}
+          {milestoneProgressLabel && (
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                padding: '0.1rem 0.45rem',
+                borderRadius: 'var(--radius-chip)',
+                backgroundColor: 'var(--paper)',
+                border: '1px solid var(--line)',
+                color: 'var(--ink-2)',
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              {milestoneProgressLabel}
+            </span>
+          )}
           {isDemo && (
             <span
               style={{
@@ -71,6 +125,7 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
                 border: '1px solid var(--line)',
                 color: 'var(--ink-2)',
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               Demo project
@@ -113,12 +168,36 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
         </div>
       </div>
 
-      {/* Primary Next Action */}
-      {nextActionLabel && onNextAction && (
-        <div style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-          <Button variant="primary" size="sm" onClick={onNextAction}>
-            {nextActionLabel}
-          </Button>
+      {/* Primary Next Action & Management Controls */}
+      {(nextActionLabel || onManageStatus || onDeleteProject) && (
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {nextActionLabel && onNextAction && (
+            <Button variant="primary" size="sm" onClick={onNextAction}>
+              {nextActionLabel}
+            </Button>
+          )}
+          {onManageStatus && (
+            <IconButton
+              icon={<XCircle size={15} />}
+              label={`Cancel or mark ${title} failed`}
+              size="sm"
+              onClick={onManageStatus}
+              data-testid={`cancel-project-${id}`}
+            />
+          )}
+          {onDeleteProject && (
+            <IconButton
+              icon={<Trash2 size={15} />}
+              label={`Delete project ${title}`}
+              size="sm"
+              onClick={onDeleteProject}
+              data-testid={`delete-project-${id}`}
+              style={{ color: '#C8402F' }}
+            />
+          )}
         </div>
       )}
     </div>

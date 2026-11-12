@@ -196,3 +196,71 @@ export class LedgerService {
     };
   }
 }
+
+export type LedgerEntryRow = typeof ledgerEntries.$inferSelect;
+
+export interface NormalizedLedgerBalances {
+  fundedCents: number;
+  paidCents: number;
+  heldCents: number;
+  refundedCents: number;
+  pendingReleaseCents: number;
+  availableHoldingCents: number;
+}
+
+export interface FormattedLedgerEntry extends LedgerEntryRow {
+  timestamp: string;
+  referenceId: string;
+  paypalCaptureId?: string;
+  paypalOrderId?: string;
+  paypalPayoutBatchId?: string;
+  paypalTransactionId?: string;
+}
+
+/**
+ * Converts ProjectLedgerSummary into the unified balances contract expected by web dashboards.
+ */
+export function toLedgerBalances(summary: ProjectLedgerSummary): NormalizedLedgerBalances {
+  return {
+    fundedCents: summary.fundedCents,
+    paidCents: summary.releasedCents,
+    heldCents: summary.holdingBalanceCents,
+    refundedCents: summary.refundedCents,
+    pendingReleaseCents: summary.pendingReleaseCents,
+    availableHoldingCents: summary.availableHoldingCents,
+  };
+}
+
+/**
+ * Normalizes DB ledger_entries rows with consistent timestamp and PayPal reference aliases.
+ */
+export function formatLedgerEntry(entry: LedgerEntryRow): FormattedLedgerEntry {
+  const meta =
+    entry.meta && typeof entry.meta === 'object' ? (entry.meta as Record<string, unknown>) : {};
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined);
+
+  const timestamp =
+    entry.createdAt instanceof Date
+      ? entry.createdAt.toISOString()
+      : String(entry.createdAt ?? new Date().toISOString());
+  const referenceId = entry.milestoneId || str(meta.milestoneId) || entry.projectId;
+
+  const isFunding = entry.type === 'funded';
+  const isRelease =
+    entry.type === 'released' ||
+    entry.type === 'release_pending' ||
+    entry.type === 'release_failed';
+
+  return {
+    ...entry,
+    timestamp,
+    referenceId,
+    paypalCaptureId: isFunding ? str(meta.captureId) || entry.paypalRef || undefined : undefined,
+    paypalOrderId: isFunding ? str(meta.orderId) : undefined,
+    paypalPayoutBatchId: isRelease
+      ? str(meta.payoutBatchId) || entry.paypalRef || undefined
+      : undefined,
+    paypalTransactionId:
+      str(meta.transactionId) || str(meta.payoutItemId) || entry.paypalRef || undefined,
+  };
+}

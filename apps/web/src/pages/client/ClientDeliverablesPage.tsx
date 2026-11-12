@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
-import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.js';
+import { mapStatusToMoneyState } from '../../lib/projectHelpers.js';
 import { EvidenceChip, type DeliverableType } from '../../components/ui/EvidenceChip.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import {
@@ -48,30 +49,6 @@ interface MilestoneDetails {
   payoutStatus?: string | null;
   deliverableType?: string;
   acceptanceCriteria: string[];
-}
-
-function mapStatusToMoneyState(status: string): MoneyState {
-  switch (status) {
-    case 'paid':
-    case 'closed':
-      return 'paid';
-    case 'releasing':
-      return 'releasing';
-    case 'approved':
-    case 'awaiting_client':
-      return 'needs_decision';
-    case 'changes_requested':
-      return 'changes_requested';
-    case 'submitted':
-    case 'in_review':
-    case 'appealed':
-      return 'in_review';
-    case 'funded':
-    case 'active':
-      return 'funded';
-    default:
-      return 'agreed';
-  }
 }
 
 export const ClientDeliverablesPage: React.FC = () => {

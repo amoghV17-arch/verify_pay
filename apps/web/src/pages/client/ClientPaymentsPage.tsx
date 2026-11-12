@@ -9,7 +9,13 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
-import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.js';
+import {
+  extractLedgerBalances,
+  formatDateTimeSafe,
+  isMilestoneSettled,
+  mapStatusToMoneyState,
+} from '../../lib/projectHelpers.js';
 
 interface LedgerEntry {
   id: string;
@@ -28,30 +34,6 @@ interface MilestoneSummary {
   name: string;
   amountCents: number;
   status: string;
-}
-
-function mapStatusToMoneyState(status: string): MoneyState {
-  switch (status) {
-    case 'paid':
-    case 'closed':
-      return 'paid';
-    case 'releasing':
-      return 'releasing';
-    case 'approved':
-    case 'awaiting_client':
-      return 'needs_decision';
-    case 'changes_requested':
-      return 'changes_requested';
-    case 'submitted':
-    case 'in_review':
-    case 'appealed':
-      return 'in_review';
-    case 'funded':
-    case 'active':
-      return 'funded';
-    default:
-      return 'agreed';
-  }
 }
 
 export const ClientPaymentsPage: React.FC = () => {
@@ -87,8 +69,8 @@ export const ClientPaymentsPage: React.FC = () => {
         setError(null);
 
         const [projRes, ledgerRes] = await Promise.all([
-          fetch(`/api/projects/${id}`, { headers: { 'X-Persona': 'client' } }),
-          fetch(`/api/projects/${id}/ledger`, { headers: { 'X-Persona': 'client' } }),
+          fetch(`/api/projects/${id}`, { credentials: 'include', headers: { 'X-Persona': 'client' } }),
+          fetch(`/api/projects/${id}/ledger`, { credentials: 'include', headers: { 'X-Persona': 'client' } }),
         ]);
 
         if (!projRes.ok || !ledgerRes.ok) {
@@ -100,11 +82,20 @@ export const ClientPaymentsPage: React.FC = () => {
 
         if (isMounted) {
           setMilestones(projData.milestones || []);
-          setLedgerEntries(ledgerData.entries || []);
+          const rawEntries = Array.isArray(ledgerData.entries) ? ledgerData.entries : [];
+          setLedgerEntries(
+            rawEntries.map((entry: any) => ({
+              ...entry,
+              timestamp: entry.timestamp || entry.createdAt || entry.ts || '',
+              referenceId: entry.referenceId || entry.paypalRef || '',
+            }))
+          );
 
           const totalBudget = projData.project?.totalCents || 0;
-          const funded = ledgerData.balances?.fundedCents || 0;
-          const released = ledgerData.balances?.paidCents || 0;
+          const primaryBalances = extractLedgerBalances(ledgerData);
+          const fallbackBalances = extractLedgerBalances(projData.ledger);
+          const funded = primaryBalances.fundedCents || fallbackBalances.fundedCents;
+          const released = primaryBalances.paidCents || fallbackBalances.paidCents;
           const remaining = Math.max(0, totalBudget - funded);
 
           setTotals({
@@ -384,7 +375,7 @@ export const ClientPaymentsPage: React.FC = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {milestones.map((m) => {
-            const isPaid = m.status === 'paid';
+            const isPaid = isMilestoneSettled(m.status);
             return (
               <div
                 key={m.id}
@@ -500,10 +491,7 @@ export const ClientPaymentsPage: React.FC = () => {
                       {formatCents(entry.amountCents)}
                     </td>
                     <td style={{ padding: '0.875rem 1.25rem', color: 'var(--ink-2)', fontSize: '0.8125rem' }}>
-                      {new Date(entry.timestamp).toLocaleString([], {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTimeSafe(entry.timestamp)}
                     </td>
                     <td style={{ padding: '0.875rem 1.25rem', fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
                       {paypalRef}

@@ -116,6 +116,7 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
         { id: `dep3_${visId}`, projectId, fromTaskId: t2Id, toTaskId: m2TaskId, type: 2 },
       ]);
 
+      const msBaseTime = Date.now();
       await db.insert(milestones).values([
         {
           id: ms1Id,
@@ -126,6 +127,7 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
           percent: 40,
           deliverableType: 'figma',
           status: 'unfunded',
+          createdAt: new Date(msBaseTime),
           criteria: [
             { id: 'c1-1', description: 'Design tokens exported with primary and secondary color scale' },
             { id: 'c1-2', description: 'WCAG AAA contrast verified on core text elements' },
@@ -140,6 +142,7 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
           percent: 60,
           deliverableType: 'url',
           status: 'unfunded',
+          createdAt: new Date(msBaseTime + 1000),
           criteria: [
             { id: 'c2-1', description: 'Deployment live with valid HTTPS certificate' },
             { id: 'c2-2', description: 'At least 12 reusable UI components documented with interactive variants' },

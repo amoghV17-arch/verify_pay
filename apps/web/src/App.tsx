@@ -185,7 +185,9 @@ export function App(): React.ReactElement {
       es.addEventListener('milestone.status', (event: MessageEvent) => {
         try {
           const payload = JSON.parse(event.data);
-          setNotification(`Milestone status updated: ${payload.status}`);
+          if (payload.status !== 'paid') {
+            setNotification(`Milestone status updated: ${payload.status}`);
+          }
           fetchLedger();
           setRefreshKey((k) => k + 1);
         } catch {

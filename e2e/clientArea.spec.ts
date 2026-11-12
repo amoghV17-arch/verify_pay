@@ -98,7 +98,7 @@ test.describe('Phase P4: Client Area Suite', () => {
 
     // Financial hierarchy: Large Held figure
     await expect(page.locator('text=Held for this project in PayPal Sandbox')).toBeVisible();
-    await expect(page.locator('text=Budget')).toBeVisible();
+    await expect(page.getByText('Budget', { exact: true })).toBeVisible();
     await expect(page.locator('text=Funded').first()).toBeVisible();
     await expect(page.locator('text=Paid').first()).toBeVisible();
     await expect(page.locator('text=Remaining').first()).toBeVisible();
@@ -229,6 +229,53 @@ test.describe('Phase P4: Client Area Suite', () => {
     await page.goto(`/client/new?step=4&projectId=${newProjectId}&token=${orderId}&PayerID=PAYER_1`);
     await expect(page.locator('text=Funding captured successfully!')).toBeVisible({ timeout: 10000 });
     await page.waitForURL(`**/client/projects/${newProjectId}`, { timeout: 10000 });
+  });
+
+  test('Client projects page groups projects, renders synced Held/Paid balances, deletes a project, and renders valid Activity dates', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/client');
+    await page.request.post('/api/auth/persona', { data: { persona: 'client' } });
+
+    // Create a disposable draft project to verify Draft category + Delete modal
+    const createRes = await page.request.post('/api/projects', {
+      data: {
+        title: 'Disposable E2E Lifecycle Project',
+        brief: 'Temporary project created solely to verify category filters and project deletion dialog.',
+        totalBudget: 250,
+      },
+    });
+    expect(createRes.ok()).toBe(true);
+    const { project: disposable } = await createRes.json();
+    const disposableId = disposable.id as string;
+
+    await page.reload();
+
+    // Category filter tabs are visible
+    await expect(page.getByTestId('project-filter-all')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('project-filter-ongoing')).toBeVisible();
+    await expect(page.getByTestId('project-filter-draft')).toBeVisible();
+    await expect(page.getByTestId('project-filter-completed')).toBeVisible();
+    await expect(page.getByTestId('project-filter-cancelled')).toBeVisible();
+
+    // Seeded active project has non-zero synced Held and Paid values
+    const brandRow = page.getByTestId('project-row-proj_brand_launch');
+    await expect(brandRow).toBeVisible();
+    await expect(brandRow).toContainText('$6,800.00');
+    await expect(brandRow).toContainText('$1,200.00');
+
+    // Filter to drafts and delete disposable project via confirmation modal
+    await page.getByTestId('project-filter-draft').click();
+    const disposableRow = page.getByTestId(`project-row-${disposableId}`);
+    await expect(disposableRow).toBeVisible();
+    await page.getByTestId(`delete-project-${disposableId}`).click();
+    await expect(page.getByTestId('confirm-delete-project-btn')).toBeVisible();
+    await page.getByTestId('confirm-delete-project-btn').click();
+    await expect(disposableRow).not.toBeVisible({ timeout: 10000 });
+
+    // Visit Client Activity Timeline and ensure valid formatted dates (never Invalid Date)
+    await page.goto('/client/projects/proj_brand_launch/activity');
+    await expect(page.getByRole('heading', { name: 'Activity Timeline' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('body')).not.toContainText('Invalid Date');
   });
 });
 

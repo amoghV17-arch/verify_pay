@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { getDb, schema } from '../db/index.js';
 import { requireRole } from '../auth/index.js';
 import { createLlmPort } from '../ai/llmFactory.js';
@@ -8,6 +9,16 @@ import { PlannerService } from '../ai/planner.js';
 import { validatePlanGraph, computeSchedule } from '../ai/scheduler.js';
 import { sseHub } from '../services/sse.js';
 import { formatReviewRecord } from '../services/reviewFormatter.js';
+import { formatActivityRecord } from '../services/activityFormatter.js';
+import {
+  LedgerService,
+  toLedgerBalances,
+  formatLedgerEntry,
+} from '../services/ledger.js';
+import {
+  fetchOrderedMilestones,
+  syncProjectCompletionStatus,
+} from '../services/milestoneOrder.js';
 import {
   createRateLimitHandler,
   validateBriefLength,
@@ -16,8 +27,16 @@ import {
 } from '../services/abuseGuards.js';
 import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 
+const PatchProjectBodySchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  autonomyMode: z.enum(['manual', 'assisted', 'auto']).optional(),
+  releaseWindowSeconds: z.number().int().min(5).max(86400).optional(),
+  status: z.enum(['draft', 'planned', 'funded', 'active', 'closed', 'cancelled', 'failed']).optional(),
+});
+
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
-  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews, payoutBatches } = schema;
+  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews, payoutBatches, invites, receiptShares } = schema;
+  const ledgerService = new LedgerService();
 
   async function fetchFormattedProjectReviews(projectId: string) {
     const db = getDb();
@@ -68,16 +87,50 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
       request.user?.role === 'freelancer' ||
       (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
 
-    const scopedProjects = isFreelancer
-      ? allProjects.map((p) => {
-          const rest = { ...p };
-          delete (rest as { autonomyMode?: string }).autonomyMode;
-          delete (rest as { releaseWindowSeconds?: number }).releaseWindowSeconds;
-          return rest;
-        })
-      : allProjects;
+    const projectIds = allProjects.map((p) => p.id);
+    const allMilestones =
+      projectIds.length > 0
+        ? await db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
+        : [];
 
-    return reply.send({ success: true, projects: scopedProjects });
+    const milestonesByProject = new Map<string, typeof allMilestones>();
+    for (const m of allMilestones) {
+      const list = milestonesByProject.get(m.projectId) ?? [];
+      list.push(m);
+      milestonesByProject.set(m.projectId, list);
+    }
+
+    const enrichedProjects = await Promise.all(
+      allProjects.map(async (p) => {
+        const projMs = milestonesByProject.get(p.id) ?? [];
+        const transitionedToClosed = await syncProjectCompletionStatus(db, p.id);
+        const effectiveStatus = transitionedToClosed ? 'closed' : p.status;
+
+        const summary = await ledgerService.getProjectLedgerSummary(p.id);
+        const balances = toLedgerBalances(summary);
+        const paidCount = projMs.filter((m) => m.status === 'paid').length;
+        const activeCount = projMs.length - paidCount;
+
+        const base = {
+          ...p,
+          status: effectiveStatus,
+          balances,
+          milestoneStats: {
+            total: projMs.length,
+            paid: paidCount,
+            active: activeCount,
+          },
+        };
+
+        if (isFreelancer) {
+          delete (base as { autonomyMode?: string }).autonomyMode;
+          delete (base as { releaseWindowSeconds?: number }).releaseWindowSeconds;
+        }
+        return base;
+      })
+    );
+
+    return reply.send({ success: true, projects: enrichedProjects });
   });
 
   // Get project by ID with milestones and ledger summary
@@ -92,24 +145,19 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
       }
 
-      const projMilestones = await db
-        .select()
-        .from(milestones)
-        .where(eq(milestones.projectId, id));
+      const transitionedToClosed = await syncProjectCompletionStatus(db, id);
+      const effectiveProject = transitionedToClosed ? { ...proj, status: 'closed' } : proj;
+
+      const projMilestones = await fetchOrderedMilestones(db, id);
 
       const projLedger = await db
         .select()
         .from(ledgerEntries)
-        .where(eq(ledgerEntries.projectId, id));
+        .where(eq(ledgerEntries.projectId, id))
+        .orderBy(desc(ledgerEntries.createdAt));
 
-      // Calculate paid and held sums
-      const paidCents = projLedger
-        .filter((l) => l.type === 'released')
-        .reduce((sum, l) => sum + l.amountCents, 0);
-
-      const fundedCents = projLedger
-        .filter((l) => l.type === 'funded')
-        .reduce((sum, l) => sum + l.amountCents, 0);
+      const summary = await ledgerService.getProjectLedgerSummary(id);
+      const balances = toLedgerBalances(summary);
 
       const [client] = await db.select().from(users).where(eq(users.id, proj.clientId));
       const [freelancer] = proj.freelancerId
@@ -123,11 +171,11 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
 
       const projectDto = isFreelancer
         ? {
-            ...proj,
+            ...effectiveProject,
             autonomyMode: undefined,
             releaseWindowSeconds: undefined,
           }
-        : proj;
+        : effectiveProject;
 
       return reply.send({
         success: true,
@@ -136,11 +184,9 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         freelancer,
         milestones: projMilestones.map(formatMilestoneRecord),
         ledger: {
-          entries: projLedger,
+          entries: projLedger.map(formatLedgerEntry),
           totalCents: proj.totalCents,
-          fundedCents,
-          paidCents,
-          heldCents: fundedCents - paidCents,
+          ...balances,
         },
       });
     }
@@ -220,21 +266,33 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     }
   );
 
-  // Update project settings (Role: client only)
-  server.patch<{ Params: { id: string }; Body: { title?: string; autonomyMode?: string; releaseWindowSeconds?: number } }>(
+  // Update project settings or lifecycle status (Role: client only)
+  server.patch<{ Params: { id: string }; Body: { title?: string; autonomyMode?: string; releaseWindowSeconds?: number; status?: string } }>(
     '/api/projects/:id',
     { preHandler: [requireRole(['client'])] },
     async (request, reply) => {
+      const parsed = PatchProjectBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'ValidationError', details: parsed.error.flatten() });
+      }
+
       const db = getDb();
       const { id } = request.params;
-      const { title, autonomyMode, releaseWindowSeconds } = request.body;
+      const { title, autonomyMode, releaseWindowSeconds, status } = parsed.data;
 
+      const [existing] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+      if (!existing) {
+        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
+      }
+
+      const now = new Date();
       const updateData: Partial<typeof projects.$inferInsert> = {
-        updatedAt: new Date(),
+        updatedAt: now,
       };
       if (title) updateData.title = title;
       if (autonomyMode) updateData.autonomyMode = autonomyMode;
       if (releaseWindowSeconds != null) updateData.releaseWindowSeconds = releaseWindowSeconds;
+      if (status) updateData.status = status;
 
       const [updated] = await db
         .update(projects)
@@ -242,11 +300,61 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         .where(eq(projects.id, id))
         .returning();
 
-      if (!updated) {
-        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
+      if (status && status !== existing.status) {
+        await db.insert(activity).values({
+          id: `act_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+          projectId: id,
+          actor: 'client',
+          kind: 'project_status_changed',
+          text: `Project status updated from ${existing.status} to ${status}.`,
+          meta: { previousStatus: existing.status, newStatus: status },
+          ts: now,
+        });
+
+        sseHub.broadcast(id, 'project.status', { projectId: id, status });
       }
 
       return reply.send({ success: true, project: updated });
+    }
+  );
+
+  // Permanently delete a project and its workspace data (Role: client only)
+  server.delete<{ Params: { id: string } }>(
+    '/api/projects/:id',
+    { preHandler: [requireRole(['client'])] },
+    async (request, reply) => {
+      const db = getDb();
+      const { id } = request.params;
+
+      const [existing] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+      if (!existing) {
+        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
+      }
+
+      await db.transaction(async (tx) => {
+        const projMilestones = await tx
+          .select({ id: milestones.id })
+          .from(milestones)
+          .where(eq(milestones.projectId, id));
+        const msIds = projMilestones.map((m) => m.id);
+
+        if (msIds.length > 0) {
+          await tx.delete(receiptShares).where(inArray(receiptShares.milestoneId, msIds));
+          await tx.delete(payoutBatches).where(inArray(payoutBatches.milestoneId, msIds));
+          await tx.delete(reviews).where(inArray(reviews.milestoneId, msIds));
+          await tx.delete(deliverables).where(inArray(deliverables.milestoneId, msIds));
+        }
+
+        await tx.delete(ledgerEntries).where(eq(ledgerEntries.projectId, id));
+        await tx.delete(activity).where(eq(activity.projectId, id));
+        await tx.delete(invites).where(eq(invites.projectId, id));
+        await tx.delete(dependencies).where(eq(dependencies.projectId, id));
+        await tx.delete(milestones).where(eq(milestones.projectId, id));
+        await tx.delete(tasks).where(eq(tasks.projectId, id));
+        await tx.delete(projects).where(eq(projects.id, id));
+      });
+
+      return reply.send({ success: true, deletedProjectId: id });
     }
   );
 
@@ -259,7 +367,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
 
       const taskRows = await db.select().from(tasks).where(eq(tasks.projectId, id));
       const depRows = await db.select().from(dependencies).where(eq(dependencies.projectId, id));
-      const milestoneRows = await db.select().from(milestones).where(eq(milestones.projectId, id));
+      const milestoneRows = await fetchOrderedMilestones(db, id);
 
       return reply.send({
         success: true,
@@ -276,11 +384,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
-      const projMilestones = await db
-        .select()
-        .from(milestones)
-        .where(eq(milestones.projectId, id))
-        .orderBy(milestones.createdAt);
+      const projMilestones = await fetchOrderedMilestones(db, id);
       return reply.send(projMilestones.map(formatMilestoneRecord));
     }
   );
@@ -292,11 +396,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
       const db = getDb();
       const { id } = request.params;
 
-      const projMilestones = await db
-        .select()
-        .from(milestones)
-        .where(eq(milestones.projectId, id))
-        .orderBy(milestones.createdAt);
+      const projMilestones = await fetchOrderedMilestones(db, id);
 
       const projDeliverables = await db
         .select({
@@ -373,7 +473,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         .from(activity)
         .where(eq(activity.projectId, id))
         .orderBy(desc(activity.ts));
-      return reply.send({ success: true, activity: activityRows });
+      return reply.send({ success: true, activity: activityRows.map(formatActivityRecord) });
     }
   );
 
@@ -389,7 +489,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
       }
 
-      const projMilestones = await db.select().from(milestones).where(eq(milestones.projectId, id));
+      const projMilestones = await fetchOrderedMilestones(db, id);
       const projTasks = await db.select().from(tasks).where(eq(tasks.projectId, id));
       const projLedger = await db
         .select()
@@ -417,8 +517,8 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         project: proj,
         milestones: projMilestones,
         tasks: projTasks,
-        ledger: projLedger,
-        activity: projActivity,
+        ledger: projLedger.map(formatLedgerEntry),
+        activity: projActivity.map(formatActivityRecord),
         deliverables: projDeliverables.map((d) => d.deliverables),
         reviews: projReviews.map((r) => r.reviews),
       });
@@ -591,6 +691,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
           }
 
           // 3. Insert milestone tasks and milestone records
+          const milestoneBaseTime = Date.now();
           for (let idx = 0; idx < scheduledMilestones.length; idx++) {
             const m = scheduledMilestones[idx];
             const milestoneTaskId = toDbTaskId(m.id);
@@ -642,6 +743,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
               criteria: criteriaList,
               deliverableType: m.deliverableType,
               status: 'unfunded',
+              createdAt: new Date(milestoneBaseTime + idx * 1000),
             });
           }
 

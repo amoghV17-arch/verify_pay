@@ -300,6 +300,21 @@
   color: var(--settled);
 }
 
+.status-pill.releasing {
+  background-color: rgba(31, 122, 140, 0.16);
+  color: #114B57;
+}
+
+.status-pill.awaiting_client {
+  background-color: rgba(176, 122, 18, 0.2);
+  color: #7d570d;
+}
+
+.status-pill.appealed {
+  background-color: rgba(200, 64, 47, 0.15);
+  color: var(--flag);
+}
+
 /* Money Column */
 .money-cell {
   font-family: 'Instrument Sans', sans-serif;

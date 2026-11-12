@@ -9,6 +9,10 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import {
+  formatDateTimeSafe,
+  normalizeActivityEvent,
+} from '../../lib/projectHelpers.js';
 
 interface ActivityEvent {
   id: string;
@@ -38,6 +42,7 @@ export const ClientActivityPage: React.FC = () => {
         setError(null);
 
         const res = await fetch(`/api/projects/${id}/activity`, {
+          credentials: 'include',
           headers: { 'X-Persona': 'client' },
         });
 
@@ -47,7 +52,10 @@ export const ClientActivityPage: React.FC = () => {
 
         const data = await res.json();
         if (isMounted) {
-          setActivities(data.activity || []);
+          const normalized = Array.isArray(data.activity)
+            ? data.activity.map((item: unknown, idx: number) => normalizeActivityEvent(item, idx))
+            : [];
+          setActivities(normalized as ActivityEvent[]);
         }
       } catch (err) {
         if (isMounted) {
@@ -69,6 +77,7 @@ export const ClientActivityPage: React.FC = () => {
   function getActorIcon(actor: string) {
     switch (actor.toLowerCase()) {
       case 'ai':
+      case 'ai reviewer':
       case 'reviewer':
       case 'planner':
         return <Bot size={16} style={{ color: 'var(--teal-ink)' }} />;
@@ -210,10 +219,7 @@ export const ClientActivityPage: React.FC = () => {
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>•</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>
-                        {new Date(event.timestamp).toLocaleString([], {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
+                        {formatDateTimeSafe(event.timestamp)}
                       </span>
                     </div>
 
