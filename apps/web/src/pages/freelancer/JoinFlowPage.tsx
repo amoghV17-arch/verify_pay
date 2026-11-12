@@ -10,6 +10,8 @@ import {
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Field, Input } from '../../components/ui/Field.js';
+import { apiRawFetch } from '../../lib/api.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface InvitePreview {
   project: {
@@ -32,14 +34,18 @@ interface InvitePreview {
   }>;
   invite: {
     id: string;
-    code: string;
+    code?: string;
     expiresAt: string;
+    hasTargetEmail?: boolean;
+    invitedEmailHint?: string | null;
+    isOwnInvite?: boolean;
   };
 }
 
 export const JoinFlowPage: React.FC = () => {
   const { token: urlToken } = useParams<{ token?: string }>();
   const navigate = useNavigate();
+  const { authenticated, user, config, refreshAuth } = useAuth();
 
   const [inputCode, setInputCode] = useState(urlToken || '');
   const [isSearching, setIsSearching] = useState(false);
@@ -47,13 +53,17 @@ export const JoinFlowPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Acceptance form state
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [paypalEmail, setPaypalEmail] = useState('');
+  const [paypalEmail, setPaypalEmail] = useState(user?.payoutPaypalEmail || '');
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptSuccess, setAcceptSuccess] = useState(false);
 
-  // Look up invite function
+  useEffect(() => {
+    if (user?.payoutPaypalEmail && !paypalEmail) {
+      setPaypalEmail(user.payoutPaypalEmail);
+    }
+  }, [user?.payoutPaypalEmail, paypalEmail]);
+
+  // Look up invite function (public preview)
   const lookupInvite = async (tokenOrCode: string) => {
     let cleanCode = tokenOrCode.trim();
     if (cleanCode.includes('/join/')) {
@@ -69,9 +79,7 @@ export const JoinFlowPage: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/invites/${encodeURIComponent(cleanCode)}`, {
-        headers: { 'X-Persona': 'freelancer' },
-      });
+      const res = await apiRawFetch(`/api/invites/${encodeURIComponent(cleanCode)}`);
 
       if (!res.ok) {
         throw new Error('This invitation is no longer valid.');
@@ -94,17 +102,18 @@ export const JoinFlowPage: React.FC = () => {
   // If URL has token, lookup immediately
   useEffect(() => {
     if (urlToken) {
-      lookupInvite(urlToken);
+      void lookupInvite(urlToken);
     }
   }, [urlToken]);
 
-  // Handle invitation acceptance
+  // Handle invitation acceptance (signed-in account required)
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!preview) return;
+    if (!preview || !authenticated) return;
 
-    if (!name.trim() || !email.trim()) {
-      setErrorMessage('Name and email are required to accept the agreement.');
+    const effectivePaypal = paypalEmail.trim() || user?.payoutPaypalEmail?.trim() || '';
+    if (!effectivePaypal) {
+      setErrorMessage('Enter your PayPal Sandbox payout email to accept this project.');
       return;
     }
 
@@ -113,16 +122,13 @@ export const JoinFlowPage: React.FC = () => {
 
     try {
       const codeOrToken = urlToken || inputCode;
-      const res = await fetch(`/api/invites/${encodeURIComponent(codeOrToken)}/accept`, {
+      const res = await apiRawFetch(`/api/invites/${encodeURIComponent(codeOrToken)}/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'freelancer',
         },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          paypalEmail: paypalEmail.trim() || undefined,
+          paypalEmail: effectivePaypal,
         }),
       });
 
@@ -132,11 +138,12 @@ export const JoinFlowPage: React.FC = () => {
       }
 
       const data = await res.json();
+      await refreshAuth();
       setAcceptSuccess(true);
 
       setTimeout(() => {
         navigate(`/freelancer/projects/${data.project?.id || preview.project.id}`);
-      }, 1200);
+      }, 900);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to accept invitation.');
     } finally {
@@ -196,7 +203,7 @@ export const JoinFlowPage: React.FC = () => {
           </h1>
 
           <p style={{ margin: '0 0 2rem 0', color: 'var(--ink-2)', fontSize: '0.9375rem', lineHeight: 1.5 }}>
-            Enter your invitation code (e.g. <code>MILE-XXXXXXXXXX</code>) or direct invitation link to review the project milestones, observable acceptance criteria, and payment protection.
+            Enter your invitation code (e.g. <code>MILE-XXXXXXXXXX</code>) or direct invitation link to review the project milestones, observable acceptance criteria, and funds held for this project.
           </p>
 
           <form
@@ -232,19 +239,9 @@ export const JoinFlowPage: React.FC = () => {
             </Button>
           </form>
 
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-            <Button
-              type="button"
-              variant="quiet"
-              size="sm"
-              onClick={() => {
-                setInputCode('MILE-MOCKINVITE');
-                lookupInvite('MILE-MOCKINVITE');
-              }}
-            >
-              Try sample invite code: MILE-MOCKINVITE
-            </Button>
-          </div>
+          <p style={{ marginTop: '1rem', marginBottom: 0, fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
+            Don&apos;t have a code? Ask your client to send one.
+          </p>
 
           {errorMessage && (
             <div
@@ -281,15 +278,13 @@ export const JoinFlowPage: React.FC = () => {
           <div>
             <h2
               style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
                 color: 'var(--forest)',
                 margin: 0,
               }}
             >
-              Project Agreement Invitation
+              Project agreement invitation
             </h2>
             <h1
               className="font-display"
@@ -379,8 +374,8 @@ export const JoinFlowPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)', textTransform: 'uppercase' }}>
-                    Criteria Checked by AI Reviewer:
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)' }}>
+                    Criteria checked by AI reviewer
                   </span>
                   <ul style={{ margin: '0.35rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.8125rem', color: 'var(--ink-2)' }}>
                     {criteria.map((rawC: any, cIdx: number) => {
@@ -396,7 +391,7 @@ export const JoinFlowPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Acceptance Form */}
+          {/* Acceptance Card */}
           <form
             onSubmit={handleAccept}
             style={{
@@ -406,55 +401,86 @@ export const JoinFlowPage: React.FC = () => {
               padding: '1.5rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.25rem',
+              gap: '1.15rem',
             }}
           >
             <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--ink)' }}>
-              Accept Agreement & Register Freelancer Profile
+              Accept agreement
             </h3>
 
-            <Field label="Your full name" required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Alex Morgan"
-                />
-              )}
-            </Field>
+            {preview.invite.hasTargetEmail && preview.invite.invitedEmailHint && (
+              <div className="ms-alert ms-alert-info">
+                <span>
+                  This invitation is addressed to <strong>{preview.invite.invitedEmailHint}</strong>.
+                </span>
+              </div>
+            )}
 
-            <Field label="Email address" required hint="Where notification updates will be sent.">
-              {(props) => (
-                <Input
-                  {...props}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex@example.com"
-                />
-              )}
-            </Field>
+            {preview.invite.isOwnInvite && (
+              <div className="ms-alert ms-alert-warning" role="alert">
+                <span>
+                  You created this project invite. Share this link with your freelancer rather than accepting it yourself.
+                </span>
+              </div>
+            )}
 
-            <Field
-              label="PayPal sandbox recipient email"
-              hint="Required: Where milestone payouts are released via PayPal sandbox Payouts API."
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  type="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder="alex.freelancer@sandbox.paypal.com"
-                />
-              )}
-            </Field>
+            {!authenticated || !user ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                  Sign in or create a Milestone account to accept these milestones and attach your PayPal Sandbox payout address.
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <Link
+                    to={`/signup?intent=freelancer&next=${encodeURIComponent(`/join/${urlToken || inputCode}`)}`}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button variant="primary">Create freelancer account to accept</Button>
+                  </Link>
+                  <Link
+                    to={`/login?next=${encodeURIComponent(`/join/${urlToken || inputCode}`)}`}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button variant="secondary">Sign in</Button>
+                  </Link>
+                  {config.demoMode && (
+                    <Link to="/demo" style={{ textDecoration: 'none' }}>
+                      <Button variant="quiet">Try demo workspace</Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    padding: '0.75rem 0.9rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--paper)',
+                    border: '1px solid var(--line)',
+                    fontSize: '0.88rem',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  Accepting as <strong style={{ color: 'var(--ink)' }}>{user.displayName || user.name}</strong> ({user.email})
+                </div>
 
-            {/* Honest note per §5.3 */}
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>
-              Prototype notice: Email addresses are not verified against real SMTP servers in this sandbox environment.
-            </p>
+                <Field
+                  label="PayPal Sandbox payout email"
+                  required
+                  hint="Approved milestone payouts settle to this PayPal Sandbox address."
+                >
+                  {(props) => (
+                    <Input
+                      {...props}
+                      type="email"
+                      value={paypalEmail}
+                      onChange={(e) => setPaypalEmail(e.target.value)}
+                      placeholder="sb-freelancer@personal.example.com"
+                    />
+                  )}
+                </Field>
+              </>
+            )}
 
             {errorMessage && (
               <div
@@ -502,10 +528,17 @@ export const JoinFlowPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={isAccepting || acceptSuccess || !name.trim() || !email.trim()}
+                disabled={
+                  isAccepting ||
+                  acceptSuccess ||
+                  !authenticated ||
+                  !user ||
+                  Boolean(preview.invite.isOwnInvite) ||
+                  !paypalEmail.trim()
+                }
                 leftIcon={<UserCheck size={18} />}
               >
-                {isAccepting ? 'Accepting...' : 'Accept invitation & Start'}
+                {isAccepting ? 'Accepting...' : 'Accept agreement & open freelancer workspace'}
               </Button>
             </div>
           </form>

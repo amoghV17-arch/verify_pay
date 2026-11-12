@@ -1,58 +1,112 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
+import { formatCents, type AppConfig } from '@milestone/shared';
 import { getDb } from '../db/index.js';
 import { projects, users, invites } from '../db/schema.js';
-import { requireRole, createSessionToken, setRoleSessionCookie } from '../auth/index.js';
+import {
+  requireAuth,
+  requireProjectMember,
+  requireVerifiedEmailIfNeeded,
+} from '../auth/index.js';
 import { InviteService, checkInviteRateLimit } from '../services/invite.js';
 import { createRateLimitHandler } from '../services/abuseGuards.js';
 import { fetchOrderedMilestones } from '../services/milestoneOrder.js';
+import { sseHub } from '../services/sse.js';
+import { isRealEmailConfigured, type EmailPort } from '../email/index.js';
+import { renderEmailTemplate } from '../email/templates.js';
 
-const AcceptBodySchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Valid email is required'),
-  paypalEmail: z.string().email('Valid PayPal email is required').optional(),
-});
+const CreateInviteSchema = z
+  .object({
+    expiryDays: z.number().int().min(1).max(90).optional(),
+    maxUses: z.number().int().min(1).max(100).optional(),
+    invitedEmail: z.union([z.string().trim().email(), z.literal('')]).optional(),
+  })
+  .optional();
+
+const AcceptBodySchema = z
+  .object({
+    paypalEmail: z.string().trim().email('Valid PayPal payout email is required').optional(),
+  })
+  .optional();
+
+function maskEmailHint(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return 'a designated email';
+  const head = local.slice(0, 2);
+  return `${head}***@${domain}`;
+}
 
 export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
   const inviteService = new InviteService();
+  const getConfig = (): AppConfig =>
+    (server as unknown as { appConfig: AppConfig }).appConfig;
+  const getEmailPort = (): EmailPort | undefined =>
+    (server as unknown as { emailPort?: EmailPort }).emailPort;
 
   // 1. POST /api/projects/:id/invites (Client creates an invite)
   server.post<{
     Params: { id: string };
-    Body?: { expiryDays?: number; maxUses?: number };
+    Body?: unknown;
   }>(
     '/api/projects/:id/invites',
-    { preHandler: [requireRole(['client']), createRateLimitHandler('invite', 20, 60_000)] },
+    {
+      preHandler: [
+        requireVerifiedEmailIfNeeded(),
+        requireProjectMember('client'),
+        createRateLimitHandler('invite', 20, 60_000),
+      ],
+    },
     async (request, reply) => {
       const { id: projectId } = request.params;
-      const db = getDb();
+      const project = request.project!;
 
-      const [project] = await db
-        .select()
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
-
-      if (!project) {
-        return reply.status(404).send({ error: 'NotFound', message: `Project "${projectId}" not found.` });
+      const parsed = CreateInviteSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'ValidationError',
+          message: parsed.error.issues[0]?.message || 'Invalid invite parameters.',
+        });
       }
 
-      const expiryDays = request.body?.expiryDays ?? 7;
-      const maxUses = request.body?.maxUses ?? 1;
+      const expiryDays = parsed.data?.expiryDays ?? 7;
+      const maxUses = parsed.data?.maxUses ?? 1;
+      const invitedEmail = parsed.data?.invitedEmail ? parsed.data.invitedEmail.trim() : undefined;
 
       const invite = await inviteService.createInvite({
         projectId,
-        createdBy: request.user?.userId,
+        createdBy: request.user!.userId,
+        invitedEmail,
         expiryDays,
         maxUses,
       });
+
+      const cfg = getConfig();
+      const emailPort = getEmailPort();
+      if (invitedEmail && emailPort && (isRealEmailConfigured(cfg) || request.user!.isDemo || cfg.NODE_ENV !== 'production')) {
+        const baseUrl = cfg.APP_BASE_URL.replace(/\/$/, '');
+        const rendered = renderEmailTemplate('project_invite', {
+          inviterName: request.user!.displayName || request.user!.name,
+          projectTitle: project.title,
+          amountFormatted: formatCents(project.totalCents),
+          code: invite.code,
+          actionUrl: `${baseUrl}/join/${invite.token}`,
+        });
+        await emailPort.send({
+          to: invitedEmail,
+          template: 'project_invite',
+          subject: rendered.subject,
+          bodyText: rendered.bodyText,
+          bodyHtml: rendered.bodyHtml,
+        });
+      }
 
       return reply.status(201).send({
         success: true,
         invite: {
           id: invite.id,
           projectId: invite.projectId,
+          invitedEmail: invite.invitedEmail,
           token: invite.token,
           code: invite.code,
           expiresAt: invite.expiresAt,
@@ -66,7 +120,7 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
   // 2. GET /api/projects/:id/invites (Client lists project invites)
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/invites',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireProjectMember('client')] },
     async (request, reply) => {
       const { id: projectId } = request.params;
       const db = getDb();
@@ -75,6 +129,7 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
         .select({
           id: invites.id,
           projectId: invites.projectId,
+          invitedEmail: invites.invitedEmail,
           expiresAt: invites.expiresAt,
           maxUses: invites.maxUses,
           usedCount: invites.usedCount,
@@ -101,6 +156,31 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'BadRequest', message: 'Invite ID required.' });
     }
 
+    const db = getDb();
+    const [invRow] = await db
+      .select({
+        invite: invites,
+        clientId: projects.clientId,
+      })
+      .from(invites)
+      .innerJoin(projects, eq(invites.projectId, projects.id))
+      .where(eq(invites.id, inviteId))
+      .limit(1);
+
+    if (!invRow) {
+      return reply.status(404).send({
+        error: 'NotFound',
+        message: 'Invitation not found or already revoked.',
+      });
+    }
+
+    if (invRow.clientId !== request.user!.userId && invRow.invite.createdBy !== request.user!.userId) {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'Only the project client can revoke this invitation.',
+      });
+    }
+
     const success = await inviteService.revokeInvite(inviteId);
     if (!success) {
       return reply.status(404).send({
@@ -114,13 +194,13 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
 
   server.post<{ Params: { id: string } }>(
     '/api/invites/:id/revoke',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireAuth()] },
     revokeHandler
   );
 
   server.post<{ Params: { id: string; inviteId: string } }>(
     '/api/projects/:id/invites/:inviteId/revoke',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireAuth()] },
     revokeHandler
   );
 
@@ -140,7 +220,6 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
       const { tokenOrCode } = request.params;
       const invite = await inviteService.findValidInvite(tokenOrCode);
 
-      // Generic response for all invalid states
       if (!invite) {
         return reply.status(404).send({
           error: 'InvalidInvitation',
@@ -172,7 +251,14 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
 
       const formattedMilestones = projectMilestones.map((m) => {
         const criteriaList: string[] = Array.isArray(m.criteria)
-          ? m.criteria.map((c: any) => (typeof c === 'string' ? c : c?.description || c?.id || ''))
+          ? m.criteria.map((c: unknown) => {
+              if (typeof c === 'string') return c;
+              if (c && typeof c === 'object') {
+                const obj = c as { description?: string; id?: string };
+                return obj.description || obj.id || '';
+              }
+              return '';
+            })
           : [];
         return {
           id: m.id,
@@ -186,22 +272,29 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
         };
       });
 
+      const isOwnInvite = Boolean(
+        request.user && (project.clientId === request.user.userId || invite.createdBy === request.user.userId)
+      );
+
       return reply.send({
         success: true,
         valid: true,
         invite: {
           id: invite.id,
           expiresAt: invite.expiresAt,
+          hasTargetEmail: Boolean(invite.invitedEmail),
+          invitedEmailHint: invite.invitedEmail ? maskEmailHint(invite.invitedEmail) : null,
+          isOwnInvite,
         },
         client: {
           id: client?.id || '',
-          name: client?.name || 'Client',
+          name: client?.displayName || client?.name || 'Client',
         },
         project: {
           id: project.id,
           title: project.title,
           brief: project.brief,
-          clientName: client?.name || 'Client',
+          clientName: client?.displayName || client?.name || 'Client',
           totalCents: project.totalCents,
           currency: project.currency,
           status: project.status,
@@ -212,19 +305,11 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
     }
   );
 
-  // 5. POST /api/invites/:tokenOrCode/accept (Freelancer accepts invite, issues ms_freelancer cookie)
+  // 5. POST /api/invites/:tokenOrCode/accept (Authenticated freelancer accepts invite)
   server.post<{ Params: { tokenOrCode: string }; Body: unknown }>(
     '/api/invites/:tokenOrCode/accept',
+    { preHandler: [requireAuth()] },
     async (request, reply) => {
-      // Role guard: clients cannot accept invites
-      const personaHeader = (request.headers['x-persona'] as string | undefined)?.toLowerCase();
-      if (personaHeader === 'client' || (request.user && request.user.role === 'client' && !personaHeader)) {
-        return reply.status(403).send({
-          error: 'Forbidden',
-          message: 'Client accounts cannot accept project invitations. Please join as a freelancer.',
-        });
-      }
-
       const ip = request.ip || '127.0.0.1';
       const rate = checkInviteRateLimit(ip);
       if (!rate.allowed) {
@@ -238,34 +323,40 @@ export const registerInviteRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedBody.success) {
         return reply.status(400).send({
           error: 'ValidationError',
+          message: parsedBody.error.issues[0]?.message || 'Enter a valid PayPal payout email.',
           details: parsedBody.error.flatten(),
         });
       }
 
+      const user = request.user!;
       const { tokenOrCode } = request.params;
-      const result = await inviteService.acceptInvite(tokenOrCode, parsedBody.data);
+      const result = await inviteService.acceptInviteForUser(
+        tokenOrCode,
+        {
+          userId: user.userId,
+          name: user.displayName || user.name,
+          email: user.email,
+          payoutPaypalEmail: user.payoutPaypalEmail,
+        },
+        parsedBody.data
+      );
 
-      if (!result) {
-        return reply.status(400).send({
-          error: 'InvalidInvitation',
-          message: 'This invitation is no longer valid.',
+      if (!result.ok) {
+        return reply.status(result.status).send({
+          error: result.error,
+          message: result.message,
         });
       }
 
-      // Issue ms_freelancer session cookie
-      const sessionToken = await createSessionToken({
-        userId: result.user.id,
-        role: 'freelancer',
-        name: result.user.name,
-        email: result.user.email,
+      sseHub.broadcast(result.project.id, 'invite.accepted', {
+        projectId: result.project.id,
+        freelancerId: user.userId,
       });
-
-      setRoleSessionCookie(reply, 'freelancer', sessionToken);
 
       return reply.send({
         success: true,
-        user: result.user,
         project: result.project,
+        paypalEmail: result.paypalEmail,
       });
     }
   );

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, or, and, desc } from 'drizzle-orm';
-import { requireRole } from '../auth/index.js';
+import { requireMilestoneMember, requireProjectMember } from '../auth/index.js';
 import { ReleaseService } from '../services/release.js';
 import { ReconcilerService } from '../services/reconciler.js';
 import { ReviewerService } from '../services/reviewer.js';
@@ -44,7 +44,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/submit (Freelancer submits a deliverable)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/submit',
-    { preHandler: [requireRole(['freelancer']), createRateLimitHandler('reviewer', 20, 60_000)] },
+    { preHandler: [requireMilestoneMember('freelancer'), createRateLimitHandler('reviewer', 20, 60_000)] },
     async (request, reply) => {
       const llmCheck = checkAndRecordLlmCall();
       if (!llmCheck.allowed) {
@@ -55,7 +55,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
       }
 
       const { id: milestoneIdParam } = request.params;
-      const userId = request.user?.userId ?? 'user_freelancer_01';
+      const userId = request.user!.userId;
 
       const bodyParsed = SubmitBodySchema.safeParse(request.body);
       if (!bodyParsed.success) {
@@ -141,6 +141,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // GET /api/milestones/:id/reviews (Fetch AI review results & deliverable trace)
   server.get<{ Params: { id: string } }>(
     '/api/milestones/:id/reviews',
+    { preHandler: [requireMilestoneMember('any')] },
     async (request, reply) => {
       const { id: milestoneIdParam } = request.params;
       const db = getDb();
@@ -179,7 +180,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/release (Client manual release trigger)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/release',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireMilestoneMember('client')] },
     async (request, reply) => {
       const { id: milestoneId } = request.params;
       const paypal =
@@ -206,7 +207,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/object (Client objects to release during assisted window)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/object',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireMilestoneMember('client')] },
     async (request, reply) => {
       const { id: milestoneIdParam } = request.params;
       const parsedBody = ObjectBodySchema.safeParse(request.body ?? {});
@@ -269,7 +270,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/request-changes (Client requests changes on milestone)
   server.post<{ Params: { id: string }; Body?: { reason?: string } }>(
     '/api/milestones/:id/request-changes',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireMilestoneMember('client')] },
     async (request, reply) => {
       const { id: milestoneIdParam } = request.params;
       const { reason } = request.body || {};
@@ -317,7 +318,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/milestones/:id/appeal (Freelancer appeals a changes_requested verdict)
   server.post<{ Params: { id: string } }>(
     '/api/milestones/:id/appeal',
-    { preHandler: [requireRole(['freelancer'])] },
+    { preHandler: [requireMilestoneMember('freelancer')] },
     async (request, reply) => {
       const { id: milestoneIdParam } = request.params;
       const parsedBody = AppealBodySchema.safeParse(request.body);
@@ -407,6 +408,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/projects/:id/scheduler/tick (Trigger assisted-mode auto-release scheduler tick)
   server.post<{ Params: { id: string } }>(
     '/api/projects/:id/scheduler/tick',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const paypal =
         (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter ||
@@ -429,6 +431,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
   // POST /api/projects/:id/reconcile (Reconciliation trigger)
   server.post<{ Params: { id: string } }>(
     '/api/projects/:id/reconcile',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const paypal =
         (request.server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter ||

@@ -13,6 +13,7 @@ import { TrustPanel, type LedgerEntryItem } from './components/TrustPanel.js';
 import { FundModal } from './components/FundModal.js';
 import { CloseoutReceiptModal } from './components/CloseoutReceiptModal.js';
 import { SettleCoinFlyer, useCountUp, type SettleEventData } from './components/SettleMoment.js';
+import { apiRawFetch } from './lib/api.js';
 
 interface LedgerSummary {
   fundedCents: number;
@@ -210,40 +211,17 @@ export function App(): React.ReactElement {
 
   const handlePersonaChange = async (targetPersona: 'client' | 'freelancer') => {
     setPersona(targetPersona);
-    try {
-      await fetch('/api/auth/persona', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ persona: targetPersona }),
-      });
-    } catch {
-      // offline dev fallback
-    }
   };
 
   const captureFundingOrder = useCallback(
     async (targetProjectId: string, orderId: string) => {
       setIsFunding(true);
       try {
-        const postCapture = () =>
-          fetch(`/api/projects/${targetProjectId}/fund/capture`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ orderId }),
-          });
-
-        let capRes = await postCapture();
-        if (capRes.status === 403) {
-          await fetch('/api/auth/persona', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ persona: 'client' }),
-          });
-          capRes = await postCapture();
-        }
+        const capRes = await apiRawFetch(`/api/projects/${targetProjectId}/fund/capture`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId }),
+        });
 
         if (!capRes.ok) {
           const errJson = (await capRes.json().catch(() => ({}))) as {
@@ -304,27 +282,14 @@ export function App(): React.ReactElement {
       const cancelUrl = `${returnUrl}&paypalCancel=1`;
 
       // 1. Create order
-      const postOrder = () =>
-        fetch(`/api/projects/${projectId}/fund/order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'PayPal-Request-Id': `fund:${projectId}:${Date.now()}`,
-          },
-          body: JSON.stringify({ returnUrl, cancelUrl }),
-          credentials: 'include',
-        });
-
-      let orderRes = await postOrder();
-      if (orderRes.status === 403) {
-        await fetch('/api/auth/persona', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ persona: 'client' }),
-        });
-        orderRes = await postOrder();
-      }
+      const orderRes = await apiRawFetch(`/api/projects/${projectId}/fund/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'PayPal-Request-Id': `fund:${projectId}:${Date.now()}`,
+        },
+        body: JSON.stringify({ returnUrl, cancelUrl }),
+      });
 
       if (!orderRes.ok) {
         const errJson = (await orderRes.json().catch(() => ({}))) as {
@@ -358,11 +323,10 @@ export function App(): React.ReactElement {
     setIsReleasing(true);
     setNotification(null);
     try {
-      const res = await fetch(`/api/milestones/${targetMilestoneId}/release`, {
+      const res = await apiRawFetch(`/api/milestones/${targetMilestoneId}/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
-        credentials: 'include',
       });
 
       const data = await res.json();
@@ -395,10 +359,9 @@ export function App(): React.ReactElement {
   const handleAutonomyModeChange = async (newMode: 'manual' | 'assisted' | 'auto') => {
     setAutonomyMode(newMode);
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const res = await apiRawFetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ autonomyMode: newMode }),
       });
       if (res.ok) {
@@ -413,10 +376,9 @@ export function App(): React.ReactElement {
     setIsObjecting(true);
     setNotification(null);
     try {
-      const res = await fetch(`/api/milestones/${targetMilestoneId}/object`, {
+      const res = await apiRawFetch(`/api/milestones/${targetMilestoneId}/object`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ reason: 'Client requested revisions before payout release.' }),
       });
 

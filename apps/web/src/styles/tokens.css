@@ -113,6 +113,19 @@ h1, h2, h3, h4, h5, h6 {
   font-feature-settings: 'tnum';
 }
 
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Focus Visible Standard */
 :focus-visible {
   outline: 2px solid var(--focus);
@@ -140,4 +153,66 @@ h1, h2, h3, h4, h5, h6 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Form & Feedback Utilities */
+.ms-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ms-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ms-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.ms-input:focus {
+  border-color: var(--teal);
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.ms-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.ms-alert-danger {
+  background-color: #fdf2f1;
+  border: 1px solid #f0c2be;
+  color: #8f241c;
+}
+
+.ms-alert-info {
+  background-color: var(--teal-soft);
+  border: 1px solid rgba(51, 125, 112, 0.3);
+  color: var(--ink);
+}
+
+.ms-alert-warning {
+  background-color: #fef9ec;
+  border: 1px solid #f2dca6;
+  color: #714b09;
+}
+
 

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
+import { apiRawFetch } from '../../lib/api.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { Dialog } from '../../components/ui/Dialog.js';
@@ -73,14 +74,8 @@ export const FreelancerPaymentsPage: React.FC = () => {
       setIsLoading(true);
       try {
         const [msRes, ledgRes] = await Promise.all([
-          fetch(`/api/projects/${projectId}/milestones`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }),
-          fetch(`/api/projects/${projectId}/ledger`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }).catch(() => null),
+          apiRawFetch(`/api/projects/${projectId}/milestones`),
+          apiRawFetch(`/api/projects/${projectId}/ledger`).catch(() => null),
         ]);
 
         if (msRes.ok) {

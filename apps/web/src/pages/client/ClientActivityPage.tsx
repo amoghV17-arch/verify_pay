@@ -9,6 +9,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   formatDateTimeSafe,
   normalizeActivityEvent,
@@ -41,10 +42,7 @@ export const ClientActivityPage: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/projects/${id}/activity`, {
-          credentials: 'include',
-          headers: { 'X-Persona': 'client' },
-        });
+        const res = await apiRawFetch(`/api/projects/${id}/activity`);
 
         if (!res.ok) {
           throw new Error('Failed to load activity events');

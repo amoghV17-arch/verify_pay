@@ -1,12 +1,18 @@
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AppConfig, PayPalPort, LlmPort } from '@milestone/shared';
 import { registerAuth } from './auth/index.js';
+import { createEmailPort, type EmailPort } from './email/index.js';
+import { registerNotificationEventListener } from './services/notifications.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerAccountRoutes } from './routes/account.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerGanttRoutes } from './routes/gantt.js';
 import { registerFundRoutes } from './routes/fund.js';
@@ -23,7 +29,9 @@ import { createLlmPort } from './ai/llmFactory.js';
 export interface BuildServerOptions {
   paypalAdapter?: PayPalPort;
   llmAdapter?: LlmPort;
+  emailPort?: EmailPort;
   serveStatic?: boolean;
+  cspReportOnly?: boolean;
 }
 
 function resolveWebDist(): string | null {
@@ -41,12 +49,77 @@ function resolveWebDist(): string | null {
   return null;
 }
 
-export function buildServer(config: AppConfig, options?: BuildServerOptions): FastifyInstance {
+export function buildServer(
+  rawConfig: Partial<AppConfig> & Pick<AppConfig, 'NODE_ENV' | 'PORT' | 'APP_BASE_URL' | 'DATABASE_URL' | 'SESSION_SECRET' | 'PAYPAL_ENV'>,
+  options?: BuildServerOptions
+): FastifyInstance {
+  const config: AppConfig = {
+    PAYPAL_CLIENT_ID: '',
+    PAYPAL_CLIENT_SECRET: '',
+    PAYPAL_WEBHOOK_ID: '',
+    DEMO_MODE: false,
+    DEMO_FREELANCER_PAYPAL_EMAIL: '',
+    LLM_PROVIDER: 'fixture',
+    LLM_API_KEY: '',
+    LLM_MODEL: '',
+    LLM_BASE_URL: '',
+    REVIEW_MIN_CONFIDENCE: 0.75,
+    ASSISTED_RELEASE_WINDOW_SECONDS: 20,
+    BRYNTUM_PACKAGE: 'trial',
+    EMAIL_PROVIDER: 'outbox',
+    EMAIL_FROM: 'Milestone <noreply@milestone.local>',
+    RESEND_API_KEY: '',
+    SMTP_HOST: '',
+    SMTP_PORT: 587,
+    SMTP_USER: '',
+    SMTP_PASS: '',
+    EMAIL_VERIFICATION: 'soft',
+    GOOGLE_CLIENT_ID: '',
+    GOOGLE_CLIENT_SECRET: '',
+    SUPPORT_EMAIL: '',
+    ...rawConfig,
+  } as AppConfig;
+
   const server = Fastify({
+    trustProxy: true,
     logger: {
       level: config.NODE_ENV === 'test' ? 'silent' : 'info',
     },
   });
+
+  server.register(helmet, {
+    hsts: config.NODE_ENV === 'production' ? { maxAge: 15552000, includeSubDomains: true } : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    frameguard: { action: 'sameorigin' },
+    contentSecurityPolicy: {
+      reportOnly: options?.cspReportOnly ?? false,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://www.paypal.com', 'https://www.sandbox.paypal.com'],
+        frameSrc: ["'self'", 'https://www.paypal.com', 'https://www.sandbox.paypal.com'],
+        connectSrc: [
+          "'self'",
+          'https://www.paypal.com',
+          'https://www.sandbox.paypal.com',
+          'https://api-m.sandbox.paypal.com',
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://www.paypalobjects.com'],
+        workerSrc: ["'self'", 'blob:'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'", 'https://accounts.google.com'],
+      },
+    },
+  });
+
+  if (config.NODE_ENV !== 'test') {
+    server.register(rateLimit, {
+      max: 400,
+      timeWindow: '1 minute',
+    });
+  }
 
   server.register(cors, {
     origin: true,
@@ -69,14 +142,16 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
     }
   });
 
-  // Register Auth and Session Handling
-  server.register(registerAuth);
+  // Initialize Adapters and Decorators before Auth & Routes
+  server.decorate('appConfig', config);
 
-  // Initialize PayPal Adapter
   const paypalAdapter = options?.paypalAdapter || createPayPalAdapter(config);
   server.decorate('paypalAdapter', paypalAdapter);
 
-  // Initialize LLM Adapter if configured or supplied
+  const emailPort = options?.emailPort || createEmailPort(config);
+  server.decorate('emailPort', emailPort);
+  registerNotificationEventListener(config, emailPort);
+
   let llmAdapter = options?.llmAdapter;
   if (!llmAdapter && config.LLM_PROVIDER) {
     try {
@@ -88,9 +163,13 @@ export function buildServer(config: AppConfig, options?: BuildServerOptions): Fa
   if (llmAdapter) {
     server.decorate('llmAdapter', llmAdapter);
   }
-  server.decorate('appConfig', config);
 
-  // Register Core Data and Sync Routes
+  // Register Auth and Session Handling
+  server.register(registerAuth);
+
+  // Register Auth, Account, Core Data and Sync Routes
+  server.register(registerAuthRoutes);
+  server.register(registerAccountRoutes);
   server.register(registerProjectRoutes);
   server.register(registerGanttRoutes);
   server.register(registerFundRoutes, { paypalAdapter });

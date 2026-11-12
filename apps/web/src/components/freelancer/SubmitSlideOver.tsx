@@ -3,6 +3,7 @@ import { X, CheckCircle, Clock, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button, IconButton } from '../ui/Button.js';
 import { useSystemLlmLabel } from '../../lib/aiMeta.js';
+import { apiRawFetch } from '../../lib/api.js';
 
 export type DeliverableKind = 'text' | 'repo' | 'url' | 'image' | 'document';
 
@@ -139,19 +140,19 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
       : { text: content.trim() };
 
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/submit`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'freelancer',
         },
         body: JSON.stringify({ kind, payload, notes: notes.trim() || undefined }),
-        credentials: 'include',
       });
 
       if (!res.ok) {
-        // If API fails (e.g. running mock or preview), we fall back gracefully to demonstration review progression
-        handleSimulatedReview();
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+        setError(errBody.message || errBody.error || `Submission failed (${res.status})`);
+        setIsSubmitted(false);
+        setSubmitting(false);
         return;
       }
 
@@ -163,8 +164,9 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
       // Connect to SSE stream
       connectSse();
     } catch {
-      // Graceful fallback for mock/preview mode
-      handleSimulatedReview();
+      setError('Network error while submitting deliverable. Please try again.');
+      setIsSubmitted(false);
+      setSubmitting(false);
     }
   }
 

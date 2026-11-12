@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Sparkles, ChevronRight, RotateCcw, Split, Key, Check, Copy } from 'lucide-react';
 import { ModeTruthBanner } from './ModeTruthBanner.js';
+import { apiRawFetch } from '../../lib/api.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface DemoBarProps {
   currentStep?: number;
@@ -22,7 +24,7 @@ const DEMO_STEPS: StepItem[] = [
   {
     number: 1,
     label: 'Create a plan',
-    route: '/client/projects/new',
+    route: '/client/new',
     role: 'client',
     description: 'Enter brief and let AI generate topological milestones & budget split.',
   },
@@ -84,7 +86,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
   style,
 }) => {
   const navigate = useNavigate();
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -113,29 +115,31 @@ export const DemoBar: React.FC<DemoBarProps> = ({
       .catch(() => {});
   }, []);
 
+  const { refreshAuth } = useAuth();
+
   async function handleSwitch(role: 'client' | 'freelancer') {
     if (onSwitchPersona) {
       onSwitchPersona(role);
       return;
     }
     try {
-      await fetch('/api/demo/login-as', {
+      await apiRawFetch('/api/demo/login-as', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ persona: role }),
-        credentials: 'include',
       });
+      await refreshAuth();
     } catch {
-      // Ignore network errors in mock mode
+      // Ignore network errors
     }
-    navigate(role === 'client' ? '/client/projects' : '/freelancer/projects');
+    navigate(role === 'client' ? '/client' : '/freelancer');
   }
 
   async function handleReset() {
     setIsResetting(true);
     setResetMessage(null);
     try {
-      const res = await fetch('/api/demo/reset', { method: 'POST', credentials: 'include' });
+      const res = await apiRawFetch('/api/demo/reset', { method: 'POST', body: JSON.stringify({}) });
       if (res.ok) {
         setResetMessage('Demo reset successfully');
       } else {
@@ -162,29 +166,30 @@ export const DemoBar: React.FC<DemoBarProps> = ({
       <button
         type="button"
         id="restore-demobar-btn"
+        className="hide-on-mobile"
         onClick={() => setIsDismissed(false)}
-        aria-label="Open demo guide bar"
+        aria-label="Open demo guide"
         style={{
           position: 'fixed',
-          bottom: '1rem',
-          left: '1rem',
-          zIndex: 900,
+          bottom: '1.25rem',
+          right: '1.25rem',
+          zIndex: 450,
           backgroundColor: 'var(--forest)',
           color: 'var(--paper-on-dark)',
           border: '1px solid var(--line-on-dark)',
-          borderRadius: 'var(--radius-pill)',
-          padding: '0.4rem 0.75rem',
+          borderRadius: 'var(--radius-chip)',
+          padding: '0.45rem 0.85rem',
           fontSize: '0.75rem',
           fontWeight: 600,
           cursor: 'pointer',
           display: 'inline-flex',
           alignItems: 'center',
           gap: '0.4rem',
-          boxShadow: 'var(--shadow-overlay)',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <Sparkles size={14} color="var(--teal-on-dark)" />
-        Demo Guide
+        Demo guide
       </button>
     );
   }
@@ -192,19 +197,20 @@ export const DemoBar: React.FC<DemoBarProps> = ({
   return (
     <aside
       aria-label="Demo guide bar"
+      className="hide-on-mobile"
       style={{
         position: 'fixed',
-        bottom: '1rem',
-        left: '1rem',
-        zIndex: 900,
+        bottom: '1.25rem',
+        right: '1.25rem',
+        zIndex: 450,
         backgroundColor: 'var(--forest)',
         color: 'var(--paper-on-dark)',
         borderRadius: 'var(--radius-card)',
-        boxShadow: 'var(--shadow-overlay)',
+        boxShadow: 'var(--shadow-lg)',
         border: '1px solid var(--line-on-dark)',
         padding: '0.75rem 1rem',
-        width: 'calc(100vw - 2rem)',
-        maxWidth: '430px',
+        width: 'calc(100vw - 2.5rem)',
+        maxWidth: '410px',
         fontSize: '0.8125rem',
         display: 'flex',
         flexDirection: 'column',
@@ -219,7 +225,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <Sparkles size={15} color="var(--teal-on-dark)" />
           <span style={{ fontWeight: 600 }}>
-            {isLiveSandbox ? 'LIVE SANDBOX VERIFIED' : 'Demo mode: sandbox prototype'}
+            {isLiveSandbox ? 'Live sandbox active' : 'Demo mode: sandbox prototype'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -471,8 +477,8 @@ export const DemoBar: React.FC<DemoBarProps> = ({
             overflowY: 'auto',
           }}
         >
-          <div style={{ fontSize: '0.6875rem', textTransform: 'uppercase', opacity: 0.75, marginBottom: '0.35rem' }}>
-            5-Beat Demo Journey
+          <div style={{ fontSize: '0.75rem', opacity: 0.78, marginBottom: '0.35rem' }}>
+            Step-by-step demo journey
           </div>
           <ol
             style={{
@@ -526,7 +532,7 @@ export const DemoBar: React.FC<DemoBarProps> = ({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: isCurrent ? 600 : 500, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <span>{step.label}</span>
-                      <span style={{ fontSize: '0.625rem', opacity: 0.65, textTransform: 'uppercase' }}>({step.role})</span>
+                      <span style={{ fontSize: '0.6875rem', opacity: 0.72 }}>({step.role})</span>
                     </div>
                     <div style={{ fontSize: '0.6875rem', opacity: 0.75, lineHeight: 1.3, marginTop: '0.1rem' }}>
                       {step.description}

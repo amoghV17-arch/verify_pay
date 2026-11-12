@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   CheckCircle2,
   XCircle,
@@ -134,7 +135,7 @@ export const ProofPage: React.FC = () => {
 
   const runSelfTest = () => {
     setSelfTestLoading(true);
-    fetch('/api/proof/self-test', { method: 'POST' })
+    apiRawFetch('/api/proof/self-test', { method: 'POST' })
       .then((res) => res.json())
       .then((data) => {
         setSelfTestResults(data);

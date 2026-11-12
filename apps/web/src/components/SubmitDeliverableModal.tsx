@@ -4,6 +4,7 @@
  * Per DESIGN.md: minimal, keyboard-operable, aria-live for status.
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { apiRawFetch } from '../lib/api.js';
 
 export type DeliverableKind = 'text' | 'repo' | 'url' | 'image' | 'document';
 
@@ -75,11 +76,10 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
     const payload = ['url', 'repo', 'image'].includes(kind) ? { url: content.trim() } : { text: content.trim() };
 
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/submit`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind, payload }),
-        credentials: 'include',
       });
 
       if (!res.ok) {

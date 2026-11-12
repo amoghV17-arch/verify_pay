@@ -7,10 +7,10 @@ DEADLINE: 2026-11-08
 HOURS_PER_DAY_AVAILABLE: any number of hours
 
 <!-- DASHBOARD:START -->
-Generated: 2026-11-12T16:03:59.834Z
+Generated: 2026-11-12T19:17:29.463Z
 
-Overall (hours-weighted): [###############.....]  75%   Day 5/5, 0 day(s) left   Schedule: RED
-Current milestone: M8s A1 Screen 1 and PublicShell polish
+Overall (hours-weighted): [####################]  99%   Day 5/5, 0 day(s) left   Schedule: GREEN
+Current milestone: M13 Video and submission
 
 | Milestone | Est (h) | Tasks | Progress |
 |---|---:|---:|---|
@@ -41,13 +41,13 @@ Current milestone: M8s A1 Screen 1 and PublicShell polish
 | M8p L4 Proof API and UI | 5 | 5/5 | [####################] 100% |
 | M8q L5 Live acceptance and runbook rehearsal | 4 | 4/4 | [####################] 100% |
 | M8r A0 Audit and plan (read-only) | 2 | 4/4 | [####################] 100% |
-| M8s A1 Screen 1 and PublicShell polish | 3 | 0/3 | [....................]   0% |
-| M8t A2 Auth backend core, security headers, and email system | 8 | 0/5 | [....................]   0% |
-| M8u A3 Ownership, membership authorization, and user_id migration | 6 | 0/3 | [....................]   0% |
-| M8v A4 Frontend auth screens, route guards, onboarding, settings | 7 | 0/5 | [....................]   0% |
-| M8w A5 Shell navigation, workspace switcher, notifications, help & legal pages | 6 | 0/4 | [....................]   0% |
-| M8x A6 Demo isolation, DEMO_MODE gating, Playwright helpers, seed cleanup | 5 | 0/4 | [....................]   0% |
-| M8y A7 Full verification, E2E test suite, security checks, screenshot review | 5 | 0/3 | [....................]   0% |
+| M8s A1 Screen 1 and PublicShell polish | 3 | 3/3 | [####################] 100% |
+| M8t A2 Auth backend core, security headers, and email system | 8 | 5/5 | [####################] 100% |
+| M8u A3 Ownership, membership authorization, and user_id migration | 6 | 3/3 | [####################] 100% |
+| M8v A4 Frontend auth screens, route guards, onboarding, settings | 7 | 5/5 | [####################] 100% |
+| M8w A5 Shell navigation, workspace switcher, notifications, help & legal pages | 6 | 4/4 | [####################] 100% |
+| M8x A6 Demo isolation, DEMO_MODE gating, Playwright helpers, seed cleanup | 5 | 4/4 | [####################] 100% |
+| M8y A7 Full verification, E2E test suite, security checks, screenshot review | 5 | 3/3 | [####################] 100% |
 | M9 The settle moment and polish (feature freeze) | 3 | 5/5 | [####################] 100% |
 | M10 Hardening, evals, failure drills | 5 | 12/12 | [####################] 100% |
 | M11 Deploy | 3 | 7/7 | [####################] 100% |
@@ -369,3 +369,4 @@ Append-only. Use `node scripts/progress.mjs --log "note"`.
   - Next session must know:
     - Run in milestone mode: stop after each A-phase, tag `acct-<a#>-done`, and do not run tests/`pnpm verify`/Playwright until A7.
     - Schedule reads RED on dashboard because `DEADLINE` in `docs/PROGRESS.md` is still `2026-11-08` (pre-existing hackathon date; owner controls `START_DATE`/`DEADLINE`).
+- 2026-11-12 19:17 | M13 | overall 99% | GREEN | Completed Phases A1-A7 accounts, auth, security, SEO, responsive UI, and full verification

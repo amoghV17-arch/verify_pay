@@ -14,6 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
+import { apiRawFetch } from '../../lib/api.js';
 
 type PresetView = 'overview' | 'deliverables' | 'schedule' | 'payments';
 
@@ -79,23 +80,23 @@ export const SplitDemoPage: React.FC = () => {
     switch (presetKey) {
       case 'overview':
         return {
-          clientPath: `/client/projects/${projectId}/overview`,
-          freelancerPath: `/freelancer/projects/${projectId}/overview`,
+          clientPath: `/client/projects/${projectId}/overview?demoSlot=client`,
+          freelancerPath: `/freelancer/projects/${projectId}/overview?demoSlot=freelancer`,
         };
       case 'deliverables':
         return {
-          clientPath: `/client/projects/${projectId}/deliverables`,
-          freelancerPath: `/freelancer/projects/${projectId}/deliverables`,
+          clientPath: `/client/projects/${projectId}/deliverables?demoSlot=client`,
+          freelancerPath: `/freelancer/projects/${projectId}/deliverables?demoSlot=freelancer`,
         };
       case 'schedule':
         return {
-          clientPath: `/client/projects/${projectId}/schedule`,
-          freelancerPath: `/freelancer/projects/${projectId}/schedule`,
+          clientPath: `/client/projects/${projectId}/schedule?demoSlot=client`,
+          freelancerPath: `/freelancer/projects/${projectId}/schedule?demoSlot=freelancer`,
         };
       case 'payments':
         return {
-          clientPath: `/client/projects/${projectId}/payments`,
-          freelancerPath: `/freelancer/projects/${projectId}/payments`,
+          clientPath: `/client/projects/${projectId}/payments?demoSlot=client`,
+          freelancerPath: `/freelancer/projects/${projectId}/payments?demoSlot=freelancer`,
         };
     }
   }
@@ -118,7 +119,7 @@ export const SplitDemoPage: React.FC = () => {
     setIsResetting(true);
     setResetSuccess(false);
     try {
-      await fetch('/api/demo/reset', { method: 'POST', credentials: 'include' });
+      await apiRawFetch('/api/demo/reset', { method: 'POST', body: JSON.stringify({}) });
       setResetSuccess(true);
       handleRefreshBoth();
     } catch {

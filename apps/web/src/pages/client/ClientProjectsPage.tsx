@@ -5,6 +5,7 @@ import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { Dialog } from '../../components/ui/Dialog.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   ProjectCategoryList,
   type ProjectListItem,
@@ -32,12 +33,7 @@ export const ClientProjectsPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      const res = await fetch('/api/projects', {
-        credentials: 'include',
-        headers: {
-          'X-Persona': 'client',
-        },
-      });
+      const res = await apiRawFetch('/api/projects');
 
       if (!res.ok) {
         throw new Error(`Failed to load projects: ${res.statusText}`);
@@ -55,10 +51,7 @@ export const ClientProjectsPage: React.FC = () => {
             return;
           }
           try {
-            const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`, {
-              credentials: 'include',
-              headers: { 'X-Persona': 'client' },
-            });
+            const ledgerRes = await apiRawFetch(`/api/projects/${p.id}/ledger`);
             if (ledgerRes.ok) {
               const ledgerData = await ledgerRes.json();
               ledgers[p.id] = extractLedgerBalances(ledgerData);
@@ -88,10 +81,8 @@ export const ClientProjectsPage: React.FC = () => {
     setIsMutating(true);
     setMutationError(null);
     try {
-      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+      const res = await apiRawFetch(`/api/projects/${projectToDelete.id}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: { 'X-Persona': 'client' },
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
@@ -111,12 +102,10 @@ export const ClientProjectsPage: React.FC = () => {
     setIsMutating(true);
     setMutationError(null);
     try {
-      const res = await fetch(`/api/projects/${projectToManage.id}`, {
+      const res = await apiRawFetch(`/api/projects/${projectToManage.id}`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
         body: JSON.stringify({ status }),
       });

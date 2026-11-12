@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../components/ui/Button.js';
+import { apiRawFetch } from '../lib/api.js';
 import { StatusBadge, type MoneyState } from '../components/ui/StatusBadge.js';
 import { EvidenceChip, type DeliverableType } from '../components/ui/EvidenceChip.js';
 import { LifecycleProgress } from '../components/ui/LifecycleProgress.js';
@@ -163,18 +164,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
       setLoadError(null);
       try {
         const [msRes, delivRes, revRes] = await Promise.all([
-          fetch(`/api/projects/${projectId}/milestones`, {
-            credentials: 'include',
-            headers: { 'X-Persona': role },
-          }),
-          fetch(`/api/projects/${projectId}/deliverables`, {
-            credentials: 'include',
-            headers: { 'X-Persona': role },
-          }).catch(() => null),
-          fetch(`/api/projects/${projectId}/reviews`, {
-            credentials: 'include',
-            headers: { 'X-Persona': role },
-          }).catch(() => null),
+          apiRawFetch(`/api/projects/${projectId}/milestones`),
+          apiRawFetch(`/api/projects/${projectId}/deliverables`).catch(() => null),
+          apiRawFetch(`/api/projects/${projectId}/reviews`).catch(() => null),
         ]);
 
         if (msRes.ok) {
@@ -237,10 +229,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
     setIsSubmittingAction(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/milestones/${milestone.id}/release`, {
+      const res = await apiRawFetch(`/api/milestones/${milestone.id}/release`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'client', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -264,10 +255,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
     setIsSubmittingAction(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/milestones/${milestone.id}/request-changes`, {
+      const res = await apiRawFetch(`/api/milestones/${milestone.id}/request-changes`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Persona': 'client', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: changesReason.trim() }),
       });
       if (!res.ok) {

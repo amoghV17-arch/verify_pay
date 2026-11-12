@@ -13,6 +13,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
+import { apiRawFetch } from '../../lib/api.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface DemoStatusData {
   success: boolean;
@@ -40,6 +42,7 @@ interface PreparedDeliverable {
 
 export const DemoLandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { refreshAuth } = useAuth();
 
   const [statusData, setStatusData] = useState<DemoStatusData | null>(null);
   const [preparedDeliverables, setPreparedDeliverables] = useState<Record<string, PreparedDeliverable> | null>(null);
@@ -82,12 +85,11 @@ export const DemoLandingPage: React.FC = () => {
     setIsLaunching(true);
     setLaunchError(null);
     try {
-      const res = await fetch('/api/demo/session', {
+      const res = await apiRawFetch('/api/demo/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
-          title: 'Judge Evaluation Project',
+          title: 'Demo Evaluation Project',
           brief: 'Build a responsive brand marketing website with design system, user wireframes, and verified milestone payouts.',
         }),
       });
@@ -98,6 +100,7 @@ export const DemoLandingPage: React.FC = () => {
       }
 
       const data = await res.json();
+      await refreshAuth();
       const projectId = data.session?.projectId;
 
       // Navigate to split view scoped to this judge's isolated project
@@ -230,7 +233,7 @@ export const DemoLandingPage: React.FC = () => {
               <ArrowRight size={18} />
             </Button>
 
-            <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+            <div style={{ textAlign: 'center', marginTop: '0.75rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => navigate('/demo/split')}
@@ -244,6 +247,20 @@ export const DemoLandingPage: React.FC = () => {
                 }}
               >
                 Or explore canonical demo project &rarr;
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/demo/mailbox')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--teal)',
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Open demo mailbox
               </button>
             </div>
           </div>

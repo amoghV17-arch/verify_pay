@@ -10,12 +10,12 @@ import {
   hashInviteValue,
   resetInviteRateLimits,
 } from '../services/invite.js';
-import { createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 import { loadConfig } from '@milestone/shared';
 
 describe('M8d Phase P3: Invites Architecture Suite', () => {
   let server: ReturnType<typeof buildServer>;
-  let clientCookie: string;
+  let clientHeaders: Record<string, string>;
 
   beforeEach(async () => {
     resetInviteRateLimits();
@@ -30,12 +30,12 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
     });
     server = buildServer(config);
 
-    const clientToken = await createSessionToken({
+    const clientUser = await createTestUserSession({
       userId: 'user_client_01',
       role: 'client',
       name: 'Sarah Lin (Acme Corp)',
     });
-    clientCookie = `ms_client=${clientToken}; milestone_session=${clientToken}`;
+    clientHeaders = clientUser.headers;
   });
 
   afterEach(async () => {
@@ -74,10 +74,7 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: {
-          cookie: clientCookie,
-          'x-persona': 'client',
-        },
+        headers: { ...clientHeaders },
         payload: { expiryDays: 7, maxUses: 1 },
       });
 
@@ -107,18 +104,18 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
 
       const res = await server.inject({
         method: 'GET',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
 
       expect(res.statusCode).toBe(200);
@@ -131,7 +128,7 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       const createRes = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       const { invite } = createRes.json();
 
@@ -139,7 +136,7 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       const revokeRes = await server.inject({
         method: 'POST',
         url: `/api/invites/${invite.id}/revoke`,
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       expect(revokeRes.statusCode).toBe(200);
 
@@ -159,7 +156,7 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       const createRes = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       const { invite } = createRes.json();
 
@@ -214,20 +211,26 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       expect(expiredRes.json().message).toBe('This invitation is no longer valid.');
     });
 
-    it('freelancer can accept invite, receives ms_freelancer cookie, and project records membership', async () => {
+    it('freelancer can accept invite, and project records membership', async () => {
       const createRes = await server.inject({
         method: 'POST',
         url: '/api/projects/proj_brand_launch/invites',
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
       const { invite } = createRes.json();
+
+      const priyaUser = await createTestUserSession({
+        userId: 'user_priya_01',
+        email: 'priya@freelance.studio',
+        name: 'Priya Sharma',
+        role: 'freelancer',
+      });
 
       const acceptRes = await server.inject({
         method: 'POST',
         url: `/api/invites/${invite.code}/accept`,
+        headers: { ...priyaUser.headers },
         payload: {
-          name: 'Priya Sharma',
-          email: 'priya@freelance.studio',
           paypalEmail: 'priya-sandbox@freelance.studio',
         },
       });
@@ -235,14 +238,6 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       expect(acceptRes.statusCode).toBe(200);
       const data = acceptRes.json();
       expect(data.success).toBe(true);
-      expect(data.user.name).toBe('Priya Sharma');
-      expect(data.user.role).toBe('freelancer');
-
-      // Verify ms_freelancer cookie was set
-      const cookies = acceptRes.cookies;
-      const freelancerCookie = cookies.find((c) => c.name === 'ms_freelancer');
-      expect(freelancerCookie).toBeDefined();
-      expect(freelancerCookie?.httpOnly).toBe(true);
 
       // Verify project freelancerId was updated in database
       const db = getDb();
@@ -250,16 +245,23 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
         .select()
         .from(projects)
         .where(eq(projects.id, 'proj_brand_launch'));
-      expect(proj.freelancerId).toBe(data.user.id);
+      expect(proj.freelancerId).toBe(priyaUser.userId);
       expect(proj.freelancerPaypalEmail).toBe('priya-sandbox@freelance.studio');
 
       // Verify single-use invite cannot be accepted a second time
+      const anotherUser = await createTestUserSession({
+        userId: 'user_another_01',
+        email: 'another@freelance.studio',
+        name: 'Another Freelancer',
+        role: 'freelancer',
+      });
+
       const secondAcceptRes = await server.inject({
         method: 'POST',
         url: `/api/invites/${invite.code}/accept`,
+        headers: { ...anotherUser.headers },
         payload: {
-          name: 'Another Freelancer',
-          email: 'another@freelance.studio',
+          paypalEmail: 'another-sandbox@freelance.studio',
         },
       });
       expect(secondAcceptRes.statusCode).toBe(400);
@@ -306,7 +308,7 @@ describe('M8d Phase P3: Invites Architecture Suite', () => {
       const orderRes = await server.inject({
         method: 'POST',
         url: `/api/projects/${newProj.id}/fund/order`,
-        headers: { cookie: clientCookie, 'x-persona': 'client' },
+        headers: { ...clientHeaders },
       });
 
       expect(orderRes.statusCode).toBe(400);

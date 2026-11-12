@@ -19,6 +19,7 @@ import {
 import { formatCents, type ComputedPlan } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Field, Input, Textarea } from '../../components/ui/Field.js';
+import { apiRawFetch } from '../../lib/api.js';
 
 interface EditableMilestone {
   id: string;
@@ -91,6 +92,8 @@ export const NewProjectWizard: React.FC = () => {
     expiresAt: string;
   } | null>(null);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [invitedEmail, setInvitedEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [acceptedFreelancer, setAcceptedFreelancer] = useState<{ name: string; email: string } | null>(null);
   const [copyCodeSuccess, setCopyCodeSuccess] = useState(false);
   const [copyLinkSuccess, setCopyLinkSuccess] = useState(false);
@@ -127,31 +130,17 @@ export const NewProjectWizard: React.FC = () => {
       // 1. Create or ensure project draft exists in DB
       let targetProjectId = projectId;
       if (!targetProjectId) {
-        const postDraft = () =>
-          fetch('/api/projects', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Persona': 'client',
-            },
-            body: JSON.stringify({
-              title: title || 'New Milestone Project',
-              brief,
-              totalBudget,
-            }),
-          });
-
-        let createRes = await postDraft();
-        if (createRes.status === 403) {
-          await fetch('/api/auth/persona', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ persona: 'client' }),
-          });
-          createRes = await postDraft();
-        }
+        const createRes = await apiRawFetch('/api/projects', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: title || 'New Milestone Project',
+            brief,
+            totalBudget,
+          }),
+        });
 
         if (!createRes.ok) {
           const errBody = await createRes.json().catch(() => null);
@@ -167,12 +156,10 @@ export const NewProjectWizard: React.FC = () => {
       }
 
       // 2. Call AI Planner endpoint
-      const planRes = await fetch('/api/projects/plan', {
+      const planRes = await apiRawFetch('/api/projects/plan', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
         body: JSON.stringify({
           brief,
@@ -251,27 +238,13 @@ export const NewProjectWizard: React.FC = () => {
         }),
       };
 
-      const postApply = () =>
-        fetch(`/api/projects/${projectId}/plan/apply`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Persona': 'client',
-          },
-          body: JSON.stringify({ plan }),
-        });
-
-      let res = await postApply();
-      if (res.status === 403) {
-        await fetch('/api/auth/persona', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ persona: 'client' }),
-        });
-        res = await postApply();
-      }
+      const res = await apiRawFetch(`/api/projects/${projectId}/plan/apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plan }),
+      });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -288,38 +261,33 @@ export const NewProjectWizard: React.FC = () => {
   };
 
   // Step 3: Create Invite
-  const handleCreateInvite = async () => {
+  const handleCreateInvite = async (targetEmail?: string) => {
     if (!projectId) return;
     setIsCreatingInvite(true);
+    setInviteError(null);
     try {
-      const postInvite = () =>
-        fetch(`/api/projects/${projectId}/invites`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Persona': 'client',
-          },
-          body: JSON.stringify({ expiryDays: 7, maxUses: 1 }),
-        });
-
-      let res = await postInvite();
-      if (res.status === 403) {
-        await fetch('/api/auth/persona', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ persona: 'client' }),
-        });
-        res = await postInvite();
-      }
+      const res = await apiRawFetch(`/api/projects/${projectId}/invites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expiryDays: 7,
+          maxUses: 1,
+          ...(targetEmail?.trim() ? { invitedEmail: targetEmail.trim() } : {}),
+        }),
+      });
 
       if (res.ok) {
         const data = await res.json();
         setInviteData(data.invite);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setInviteError(errData.message || errData.error || 'Failed to create invite.');
       }
     } catch (err) {
       console.error('Invite creation failed:', err);
+      setInviteError('Network error while creating invite.');
     } finally {
       setIsCreatingInvite(false);
     }
@@ -332,10 +300,7 @@ export const NewProjectWizard: React.FC = () => {
 
     const hydrateProject = async () => {
       try {
-        const res = await fetch(`/api/projects/${projectId}`, {
-          credentials: 'include',
-          headers: { 'X-Persona': 'client' },
-        });
+        const res = await apiRawFetch(`/api/projects/${projectId}`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (cancelled) return;
@@ -407,10 +372,7 @@ export const NewProjectWizard: React.FC = () => {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/projects/${projectId}`, {
-          credentials: 'include',
-          headers: { 'X-Persona': 'client' },
-        });
+        const res = await apiRawFetch(`/api/projects/${projectId}`);
         if (res.ok) {
           const data = await res.json();
           if (data.project?.freelancerId && data.freelancer) {
@@ -428,37 +390,6 @@ export const NewProjectWizard: React.FC = () => {
     return () => clearInterval(interval);
   }, [currentStep, projectId, inviteData]);
 
-  // Demo helper: simulate freelancer accepting the invitation
-  const handleSimulateAccept = async () => {
-    if (!inviteData) return;
-    try {
-      const res = await fetch(`/api/invites/${inviteData.code}/accept`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Persona': 'freelancer',
-        },
-        body: JSON.stringify({
-          name: 'Freelancer Partner',
-          email: 'freelancer@sandbox.paypal.com',
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.freelancer) {
-          setAcceptedFreelancer({
-            name: data.freelancer.name,
-            email: data.freelancer.email,
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   // Shared capture helper used by both mock immediate capture and PayPal Sandbox redirect return
   const captureOrder = useCallback(
     async (targetProjectId: string, orderId: string) => {
@@ -467,27 +398,13 @@ export const NewProjectWizard: React.FC = () => {
       setPendingApprovalUrl(null);
 
       try {
-        const postCapture = () =>
-          fetch(`/api/projects/${targetProjectId}/fund/capture`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Persona': 'client',
-            },
-            body: JSON.stringify({ orderId }),
-          });
-
-        let captureRes = await postCapture();
-        if (captureRes.status === 403) {
-          await fetch('/api/auth/persona', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ persona: 'client' }),
-          });
-          captureRes = await postCapture();
-        }
+        const captureRes = await apiRawFetch(`/api/projects/${targetProjectId}/fund/capture`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId }),
+        });
 
         if (!captureRes.ok) {
           const errData = await captureRes.json().catch(() => ({}));
@@ -547,27 +464,13 @@ export const NewProjectWizard: React.FC = () => {
       const cancelUrl = `${baseWizardUrl}&paypalCancel=1`;
 
       // 1. Create funding order
-      const postOrder = () =>
-        fetch(`/api/projects/${projectId}/fund/order`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Persona': 'client',
-          },
-          body: JSON.stringify({ returnUrl, cancelUrl }),
-        });
-
-      let orderRes = await postOrder();
-      if (orderRes.status === 403) {
-        await fetch('/api/auth/persona', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ persona: 'client' }),
-        });
-        orderRes = await postOrder();
-      }
+      const orderRes = await apiRawFetch(`/api/projects/${projectId}/fund/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ returnUrl, cancelUrl }),
+      });
 
       if (!orderRes.ok) {
         const errData = await orderRes.json().catch(() => ({}));
@@ -1205,6 +1108,37 @@ export const NewProjectWizard: React.FC = () => {
               </>
             )}
 
+            {/* Optional Freelancer Email Target */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label htmlFor="wizard-invite-email" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-2)' }}>
+                Send directly to freelancer email (optional)
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  id="wizard-invite-email"
+                  type="email"
+                  className="ms-input"
+                  style={{ flex: 1, minWidth: '220px' }}
+                  placeholder="freelancer@example.com"
+                  value={invitedEmail}
+                  onChange={(e) => setInvitedEmail(e.target.value)}
+                />
+                <Button
+                  variant="secondary"
+                  isLoading={isCreatingInvite}
+                  disabled={!invitedEmail.trim()}
+                  onClick={() => void handleCreateInvite(invitedEmail)}
+                >
+                  Create &amp; send email invite
+                </Button>
+              </div>
+              {inviteError && (
+                <div style={{ fontSize: '0.82rem', color: 'var(--danger)' }} role="alert">
+                  {inviteError}
+                </div>
+              )}
+            </div>
+
             {/* Waiting State or Accepted Banner */}
             {!acceptedFreelancer ? (
               <div
@@ -1223,27 +1157,9 @@ export const NewProjectWizard: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Clock size={18} className="animate-spin" style={{ color: 'var(--ink-3)' }} />
                   <span style={{ fontSize: '0.875rem', color: 'var(--ink-2)' }}>
-                    Waiting for freelancer to accept invitation...
+                    Waiting for your freelancer to sign in and accept this invitation link…
                   </span>
                 </div>
-
-                {/* Demo Helper: Simulate acceptance */}
-                <button
-                  type="button"
-                  onClick={handleSimulateAccept}
-                  style={{
-                    backgroundColor: 'var(--forest-10)',
-                    border: '1px solid var(--forest)',
-                    borderRadius: 'var(--radius-btn)',
-                    padding: '0.4rem 0.75rem',
-                    fontSize: '0.8125rem',
-                    color: 'var(--forest)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ⚡ Simulate Acceptance (Demo)
-                </button>
               </div>
             ) : (
               <div

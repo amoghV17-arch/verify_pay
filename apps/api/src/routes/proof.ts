@@ -29,7 +29,7 @@ export async function registerProofRoutes(server: FastifyInstance): Promise<void
   const config = (server as any).appConfig;
   const paypalAdapter: PayPalPort = (server as any).paypalAdapter;
 
-  // 1. GET /api/proof/projects/:id - Incontrovertible Proof & Reconciliation API
+  // 1. GET /api/proof/projects/:id - Protected by membership (or DEMO_MODE for demo projects)
   server.get<{ Params: { id: string } }>('/api/proof/projects/:id', async (req, reply) => {
     const { id: projectId } = req.params;
     const db = getDb();
@@ -37,6 +37,18 @@ export async function registerProofRoutes(server: FastifyInstance): Promise<void
     const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
     if (!project) {
       return reply.code(404).send({ error: 'Project not found' });
+    }
+
+    const isDemoAllowed = Boolean(config?.DEMO_MODE && project.isDemo);
+    const userId = req.user?.userId;
+    const isMember = Boolean(userId && (project.clientId === userId || project.freelancerId === userId));
+    if (!isMember && !isDemoAllowed) {
+      return reply.code(userId ? 403 : 401).send({
+        error: userId ? 'Forbidden' : 'Unauthorized',
+        message: userId
+          ? 'You are not an authorized member of this project.'
+          : 'Please log in to inspect project proof.',
+      });
     }
 
     const projectMilestones = await fetchOrderedMilestones(db, projectId);

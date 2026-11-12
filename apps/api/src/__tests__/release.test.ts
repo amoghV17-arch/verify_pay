@@ -9,7 +9,7 @@ import { LedgerService } from '../services/ledger.js';
 import { ReconcilerService } from '../services/reconciler.js';
 import { buildServer } from '../server.js';
 import { loadConfig, type PayPalPort } from '@milestone/shared';
-import { createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('Milestone M4 Payout Release Suite', () => {
@@ -19,7 +19,7 @@ describe('Milestone M4 Payout Release Suite', () => {
   let ledgerService: LedgerService;
   let reconcilerService: ReconcilerService;
   let server: FastifyInstance;
-  let clientCookie: string;
+  let clientHeaders: Record<string, string>;
 
   const testProjectId = 'proj_m4_release_test';
   const testMilestoneId = 'ms_m4_test_01';
@@ -44,8 +44,8 @@ describe('Milestone M4 Payout Release Suite', () => {
     await server.ready();
 
     // Create client session token for HTTP endpoint tests
-    const token = await createSessionToken({ userId: 'user_client_01', role: 'client' });
-    clientCookie = `milestone_session=${token}`;
+    const clientUser = await createTestUserSession({ userId: 'user_client_01', role: 'client' });
+    clientHeaders = clientUser.headers;
   }, 60000);
 
   afterAll(async () => {
@@ -242,7 +242,7 @@ describe('Milestone M4 Payout Release Suite', () => {
       method: 'POST',
       url: `/api/milestones/${testMilestoneId}/release`,
       headers: {
-        cookie: clientCookie,
+        ...clientHeaders,
       },
     });
 
@@ -256,13 +256,11 @@ describe('Milestone M4 Payout Release Suite', () => {
   });
 
   it('8. freelancer cannot trigger milestone release (HTTP 403 Forbidden)', async () => {
-    const freelancerToken = await createSessionToken({ userId: 'user_freelancer_01', role: 'freelancer' });
+    const freelancerUser = await createTestUserSession({ userId: 'user_freelancer_01', role: 'freelancer' });
     const res = await server.inject({
       method: 'POST',
       url: `/api/milestones/${testMilestoneId}/release`,
-      headers: {
-        cookie: `milestone_session=${freelancerToken}`,
-      },
+      headers: { ...freelancerUser.headers },
     });
 
     expect(res.statusCode).toBe(403);

@@ -1,9 +1,9 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, desc, and, inArray } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { eq, desc, and, inArray, or } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDb, schema } from '../db/index.js';
-import { requireRole } from '../auth/index.js';
+import { requireAuth, requireProjectMember } from '../auth/index.js';
 import { createLlmPort } from '../ai/llmFactory.js';
 import { PlannerService } from '../ai/planner.js';
 import { validatePlanGraph, computeSchedule } from '../ai/scheduler.js';
@@ -78,77 +78,91 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     };
   }
 
-  // List all projects accessible to current user
-  server.get('/api/projects', async (request: FastifyRequest, reply: FastifyReply) => {
-    const db = getDb();
-    const allProjects = await db.select().from(projects).orderBy(desc(projects.createdAt));
+  // List all projects accessible to current signed-in user (derived strictly from memberships)
+  server.get<{ Querystring: { workspace?: string } }>(
+    '/api/projects',
+    { preHandler: [requireAuth()] },
+    async (request, reply) => {
+      const db = getDb();
+      const currentUser = request.user!;
+      const wsFilter = request.query.workspace;
 
-    const isFreelancer =
-      request.user?.role === 'freelancer' ||
-      (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
+      const memberProjects = await db
+        .select()
+        .from(projects)
+        .where(
+          wsFilter === 'client'
+            ? eq(projects.clientId, currentUser.userId)
+            : wsFilter === 'freelancer'
+              ? eq(projects.freelancerId, currentUser.userId)
+              : or(eq(projects.clientId, currentUser.userId), eq(projects.freelancerId, currentUser.userId))
+        )
+        .orderBy(desc(projects.createdAt));
 
-    // Freelancers only see projects where they have accepted the invite (not unaccepted client drafts)
-    const visibleProjects = isFreelancer
-      ? allProjects.filter((p) => Boolean(p.freelancerId) && p.status !== 'draft')
-      : allProjects;
+      const visibleProjects = memberProjects.filter((p) => {
+        if (p.clientId === currentUser.userId) return true;
+        // Freelancers only see projects where they accepted and the project is not a draft
+        return p.freelancerId === currentUser.userId && p.status !== 'draft';
+      });
 
-    const projectIds = visibleProjects.map((p) => p.id);
-    const allMilestones =
-      projectIds.length > 0
-        ? await db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
-        : [];
+      const projectIds = visibleProjects.map((p) => p.id);
+      const allMilestones =
+        projectIds.length > 0
+          ? await db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
+          : [];
 
-    const milestonesByProject = new Map<string, typeof allMilestones>();
-    for (const m of allMilestones) {
-      const list = milestonesByProject.get(m.projectId) ?? [];
-      list.push(m);
-      milestonesByProject.set(m.projectId, list);
+      const milestonesByProject = new Map<string, typeof allMilestones>();
+      for (const m of allMilestones) {
+        const list = milestonesByProject.get(m.projectId) ?? [];
+        list.push(m);
+        milestonesByProject.set(m.projectId, list);
+      }
+
+      const enrichedProjects = await Promise.all(
+        visibleProjects.map(async (p) => {
+          const projMs = milestonesByProject.get(p.id) ?? [];
+          const transitionedToClosed = await syncProjectCompletionStatus(db, p.id);
+          const effectiveStatus = transitionedToClosed ? 'closed' : p.status;
+
+          const summary = await ledgerService.getProjectLedgerSummary(p.id);
+          const balances = toLedgerBalances(summary);
+          const paidCount = projMs.filter((m) => m.status === 'paid').length;
+          const activeCount = projMs.length - paidCount;
+          const isClientOwner = p.clientId === currentUser.userId;
+
+          const base = {
+            ...p,
+            status: effectiveStatus,
+            myRole: isClientOwner ? ('client' as const) : ('freelancer' as const),
+            balances,
+            milestoneStats: {
+              total: projMs.length,
+              paid: paidCount,
+              active: activeCount,
+            },
+          };
+
+          if (!isClientOwner) {
+            delete (base as { autonomyMode?: string }).autonomyMode;
+            delete (base as { releaseWindowSeconds?: number }).releaseWindowSeconds;
+          }
+          return base;
+        })
+      );
+
+      return reply.send({ success: true, projects: enrichedProjects });
     }
+  );
 
-    const enrichedProjects = await Promise.all(
-      visibleProjects.map(async (p) => {
-        const projMs = milestonesByProject.get(p.id) ?? [];
-        const transitionedToClosed = await syncProjectCompletionStatus(db, p.id);
-        const effectiveStatus = transitionedToClosed ? 'closed' : p.status;
-
-        const summary = await ledgerService.getProjectLedgerSummary(p.id);
-        const balances = toLedgerBalances(summary);
-        const paidCount = projMs.filter((m) => m.status === 'paid').length;
-        const activeCount = projMs.length - paidCount;
-
-        const base = {
-          ...p,
-          status: effectiveStatus,
-          balances,
-          milestoneStats: {
-            total: projMs.length,
-            paid: paidCount,
-            active: activeCount,
-          },
-        };
-
-        if (isFreelancer) {
-          delete (base as { autonomyMode?: string }).autonomyMode;
-          delete (base as { releaseWindowSeconds?: number }).releaseWindowSeconds;
-        }
-        return base;
-      })
-    );
-
-    return reply.send({ success: true, projects: enrichedProjects });
-  });
-
-  // Get project by ID with milestones and ledger summary
+  // Get project by ID with milestones and ledger summary (Member only)
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id',
-    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    { preHandler: [requireProjectMember('any')] },
+    async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
-
-      const [proj] = await db.select().from(projects).where(eq(projects.id, id));
-      if (!proj) {
-        return reply.status(404).send({ error: 'NotFound', message: `Project "${id}" not found.` });
-      }
+      const proj = request.project!;
+      const isFreelancer = request.projectRole === 'freelancer';
 
       const transitionedToClosed = await syncProjectCompletionStatus(db, id);
       const effectiveProject = transitionedToClosed ? { ...proj, status: 'closed' } : proj;
@@ -164,15 +178,32 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
       const summary = await ledgerService.getProjectLedgerSummary(id);
       const balances = toLedgerBalances(summary);
 
-      const [client] = await db.select().from(users).where(eq(users.id, proj.clientId));
-      const [freelancer] = proj.freelancerId
-        ? await db.select().from(users).where(eq(users.id, proj.freelancerId))
-        : [null];
+      const [clientRow] = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          displayName: users.displayName,
+          email: users.email,
+          avatarColor: users.avatarColor,
+          company: users.company,
+        })
+        .from(users)
+        .where(eq(users.id, proj.clientId));
 
-      // Role-scoped DTO: Freelancer endpoints never include autonomy settings, client notes, or invite data
-      const isFreelancer =
-        request.user?.role === 'freelancer' ||
-        (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
+      const [freelancerRow] = proj.freelancerId
+        ? await db
+            .select({
+              id: users.id,
+              name: users.name,
+              displayName: users.displayName,
+              email: users.email,
+              avatarColor: users.avatarColor,
+              company: users.company,
+              payoutPaypalEmail: users.payoutPaypalEmail,
+            })
+            .from(users)
+            .where(eq(users.id, proj.freelancerId))
+        : [null];
 
       const projectDto = isFreelancer
         ? {
@@ -184,9 +215,20 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
 
       return reply.send({
         success: true,
+        myRole: request.projectRole,
         project: projectDto,
-        client,
-        freelancer,
+        client: clientRow
+          ? {
+              ...clientRow,
+              name: clientRow.displayName || clientRow.name,
+            }
+          : null,
+        freelancer: freelancerRow
+          ? {
+              ...freelancerRow,
+              name: freelancerRow.displayName || freelancerRow.name,
+            }
+          : null,
         milestones: projMilestones.map(formatMilestoneRecord),
         ledger: {
           entries: projLedger.map(formatLedgerEntry),
@@ -197,11 +239,17 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     }
   );
 
-  // Create a new project draft (Role: client)
+  // Create a new project draft (Signed-in user becomes clientId)
   server.post<{ Body: { title?: string; brief: string; totalBudget?: number } }>(
     '/api/projects',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireAuth()] },
     async (request, reply) => {
+      if (request.user?.role === 'freelancer') {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: 'Only clients can create projects. Switch to the client workspace to create a project.',
+        });
+      }
       const db = getDb();
       const { title, brief, totalBudget } = request.body || {};
       const briefValidation = validateBriefLength(brief || '');
@@ -209,39 +257,21 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         return reply.status(400).send({ error: 'ValidationError', message: briefValidation.error });
       }
 
+      const appConfig = (server as unknown as { appConfig?: AppConfig }).appConfig;
+      const isDemoUser = Boolean(request.user?.isDemo);
+      const isDemoCap = isDemoUser || Boolean(appConfig?.DEMO_MODE);
+
       const id = `proj_${randomUUID().substring(0, 8)}`;
       const numericBudget = Number(totalBudget);
-      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : 2000;
+      const safeBudget = Number.isFinite(numericBudget) && numericBudget > 0 ? numericBudget : (isDemoCap ? 400 : 2000);
       const totalCents = Math.round(safeBudget * 100);
-
-      const appConfig = (server as unknown as { appConfig?: AppConfig }).appConfig;
-      const isDemo = Boolean(appConfig?.DEMO_MODE || process.env.DEMO_MODE === 'true');
-      const budgetValidation = validateDemoBudget(totalCents, isDemo);
+      const budgetValidation = validateDemoBudget(totalCents, isDemoCap);
       if (!budgetValidation.valid) {
         return reply.status(400).send({ error: 'ValidationError', message: budgetValidation.error });
       }
 
       try {
-        let clientId = request.user?.userId || 'user_client_01';
-        const [existingClient] = await db
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.id, clientId))
-          .limit(1);
-
-        if (!existingClient) {
-          clientId = 'user_client_01';
-          await db
-            .insert(users)
-            .values({
-              id: 'user_client_01',
-              name: 'Sarah Lin (Acme Corp)',
-              email: 'sarah@acme-corp.com',
-              avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-            })
-            .onConflictDoNothing();
-        }
-
+        const clientId = request.user!.userId;
         const [newProject] = await db
           .insert(projects)
           .values({
@@ -255,7 +285,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
             releaseWindowSeconds: 20,
             clientId,
             freelancerId: null,
-            isDemo: false,
+            isDemo: isDemoUser,
           })
           .returning();
 
@@ -274,7 +304,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // Update project settings or lifecycle status (Role: client only)
   server.patch<{ Params: { id: string }; Body: { title?: string; autonomyMode?: string; releaseWindowSeconds?: number; status?: string } }>(
     '/api/projects/:id',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireProjectMember('client')] },
     async (request, reply) => {
       const parsed = PatchProjectBodySchema.safeParse(request.body ?? {});
       if (!parsed.success) {
@@ -326,7 +356,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // Permanently delete a project and its workspace data (Role: client only)
   server.delete<{ Params: { id: string } }>(
     '/api/projects/:id',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireProjectMember('client')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -366,6 +396,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // List tasks for a project
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/tasks',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -386,6 +417,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // List milestones for a project
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/milestones',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -397,6 +429,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // List deliverables and associated reviews/milestones for a project
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/deliverables',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -460,6 +493,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // List reviews for a project
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/reviews',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const { id } = request.params;
       const projReviews = await fetchFormattedProjectReviews(id);
@@ -470,6 +504,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // List activity trail for a project
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/activity',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -485,6 +520,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // Comprehensive audit export (JSON)
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/audit',
+    { preHandler: [requireProjectMember('any')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -534,7 +570,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   // Planner Endpoints (M5)
   // ==========================================
 
-  // Generate an AI project plan from brief (Role: client only)
+  // Generate an AI project plan from brief
   server.post<{
     Body: {
       brief: string;
@@ -544,7 +580,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     };
   }>(
     '/api/projects/plan',
-    { preHandler: [requireRole(['client']), createRateLimitHandler('planner', 10, 60_000)] },
+    { preHandler: [requireAuth(), createRateLimitHandler('planner', 10, 60_000)] },
     async (request, reply) => {
       const { brief, totalBudget, durationHint, currency } = request.body || {};
       const briefValidation = validateBriefLength(brief || '');
@@ -618,7 +654,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     Body: { plan: ComputedPlan };
   }>(
     '/api/projects/:id/plan/apply',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireProjectMember('client')] },
     async (request, reply) => {
       const db = getDb();
       const { id } = request.params;
@@ -818,7 +854,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     Body: { criteria: Array<{ id: string; description: string; passed?: boolean }> };
   }>(
     '/api/projects/:id/milestones/:milestoneId/criteria',
-    { preHandler: [requireRole(['client'])] },
+    { preHandler: [requireProjectMember('client')] },
     async (request, reply) => {
       const db = getDb();
       const { id, milestoneId } = request.params;
@@ -863,7 +899,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     Body: { percentDone: number };
   }>(
     '/api/projects/:id/tasks/:taskId/progress',
-    { preHandler: [requireRole(['freelancer'])] },
+    { preHandler: [requireProjectMember('freelancer')] },
     async (request, reply) => {
       const db = getDb();
       const { id, taskId } = request.params;

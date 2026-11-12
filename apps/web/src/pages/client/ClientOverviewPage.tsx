@@ -14,6 +14,7 @@ import { Button } from '../../components/ui/Button.js';
 import { LifecycleProgress } from '../../components/ui/LifecycleProgress.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { Avatar } from '../../components/ui/Skeleton.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   extractLedgerBalances,
   formatTimeSafe,
@@ -88,14 +89,8 @@ export const ClientOverviewPage: React.FC = () => {
         setError(null);
 
         const [projRes, activityRes] = await Promise.all([
-          fetch(`/api/projects/${id}`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'client' },
-          }),
-          fetch(`/api/projects/${id}/activity`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'client' },
-          }),
+          apiRawFetch(`/api/projects/${id}`),
+          apiRawFetch(`/api/projects/${id}/activity`),
         ]);
 
         if (!projRes.ok) {
@@ -163,11 +158,10 @@ export const ClientOverviewPage: React.FC = () => {
     if (!id) return;
     setIsChangingAutonomy(true);
     try {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await apiRawFetch(`/api/projects/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
         body: JSON.stringify({ autonomyMode: newMode }),
       });
@@ -185,11 +179,10 @@ export const ClientOverviewPage: React.FC = () => {
   const handleReleasePayout = async (milestoneId: string) => {
     setIsReleasing(true);
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/release`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/release`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
       });
       if (res.ok) {
@@ -206,11 +199,10 @@ export const ClientOverviewPage: React.FC = () => {
   // Client objection to assisted release
   const handleObjectToRelease = async (milestoneId: string) => {
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/object`, {
+      const res = await apiRawFetch(`/api/milestones/${milestoneId}/object`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Persona': 'client',
         },
         body: JSON.stringify({ reason: 'Client requested review prior to release.' }),
       });

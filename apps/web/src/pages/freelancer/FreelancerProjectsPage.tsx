@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FolderKanban, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { apiRawFetch } from '../../lib/api.js';
 import {
   ProjectCategoryList,
   type ProjectListItem,
@@ -27,12 +28,7 @@ export const FreelancerProjectsPage: React.FC = () => {
       try {
         setIsLoading(true);
 
-        const res = await fetch('/api/projects', {
-          credentials: 'include',
-          headers: {
-            'X-Persona': 'freelancer',
-          },
-        });
+        const res = await apiRawFetch('/api/projects');
 
         if (!res.ok) {
           throw new Error('Failed to load freelancer projects');
@@ -53,10 +49,7 @@ export const FreelancerProjectsPage: React.FC = () => {
                 return;
               }
               try {
-                const ledgerRes = await fetch(`/api/projects/${p.id}/ledger`, {
-                  credentials: 'include',
-                  headers: { 'X-Persona': 'freelancer' },
-                });
+                const ledgerRes = await apiRawFetch(`/api/projects/${p.id}/ledger`);
                 if (ledgerRes.ok) {
                   const ledgerData = await ledgerRes.json();
                   ledgers[p.id] = extractLedgerBalances(ledgerData);

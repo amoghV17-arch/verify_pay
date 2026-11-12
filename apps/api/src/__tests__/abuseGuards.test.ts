@@ -212,6 +212,7 @@ describe('Abuse Guards & Demo Session Isolation (docs/LIVE_PROOF.md §2)', () =>
         PAYPAL_ENV: 'mock',
         PORT: '8080',
         LLM_PROVIDER: 'fixture',
+        DEMO_MODE: 'true',
       });
       const db = await initDb({ useMemory: true });
       await seedDatabase(db);
@@ -316,7 +317,7 @@ describe('Abuse Guards & Demo Session Isolation (docs/LIVE_PROOF.md §2)', () =>
           },
           payload: {
             brief: 'Build a mobile responsive landing page',
-            totalBudget: 1000,
+            totalBudget: 400,
           },
         });
         expect(res.statusCode).toBe(200);
@@ -331,7 +332,7 @@ describe('Abuse Guards & Demo Session Isolation (docs/LIVE_PROOF.md §2)', () =>
         },
         payload: {
           brief: 'Build a mobile responsive landing page',
-          totalBudget: 1000,
+          totalBudget: 400,
         },
       });
 

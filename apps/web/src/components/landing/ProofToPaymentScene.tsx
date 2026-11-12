@@ -179,11 +179,9 @@ export const ProofToPaymentScene: React.FC = () => {
           <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
             <span
               style={{
-                fontSize: '0.8125rem',
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 color: '#7ee7d2',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
               }}
             >
               The five stages

@@ -32,7 +32,7 @@ test.describe('Phase P2: Public Marketing and Entry Suite', () => {
     await expect(page.locator('header')).toContainText('For clients');
     await expect(page.locator('header')).toContainText('For freelancers');
     await expect(page.locator('header')).toContainText('Safety');
-    await expect(page.locator('header')).toContainText('Start a project');
+    await expect(page.locator('header')).toContainText('Get started');
     await expect(page.locator('header')).toContainText('Join a project');
 
     // 2. Section 1: Hero
@@ -44,8 +44,8 @@ test.describe('Phase P2: Public Marketing and Entry Suite', () => {
     // 3. ProductPreview
     const preview = page.locator('[role="region"][aria-label="Milestone product preview demonstration"]');
     await expect(preview).toBeVisible();
-    await expect(preview).toContainText('Sample Project');
-    await expect(preview).toContainText('Interactive Prototype Verified');
+    await expect(preview).toContainText(/Sample project/i);
+    await expect(preview).toContainText(/Interactive prototype/i);
     await expect(preview).toContainText('$2,400.00');
 
     // 4. Section 2: TimelineSection
@@ -115,9 +115,8 @@ test.describe('Phase P2: Public Marketing and Entry Suite', () => {
     await expect(page.locator('h1')).toContainText('How will you use Milestone?');
     await expect(page.locator('h2:has-text("I\'m hiring")')).toBeVisible();
     await expect(page.locator('h2:has-text("I\'m delivering work")')).toBeVisible();
-    await expect(page.locator('text=Create a project')).toBeVisible();
-    await expect(page.locator('text=Join with an invite')).toBeVisible();
-    await expect(page.locator('text=Enter invite code')).toBeVisible();
+    await expect(page.locator('text=Create a client account')).toBeVisible();
+    await expect(page.locator('text=Create a freelancer account')).toBeVisible();
 
     // Accessibility check
     const a11y = await new AxeBuilder({ page }).analyze();

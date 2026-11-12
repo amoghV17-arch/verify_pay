@@ -5,13 +5,13 @@ import { buildServer } from '../server.js';
 import { initDb, closeDb, getDb, schema } from '../db/index.js';
 import { seedDatabase } from '../db/seed.js';
 import { eq } from 'drizzle-orm';
-import { createSessionToken } from '../auth/index.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 
 describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
   let server: FastifyInstance;
   let db: ReturnType<typeof getDb>;
-  let clientCookie: string;
-  let freelancerCookie: string;
+  let clientHeaders: Record<string, string>;
+  let freelancerHeaders: Record<string, string>;
 
   beforeAll(async () => {
     const config = loadConfig({
@@ -27,8 +27,10 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     server = buildServer(config);
     await server.ready();
 
-    clientCookie = await createSessionToken({ userId: 'user_client_01', role: 'client' });
-    freelancerCookie = await createSessionToken({ userId: 'user_freelancer_01', role: 'freelancer' });
+    const clientUser = await createTestUserSession({ userId: 'user_client_01', role: 'client' });
+    const freelancerUser = await createTestUserSession({ userId: 'user_freelancer_01', role: 'freelancer' });
+    clientHeaders = clientUser.headers;
+    freelancerHeaders = freelancerUser.headers;
   }, 60000);
 
   afterAll(async () => {
@@ -40,6 +42,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const response = await server.inject({
       method: 'GET',
       url: '/api/gantt/proj_brand_launch/load',
+      headers: { ...clientHeaders },
     });
 
     expect(response.statusCode).toBe(200);
@@ -77,7 +80,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: syncPayload,
     });
 
@@ -117,7 +120,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: maliciousPayload,
     });
 
@@ -152,12 +155,11 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
   });
 
   it('rejects caller with unauthorized role attempting Gantt sync mutation with HTTP 403', async () => {
-    // Generate token with an unauthorized role (e.g. 'guest')
-    const guestToken = await createSessionToken({ userId: 'user_guest', role: 'guest' as unknown as 'client' });
+    const guestUser = await createTestUserSession({ userId: 'user_unauthorized_guest' });
     const res = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: guestToken },
+      headers: { ...guestUser.headers },
       payload: {
         tasks: {
           added: [{ name: 'Guest Task', startDate: '2026-11-15', duration: 2 }],
@@ -174,7 +176,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res1 = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         tasks: {
           added: [{ name: 'Forged Milestone Task', milestoneId: 'ms_forged', duration: 1 }],
@@ -188,7 +190,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res2 = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         tasks: {
           added: [{ name: 'Zero Duration Marker', milestone: true, duration: 0 }],
@@ -203,7 +205,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         tasks: {
           removed: [{ id: 'm4' }], // m4 is linked to milestone ms-04
@@ -225,7 +227,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         tasks: {
           updated: [
@@ -246,7 +248,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: clientCookie },
+      headers: { ...clientHeaders },
       payload: {
         tasks: {
           updated: [
@@ -274,7 +276,7 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/gantt/proj_brand_launch/sync',
-      cookies: { milestone_session: freelancerCookie },
+      headers: { ...freelancerHeaders },
       payload: {
         tasks: {
           updated: [
@@ -293,20 +295,11 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
   });
 
   it('enforces role checks on protected project modifications', async () => {
-    // 1. Switch persona to freelancer
-    const authResponse = await server.inject({
-      method: 'POST',
-      url: '/api/auth/persona',
-      payload: { persona: 'freelancer' },
-    });
-    expect(authResponse.statusCode).toBe(200);
-    const cookies = authResponse.cookies;
-
-    // 2. Freelancer attempts to update project settings (restricted to client)
+    // 1. Freelancer attempts to update project settings (restricted to client)
     const patchResponse = await server.inject({
       method: 'PATCH',
       url: '/api/projects/proj_brand_launch',
-      cookies: { milestone_session: cookies[0].value },
+      headers: { ...freelancerHeaders },
       payload: { title: 'Unauthorized Project Title' },
     });
 
@@ -314,18 +307,11 @@ describe('M2 Data Layer & Gantt Sync Integration Suite', () => {
     const errorBody = patchResponse.json();
     expect(errorBody.error).toBe('Forbidden');
 
-    // 3. Switch back to client and verify it succeeds
-    const clientAuth = await server.inject({
-      method: 'POST',
-      url: '/api/auth/persona',
-      payload: { persona: 'client' },
-    });
-    const clientCookies = clientAuth.cookies;
-
+    // 2. Client updates project settings and succeeds
     const allowedPatch = await server.inject({
       method: 'PATCH',
       url: '/api/projects/proj_brand_launch',
-      cookies: { milestone_session: clientCookies[0].value },
+      headers: { ...clientHeaders },
       payload: { title: 'Brand-site Redesign (Client Updated)' },
     });
 

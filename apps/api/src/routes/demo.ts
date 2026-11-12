@@ -1,9 +1,23 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, or } from 'drizzle-orm';
+import type { AppConfig } from '@milestone/shared';
 import { getDb } from '../db/index.js';
-import { users, projects, milestones, tasks, dependencies, ledgerEntries } from '../db/schema.js';
-import { createSessionToken, setRoleSessionCookie } from '../auth/index.js';
+import {
+  users,
+  notificationPrefs,
+  projects,
+  milestones,
+  tasks,
+  dependencies,
+  ledgerEntries,
+  emailOutbox,
+} from '../db/schema.js';
+import {
+  createUserSession,
+  requireAuth,
+  setSessionCookies,
+} from '../auth/index.js';
 import {
   createRateLimitHandler,
   getDailyLlmUsage,
@@ -14,7 +28,20 @@ import {
 import { resetDemoDatabase, PREPARED_DELIVERABLES } from '../db/seed.js';
 
 export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
-  // 1. POST /api/demo/session - Per-visitor isolated demo session creation (docs/LIVE_PROOF.md §2)
+  const getConfig = (): AppConfig =>
+    (server as unknown as { appConfig: AppConfig }).appConfig;
+
+  // Enforce DEMO_MODE=true across every /api/demo/* route
+  server.addHook('preHandler', async (request, reply) => {
+    if (request.url.startsWith('/api/demo') && !getConfig().DEMO_MODE) {
+      return reply.status(404).send({
+        error: 'NotFound',
+        message: 'Demo endpoints are disabled.',
+      });
+    }
+  });
+
+  // 1. POST /api/demo/session - Per-visitor isolated demo session creation
   server.post<{
     Body?: {
       title?: string;
@@ -28,8 +55,11 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const db = getDb();
+      const cfg = getConfig();
       const body = request.body || {};
-      const brief = body.brief || 'Build and launch a responsive marketing website with automated AI review and verified PayPal milestone payouts.';
+      const brief =
+        body.brief ||
+        'Build and launch a responsive marketing website with automated AI review and verified PayPal milestone payouts.';
 
       const briefValidation = validateBriefLength(brief);
       if (!briefValidation.valid) {
@@ -41,39 +71,52 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
       const freelancerId = `freelancer_vis_${visId}`;
       const projectId = `proj_demo_${visId}`;
 
-      const clientName = `Judge Client (${visId})`;
-      const freelancerName = `Judge Freelancer (${visId})`;
+      const clientName = `Demo Client (${visId})`;
+      const freelancerName = `Demo Freelancer (${visId})`;
       const freelancerPaypalEmail =
-        process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com';
+        cfg.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com';
+      const now = new Date();
 
-      // 1. Create isolated client user
       const [clientUser] = await db
         .insert(users)
         .values({
           id: clientId,
           name: clientName,
-          email: `client-${visId}@demo.milestone.dev`,
-          avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+          displayName: clientName,
+          email: `client-${visId}@demo.example.invalid`,
+          avatarColor: '#337D70',
+          emailVerifiedAt: now,
+          lastWorkspace: 'client',
+          isDemo: true,
         })
         .returning();
 
-      // 2. Create isolated freelancer user
       const [freelancerUser] = await db
         .insert(users)
         .values({
           id: freelancerId,
           name: freelancerName,
-          email: `freelancer-${visId}@demo.milestone.dev`,
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          displayName: freelancerName,
+          email: `freelancer-${visId}@demo.example.invalid`,
+          avatarColor: '#2A6358',
+          emailVerifiedAt: now,
+          lastWorkspace: 'freelancer',
+          payoutPaypalEmail: freelancerPaypalEmail,
+          payoutEmailChangedAt: now,
+          isDemo: true,
         })
         .returning();
+
+      await db
+        .insert(notificationPrefs)
+        .values([{ userId: clientId }, { userId: freelancerId }])
+        .onConflictDoNothing();
 
       const totalCents = Math.min(
         MAX_DEMO_BUDGET_CENTS,
         body.totalBudget ? Math.round(body.totalBudget * 100) : 30000
       );
 
-      // 3. Create isolated demo project space
       const [demoProject] = await db
         .insert(projects)
         .values({
@@ -92,7 +135,6 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
         })
         .returning();
 
-      // 4. Seed initial topological milestones and tasks for this demo project
       const ms1Id = `ms1_${visId}`;
       const ms2Id = `ms2_${visId}`;
       const t1Id = `t1_${visId}`;
@@ -150,22 +192,23 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
         },
       ]);
 
-      // 5. Generate dual JWT session tokens
-      const clientToken = await createSessionToken({
+      const clientSess = await createUserSession({
         userId: clientId,
-        role: 'client',
-        name: clientName,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        slot: 'client',
+        config: cfg,
       });
-
-      const freelancerToken = await createSessionToken({
+      const freelancerSess = await createUserSession({
         userId: freelancerId,
-        role: 'freelancer',
-        name: freelancerName,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        slot: 'freelancer',
+        config: cfg,
       });
 
-      // Set cookies for dual persona access
-      setRoleSessionCookie(reply, 'client', clientToken);
-      setRoleSessionCookie(reply, 'freelancer', freelancerToken);
+      setSessionCookies(reply, clientSess.rawToken, clientSess.csrfToken, cfg, 'client');
+      setSessionCookies(reply, freelancerSess.rawToken, freelancerSess.csrfToken, cfg, 'freelancer');
 
       return reply.status(201).send({
         success: true,
@@ -176,8 +219,8 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
           client: clientUser,
           freelancer: freelancerUser,
           tokens: {
-            clientToken,
-            freelancerToken,
+            clientToken: clientSess.rawToken,
+            freelancerToken: freelancerSess.rawToken,
           },
         },
       });
@@ -186,73 +229,128 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
 
   // 2. GET /api/demo/status - Evaluator guidance, sandbox buyer, and safeguards info
   server.get('/api/demo/status', async () => {
+    const cfg = getConfig();
     return {
       success: true,
       demoMode: true,
       sandboxBuyer: {
-        email: process.env.DEMO_SANDBOX_BUYER_EMAIL || 'sb-buyer@personal.example.com',
-        password: process.env.DEMO_SANDBOX_BUYER_PASSWORD || 'SandboxPass123!',
+        email: cfg.DEMO_SANDBOX_BUYER_EMAIL || 'sb-buyer@personal.example.com',
+        password: cfg.DEMO_SANDBOX_BUYER_PASSWORD || 'SandboxPass123!',
         note: 'Sandbox test account. No real money.',
       },
       freelancerPayoutEmail:
-        process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com',
+        cfg.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com',
       llmUsage: getDailyLlmUsage(),
       budgetCapCents: MAX_DEMO_BUDGET_CENTS,
       personas: {
         client: {
           id: 'user_client_01',
           name: 'Sarah Lin (Acme Corp)',
-          email: 'sarah@acme-corp.com',
+          email: 'sarah-demo@example.invalid',
           role: 'client',
         },
         freelancer: {
           id: 'user_freelancer_01',
           name: 'Arjun Mehta',
-          email: 'arjun@freelance.dev',
-          paypalEmail: process.env.DEMO_FREELANCER_PAYPAL_EMAIL || 'arjun-sandbox@freelance.dev',
+          email: 'arjun-demo@example.invalid',
+          paypalEmail: cfg.DEMO_FREELANCER_PAYPAL_EMAIL || 'sb-freelancer@personal.example.com',
           role: 'freelancer',
         },
       },
     };
   });
 
-  // 3. POST /api/demo/login-as - Switch active demo persona cookie
-  server.post<{ Body: { persona?: 'client' | 'freelancer'; userId?: string; name?: string } }>(
+  // 3. POST /api/demo/login-as - Demo-only one-click login into an isDemo=true user
+  server.post<{ Body: { persona?: 'client' | 'freelancer'; userId?: string } }>(
     '/api/demo/login-as',
     async (request, reply) => {
-      const persona = request.body?.persona || 'client';
-      const isClient = persona === 'client';
-      const userId = request.body?.userId || (isClient ? 'user_client_01' : 'user_freelancer_01');
-      const name = request.body?.name || (isClient ? 'Sarah Lin (Acme Corp)' : 'Arjun Mehta');
+      const cfg = getConfig();
+      const db = getDb();
+      const persona = request.body?.persona === 'freelancer' ? 'freelancer' : 'client';
+      const requestedId = request.body?.userId || (persona === 'client' ? 'user_client_01' : 'user_freelancer_01');
 
-      const token = await createSessionToken({
-        userId,
-        role: isClient ? 'client' : 'freelancer',
-        name,
+      const [targetUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, requestedId))
+        .limit(1);
+
+      if (!targetUser || !targetUser.isDemo || targetUser.deletedAt) {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: 'One-click demo sign-in is restricted to seeded demo accounts.',
+        });
+      }
+
+      const sess = await createUserSession({
+        userId: targetUser.id,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        slot: persona,
+        config: cfg,
       });
-
-      setRoleSessionCookie(reply, isClient ? 'client' : 'freelancer', token);
+      setSessionCookies(reply, sess.rawToken, sess.csrfToken, cfg, persona);
+      // Also set default session cookie when not split-slot specific so normal workspace routes work seamlessly
+      setSessionCookies(reply, sess.rawToken, sess.csrfToken, cfg, null);
 
       return reply.send({
         success: true,
-        user: { id: userId, role: persona, name },
+        user: {
+          id: targetUser.id,
+          role: persona,
+          name: targetUser.displayName || targetUser.name,
+          email: targetUser.email,
+        },
       });
     }
   );
 
-  // 4. POST /api/demo/reset - Reset demo database to canonical state
+  // 4. GET /api/demo/mailbox - Scoped virtual outbox for the signed-in demo account
+  server.get(
+    '/api/demo/mailbox',
+    { preHandler: [requireAuth()] },
+    async (request, reply) => {
+      const u = request.user!;
+      if (!u.isDemo) {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: 'The virtual mailbox is only available for demo accounts.',
+        });
+      }
+
+      const db = getDb();
+      const messages = await db
+        .select()
+        .from(emailOutbox)
+        .where(
+          or(
+            eq(emailOutbox.recipientUserId, u.userId),
+            eq(emailOutbox.toAddress, u.email.toLowerCase())
+          )
+        )
+        .orderBy(desc(emailOutbox.createdAt))
+        .limit(30);
+
+      return reply.send({
+        success: true,
+        messages,
+      });
+    }
+  );
+
+  // 5. POST /api/demo/reset - Reset demo database to canonical state
   server.post('/api/demo/reset', async (_request, reply) => {
     const db = getDb();
     await resetDemoDatabase(db);
     return reply.send({ success: true, message: 'Demo environment reset successfully.' });
   });
 
-  // 5. GET /api/demo/prepared-deliverables - Prepared deliverables for judges (docs/LIVE_PROOF.md §2)
+  // 6. GET /api/demo/prepared-deliverables - Prepared deliverables for reviewers
   server.get('/api/demo/prepared-deliverables', async () => {
     return { success: true, deliverables: PREPARED_DELIVERABLES };
   });
 
-  // 6. POST /api/demo/cleanup - Trigger 24h demo sessions cleanup
+  // 7. POST /api/demo/cleanup - Trigger 24h demo sessions cleanup
   server.post('/api/demo/cleanup', async (_request, reply) => {
     const db = getDb();
     const result = await cleanupOldDemoSessions(db);
@@ -263,7 +361,7 @@ export const registerDemoRoutes: FastifyPluginAsync = async (server) => {
     });
   });
 
-  // 7. GET /api/demo/live-feed - Public live feed of last 5 sandbox settlements (docs/LIVE_PROOF.md §2)
+  // 8. GET /api/demo/live-feed - Public live feed of last 5 sandbox settlements
   server.get('/api/demo/live-feed', async () => {
     const db = getDb();
     const recentSettlements = await db

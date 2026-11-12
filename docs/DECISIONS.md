@@ -804,6 +804,39 @@ Existing `users` table is extended cleanly rather than replaced:
 - **Email deliverability:** Support `EMAIL_PROVIDER=outbox` cleanly for local/dev and `RESEND` / `SMTP` for hosted Render without blocking core flows; when `EMAIL_PROVIDER=outbox` and `DEMO_MODE=true`, `/demo/mailbox` displays emails for live walkthroughs.
 - **Existing E2E / API test suite during transition:** Many existing tests call `X-Persona` or seeded IDs. Per phase rules (`A0`–`A6`), do not run or rewrite tests until A3–A6 endpoints stabilize and A7 executes the full `pnpm verify` + E2E overhaul.
 
+## Phase A1–A6 Accounts, Authentication, and Security Architecture Decisions
+
+### Zero-Native-Dependency Password Hashing via Node crypto.scrypt
+- **Context:** Milestone builds and runs across disparate environments: Windows development workstations, Linux CI runners, and hosted Render containers. Native C++ binary bindings (e.g., argon2 or bcrypt) frequently fail across platform arch changes or require build tooling (`node-gyp`, Python, Visual C++).
+- **Decision:** Implemented password hashing using Node's standard library `crypto.scrypt` with OWASP-recommended parameters (`N=16384, r=8, p=1`, key length 64 bytes), a unique 16-byte cryptographically secure salt per user (`crypto.randomBytes(16)`), format `scrypt$N=16384,r=8,p=1$<saltHex>$<hashHex>`, and constant-time comparison via `crypto.timingSafeEqual`. Added dummy hash verification on non-existent users to defend against username enumeration via timing attacks, plus zxcvbn-equivalent character class, length, and common-pattern checks.
+- **Why:** Delivers rock-solid production password security with zero external native compilation dependencies, 100% platform portability across Windows, Linux, and macOS, and complete protection against timing side-channel attacks.
+
+### Opaque SHA-256 Session Tokens with Demo Dual-Slot Multi-Tenant Isolation
+- **Context:** Milestone requires secure persistent sessions for registered accounts, while simultaneously supporting an interactive Split Demo view (`/demo/split`) where judges test Client and Freelancer roles side-by-side in synchronized iframes on the same browser origin without cookie collisions.
+- **Decision:** Implemented opaque 32-byte cryptographically random session tokens stored as SHA-256 hashes in the database `sessions` table. Active sessions are transmitted via `httpOnly`, `sameSite: 'lax'`, `secure: NODE_ENV === 'production'` cookie `ms_session`. When `DEMO_MODE=true`, the system supports slot-partitioned cookies `ms_session__client` and `ms_session__freelancer`, resolved dynamically via `X-Session-Slot` request header or `?slot=` / `?demoSlot=` query parameters. In production (`DEMO_MODE=false`), slot cookies are disabled and only the singular `ms_session` cookie is accepted.
+- **Why:** Eliminates token tampering and database leakage risks (leaked DB hashes cannot forge cookies), prevents session cookie overwrites during split-screen evaluations, and guarantees that production deployments maintain single-identity security.
+
+### Double-Submit CSRF Cookie and Strict Origin/Referer Enforcement
+- **Context:** Cookie-based sessions on mutating endpoints (`POST`, `PUT`, `PATCH`, `DELETE`) are vulnerable to Cross-Site Request Forgery (CSRF). Milestone processes high-value PayPal Sandbox funds, project milestone approvals, and payout releases.
+- **Decision:** Implemented a two-layer defense on all mutating routes: (1) strict `Origin` and `Referer` validation against an allowlist of configured application origins (`APP_BASE_URL` and non-production localhost hosts); (2) double-submit CSRF protection using a readable `ms_csrf` cookie matched in constant time (`crypto.timingSafeEqual`) against the `X-CSRF-Token` request header. Both `apiFetch` and the Bryntum Gantt ProjectModel `beforeSend` transport automatically attach `X-CSRF-Token`.
+- **Why:** Guarantees that neither cross-site browser requests nor third-party forms/scripts can trigger project mutations or payout releases.
+
+### Multi-Provider EmailPort Architecture and In-Memory Demo Mailbox
+- **Context:** Milestone requires email delivery for email verification, password reset, project invitations, milestone submission notifications, and payout release receipts. In local development or during hackathon evaluation, external SMTP or transactional email services may not be configured.
+- **Decision:** Designed an `EmailPort` interface with three interchangeable adapters: `ResendAdapter` (using Resend API), `SmtpAdapter` (using Nodemailer), and `OutboxAdapter` (writing to the database `email_outbox` table). When `DEMO_MODE=true`, judges can inspect outbound emails directly in the application at `/demo/mailbox` without checking real inboxes. In production, `EMAIL_PROVIDER=resend` or `smtp` handles real deliveries.
+- **Why:** Provides seamless offline and online email delivery, prevents external email outages from breaking local testing or automated evaluation, and provides judges with immediate visual proof of outbound communications.
+
+### Strict Role-Based Project Membership and 403 Cross-Account Isolation
+- **Context:** In prototype mode, projects accepted `X-Persona: client` or `X-Persona: freelancer` headers without validating whether the caller was actually assigned to the requested project.
+- **Decision:** Removed all persona spoofing. Implemented `requireProjectMember` and `requireMilestoneMember` middleware: every project-scoped route resolves the authenticated user from their opaque session, verifies membership against `project.clientId` or `project.freelancerId`, and strictly returns HTTP `403 Forbidden` for any unauthorized access. Client mutations (funding, releasing, managing invites, editing milestones) require client ownership; freelancer mutations (submitting deliverables, appeals) require freelancer ownership.
+- **Why:** Closes the authorization boundary completely, guaranteeing multi-tenant confidentiality and ensuring users cannot inspect or mutate other users' projects.
+
+### Safe Account Deletion Guardrails for Active Financial Balances
+- **Context:** Users may request account deletion (`DELETE /api/me`). However, deleting a user account whose projects hold active unreleased milestone funds would corrupt project ledgers or leave held funds orphaned.
+- **Decision:** Implemented a pre-deletion financial safety check in `DELETE /api/me`. If the user is a client on projects with unreleased funded milestones or an active balance, the request is refused with HTTP `409 Conflict` and a clear explanation directing the user to release or refund active milestones before deleting the account.
+- **Why:** Protects financial auditability, prevents orphaned ledger states, and aligns with accounting compliance principles.
+
+
 
 
 

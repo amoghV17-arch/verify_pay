@@ -88,11 +88,9 @@ export const TimelineSection: React.FC = () => {
         >
           <div
             style={{
-              fontSize: '0.8125rem',
+              fontSize: '0.875rem',
               fontWeight: 600,
               color: 'var(--teal-ink)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
               marginBottom: '0.5rem',
             }}
           >

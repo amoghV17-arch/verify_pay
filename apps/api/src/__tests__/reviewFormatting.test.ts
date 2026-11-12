@@ -3,6 +3,7 @@ import { buildServer } from '../server.js';
 import { initDb, closeDb, getDb, schema, seedDatabase } from '../db/index.js';
 import { loadConfig } from '@milestone/shared';
 import { formatReviewRecord } from '../services/reviewFormatter.js';
+import { createTestUserSession } from './helpers/authTestHelper.js';
 
 describe('Review Formatting and Deliverables API DTO', () => {
   let server: Awaited<ReturnType<typeof buildServer>>;
@@ -141,9 +142,15 @@ describe('Review Formatting and Deliverables API DTO', () => {
   });
 
   it('GET /api/projects/:id/deliverables, /reviews, and /milestones/:id/reviews return formatted review fields and payoutStatus', async () => {
+    const clientUser = await createTestUserSession({
+      userId: 'user_client_01',
+      role: 'client',
+    });
+
     const delivRes = await server.inject({
       method: 'GET',
       url: `/api/projects/${testProjectId}/deliverables`,
+      headers: { ...clientUser.headers },
     });
     expect(delivRes.statusCode).toBe(200);
     const delivBody = JSON.parse(delivRes.body);
@@ -157,6 +164,7 @@ describe('Review Formatting and Deliverables API DTO', () => {
     const revRes = await server.inject({
       method: 'GET',
       url: `/api/projects/${testProjectId}/reviews`,
+      headers: { ...clientUser.headers },
     });
     expect(revRes.statusCode).toBe(200);
     const revBody = JSON.parse(revRes.body);
@@ -166,6 +174,7 @@ describe('Review Formatting and Deliverables API DTO', () => {
     const msRevRes = await server.inject({
       method: 'GET',
       url: `/api/milestones/${testMilestoneId}/reviews`,
+      headers: { ...clientUser.headers },
     });
     expect(msRevRes.statusCode).toBe(200);
     const msRevBody = JSON.parse(msRevRes.body);

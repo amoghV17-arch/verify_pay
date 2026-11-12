@@ -1,0 +1,17 @@
+{
+  "name": "Milestone — Verified Project Agreements",
+  "short_name": "Milestone",
+  "description": "Milestone holds a project's budget, checks each delivery against agreed criteria, and releases PayPal Sandbox payouts when it passes.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F2EA",
+  "theme_color": "#1C2D27",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+

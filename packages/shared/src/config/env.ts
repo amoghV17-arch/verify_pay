@@ -45,10 +45,24 @@ export const EnvSchema = z
         if (typeof val === 'boolean') return val;
         return ['true', '1', 'yes', 'on'].includes(val.trim().toLowerCase());
       })
-      .optional(),
+      .optional()
+      .default(false),
     DEMO_SANDBOX_BUYER_EMAIL: z.string().optional(),
     DEMO_SANDBOX_BUYER_PASSWORD: z.string().optional(),
     DAILY_LLM_CAP: z.coerce.number().int().positive().optional(),
+
+    // Accounts, Email & OAuth
+    EMAIL_PROVIDER: z.enum(['outbox', 'resend', 'smtp']).default('outbox'),
+    EMAIL_FROM: z.string().optional().default('Milestone <noreply@milestone.local>'),
+    RESEND_API_KEY: z.string().optional().default(''),
+    SMTP_HOST: z.string().optional().default(''),
+    SMTP_PORT: z.coerce.number().int().positive().optional().default(587),
+    SMTP_USER: z.string().optional().default(''),
+    SMTP_PASS: z.string().optional().default(''),
+    EMAIL_VERIFICATION: z.enum(['off', 'soft', 'required']).default('soft'),
+    GOOGLE_CLIENT_ID: z.string().optional().default(''),
+    GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+    SUPPORT_EMAIL: z.string().optional().default(''),
 
     // Bryntum
     BRYNTUM_PACKAGE: z.enum(['trial', 'licensed']).default('trial'),

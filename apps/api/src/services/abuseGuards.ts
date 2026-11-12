@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { lt, and, eq, ne } from 'drizzle-orm';
+import { lt, and, eq, ne, or, like } from 'drizzle-orm';
 import type { AppDatabase } from '../db/index.js';
-import { projects, users } from '../db/schema.js';
+import { projects, users, sessions, emailTokens } from '../db/schema.js';
 
 // Configuration constants per docs/LIVE_PROOF.md Section 2
 export const MAX_BRIEF_LENGTH = 5000;
@@ -159,7 +159,12 @@ export async function cleanupOldDemoSessions(
   db: AppDatabase,
   maxAgeMs = 24 * 60 * 60 * 1000
 ): Promise<{ purgedProjectsCount: number; purgedUserIds: string[] }> {
-  const cutoff = new Date(Date.now() - maxAgeMs);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - maxAgeMs);
+
+  // Purge expired auth sessions & email verification/reset tokens
+  await db.delete(sessions).where(lt(sessions.expiresAt, now));
+  await db.delete(emailTokens).where(lt(emailTokens.expiresAt, now));
 
   // Find demo projects older than cutoff, preserving canonical project 'proj_brand_launch'
   const staleProjects = await db
@@ -177,26 +182,39 @@ export async function cleanupOldDemoSessions(
       )
     );
 
-  if (staleProjects.length === 0) {
-    return { purgedProjectsCount: 0, purgedUserIds: [] };
-  }
-
   const purgedUserIds: string[] = [];
 
   for (const proj of staleProjects) {
     // Delete project (cascades to milestones, tasks, dependencies, ledger, etc.)
     await db.delete(projects).where(eq(projects.id, proj.id));
 
-    // If client user was a temporary visitor client, delete it
     if (proj.clientId.startsWith('client_vis_')) {
       await db.delete(users).where(eq(users.id, proj.clientId));
       purgedUserIds.push(proj.clientId);
     }
-    // If freelancer user was a temporary visitor freelancer, delete it
     if (proj.freelancerId && proj.freelancerId.startsWith('freelancer_vis_')) {
       await db.delete(users).where(eq(users.id, proj.freelancerId));
       purgedUserIds.push(proj.freelancerId);
     }
+  }
+
+  // Also purge orphaned ephemeral demo users older than cutoff
+  const staleDemoUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.isDemo, true),
+        ne(users.id, 'user_client_01'),
+        ne(users.id, 'user_freelancer_01'),
+        or(like(users.id, 'client_vis_%'), like(users.id, 'freelancer_vis_%'), like(users.id, 'demo_%')),
+        lt(users.createdAt, cutoff)
+      )
+    );
+
+  for (const u of staleDemoUsers) {
+    await db.delete(users).where(eq(users.id, u.id));
+    purgedUserIds.push(u.id);
   }
 
   return {

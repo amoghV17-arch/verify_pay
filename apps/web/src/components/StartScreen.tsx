@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ComputedPlan } from '@milestone/shared';
+import { apiRawFetch } from '../lib/api.js';
 
 interface StartScreenProps {
   onPlanGenerated: (plan: ComputedPlan) => void;
@@ -40,10 +41,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onPlanGenerated, onCan
     }, 1000);
 
     try {
-      const res = await fetch('/api/projects/plan', {
+      const res = await apiRawFetch('/api/projects/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           brief: brief.trim(),
           totalBudget,
