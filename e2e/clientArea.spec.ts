@@ -128,6 +128,9 @@ test.describe('Phase P4: Client Area Suite', () => {
     await expect(page.locator('h1')).toContainText('Deliverables & Reviews');
     await expect(page.locator('text=Milestone 1: Brand Strategy Approved')).toBeVisible();
     await expect(page.locator('text=✓ Paid & Settled')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('NaN%');
+    await expect(page.locator('body')).not.toContainText('Claude Sonnet 3.5');
+    await expect(page.locator('body')).not.toContainText('Claude 3.5 Sonnet');
 
     // Multi-viewport screenshots
     for (const bp of BREAKPOINTS) {

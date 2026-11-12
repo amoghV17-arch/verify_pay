@@ -339,8 +339,14 @@ export class ReleaseService {
     const amountCents = params.amountCents ?? m.amountCents;
     const milestoneName = params.milestoneName ?? m.name;
 
-    // Check if already marked paid
+    // Check if already marked paid (ensure payout_batches row is also synced)
     if (m.status === 'paid') {
+      if (params.payoutBatchId) {
+        await this.client
+          .update(payoutBatches)
+          .set({ status: 'SUCCESS' })
+          .where(eq(payoutBatches.paypalBatchId, params.payoutBatchId));
+      }
       return true;
     }
 
@@ -365,7 +371,7 @@ export class ReleaseService {
           createdAt: now,
         });
 
-        // 2. Mark milestone as 'paid'
+        // 2. Mark milestone as 'paid' and sync payout batch status
         await tx
           .update(milestones)
           .set({
@@ -373,6 +379,18 @@ export class ReleaseService {
             updatedAt: now,
           })
           .where(eq(milestones.id, m.id));
+
+        if (params.payoutBatchId) {
+          await tx
+            .update(payoutBatches)
+            .set({ status: 'SUCCESS' })
+            .where(eq(payoutBatches.paypalBatchId, params.payoutBatchId));
+        } else {
+          await tx
+            .update(payoutBatches)
+            .set({ status: 'SUCCESS' })
+            .where(eq(payoutBatches.milestoneId, m.id));
+        }
 
         // 3. Log activity
         const formattedAmount = (amountCents / 100).toLocaleString('en-US', {

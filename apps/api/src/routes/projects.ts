@@ -7,6 +7,7 @@ import { createLlmPort } from '../ai/llmFactory.js';
 import { PlannerService } from '../ai/planner.js';
 import { validatePlanGraph, computeSchedule } from '../ai/scheduler.js';
 import { sseHub } from '../services/sse.js';
+import { formatReviewRecord } from '../services/reviewFormatter.js';
 import {
   createRateLimitHandler,
   validateBriefLength,
@@ -16,7 +17,34 @@ import {
 import type { ComputedPlan, LlmPort, AppConfig } from '@milestone/shared';
 
 export async function registerProjectRoutes(server: FastifyInstance): Promise<void> {
-  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews } = schema;
+  const { projects, milestones, ledgerEntries, tasks, dependencies, users, activity, deliverables, reviews, payoutBatches } = schema;
+
+  async function fetchFormattedProjectReviews(projectId: string) {
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: reviews.id,
+        milestoneId: reviews.milestoneId,
+        deliverableId: reviews.deliverableId,
+        kind: reviews.kind,
+        model: reviews.model,
+        promptVersion: reviews.promptVersion,
+        trace: reviews.trace,
+        criteriaResults: reviews.criteriaResults,
+        verdict: reviews.verdict,
+        minConfidence: reviews.minConfidence,
+        injectionSuspected: reviews.injectionSuspected,
+        latencyMs: reviews.latencyMs,
+        tokens: reviews.tokens,
+        createdAt: reviews.createdAt,
+      })
+      .from(reviews)
+      .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
+      .where(eq(milestones.projectId, projectId))
+      .orderBy(desc(reviews.createdAt));
+
+    return rows.map(formatReviewRecord);
+  }
 
   function formatMilestoneRecord(m: any) {
     const criteriaList: string[] = Array.isArray(m.criteria)
@@ -284,32 +312,41 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
         .where(eq(milestones.projectId, id))
         .orderBy(desc(deliverables.submittedAt));
 
-      const projReviews = await db
+      const projReviews = await fetchFormattedProjectReviews(id);
+
+      const batchRows = await db
         .select({
-          id: reviews.id,
-          milestoneId: reviews.milestoneId,
-          deliverableId: reviews.deliverableId,
-          kind: reviews.kind,
-          model: reviews.model,
-          promptVersion: reviews.promptVersion,
-          trace: reviews.trace,
-          criteriaResults: reviews.criteriaResults,
-          verdict: reviews.verdict,
-          minConfidence: reviews.minConfidence,
-          injectionSuspected: reviews.injectionSuspected,
-          latencyMs: reviews.latencyMs,
-          tokens: reviews.tokens,
-          createdAt: reviews.createdAt,
+          milestoneId: payoutBatches.milestoneId,
+          status: payoutBatches.status,
+          paypalBatchId: payoutBatches.paypalBatchId,
         })
-        .from(reviews)
-        .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
+        .from(payoutBatches)
+        .innerJoin(milestones, eq(payoutBatches.milestoneId, milestones.id))
         .where(eq(milestones.projectId, id))
-        .orderBy(desc(reviews.createdAt));
+        .orderBy(desc(payoutBatches.createdAt));
+
+      const latestBatchByMilestone = new Map<string, { status: string; paypalBatchId: string | null }>();
+      for (const b of batchRows) {
+        if (!latestBatchByMilestone.has(b.milestoneId)) {
+          latestBatchByMilestone.set(b.milestoneId, {
+            status: b.status,
+            paypalBatchId: b.paypalBatchId,
+          });
+        }
+      }
 
       return reply.send({
         success: true,
         deliverables: projDeliverables,
-        milestones: projMilestones.map(formatMilestoneRecord),
+        milestones: projMilestones.map((m) => {
+          const formatted = formatMilestoneRecord(m);
+          const batch = latestBatchByMilestone.get(m.id);
+          return {
+            ...formatted,
+            payoutStatus: batch?.status ?? null,
+            payoutBatchId: batch?.paypalBatchId ?? null,
+          };
+        }),
         reviews: projReviews,
       });
     }
@@ -319,31 +356,8 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
   server.get<{ Params: { id: string } }>(
     '/api/projects/:id/reviews',
     async (request, reply) => {
-      const db = getDb();
       const { id } = request.params;
-
-      const projReviews = await db
-        .select({
-          id: reviews.id,
-          milestoneId: reviews.milestoneId,
-          deliverableId: reviews.deliverableId,
-          kind: reviews.kind,
-          model: reviews.model,
-          promptVersion: reviews.promptVersion,
-          trace: reviews.trace,
-          criteriaResults: reviews.criteriaResults,
-          verdict: reviews.verdict,
-          minConfidence: reviews.minConfidence,
-          injectionSuspected: reviews.injectionSuspected,
-          latencyMs: reviews.latencyMs,
-          tokens: reviews.tokens,
-          createdAt: reviews.createdAt,
-        })
-        .from(reviews)
-        .innerJoin(milestones, eq(reviews.milestoneId, milestones.id))
-        .where(eq(milestones.projectId, id))
-        .orderBy(desc(reviews.createdAt));
-
+      const projReviews = await fetchFormattedProjectReviews(id);
       return reply.send(projReviews);
     }
   );

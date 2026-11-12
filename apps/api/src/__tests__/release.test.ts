@@ -8,7 +8,7 @@ import { ReleaseService } from '../services/release.js';
 import { LedgerService } from '../services/ledger.js';
 import { ReconcilerService } from '../services/reconciler.js';
 import { buildServer } from '../server.js';
-import { loadConfig } from '@milestone/shared';
+import { loadConfig, type PayPalPort } from '@milestone/shared';
 import { createSessionToken } from '../auth/index.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -320,6 +320,81 @@ describe('Milestone M4 Payout Release Suite', () => {
     expect(idempotentCall.success).toBe(true);
     expect(idempotentCall.status).toBe('paid');
     expect(idempotentCall.message).toBe('Milestone is already paid');
+  });
+
+  it('8. reconciler syncs payout_batches status on UNCLAIMED and SUCCESS resolutions', async () => {
+    const staleDate = new Date(Date.now() - 40_000);
+    await db
+      .update(milestones)
+      .set({ status: 'releasing', updatedAt: staleDate })
+      .where(eq(milestones.id, testMilestoneId));
+
+    const batchId = 'mock_batch_unclaimed_01';
+    await db.insert(payoutBatches).values({
+      id: 'pb_unclaimed_01',
+      milestoneId: testMilestoneId,
+      senderBatchId: `ms_${testMilestoneId}_unclaimed`,
+      paypalBatchId: batchId,
+      status: 'PENDING',
+      createdAt: staleDate,
+    });
+
+    const customAdapter = {
+      ...mockPayPal,
+      getPayoutBatch: async () => ({
+        payoutBatchId: batchId,
+        senderBatchId: `ms_${testMilestoneId}_unclaimed`,
+        batchStatus: 'SUCCESS' as const,
+        items: [
+          {
+            payoutItemId: 'item_unclaimed_1',
+            transactionStatus: 'UNCLAIMED' as const,
+            amountCents: testMilestoneAmount,
+            receiver: 'unclaimed@sandbox.dev',
+          },
+        ],
+      }),
+    };
+
+    const unclaimedReport = await reconcilerService.reconcileStaleReleases(
+      customAdapter as unknown as PayPalPort,
+      20
+    );
+    expect(unclaimedReport.resolved).toBe(0);
+
+    const [mAfterUnclaimed] = await db.select().from(milestones).where(eq(milestones.id, testMilestoneId));
+    expect(mAfterUnclaimed.status).toBe('releasing');
+    const [bAfterUnclaimed] = await db.select().from(payoutBatches).where(eq(payoutBatches.id, 'pb_unclaimed_01'));
+    expect(bAfterUnclaimed.status).toBe('UNCLAIMED');
+
+    const successAdapter = {
+      ...mockPayPal,
+      getPayoutBatch: async () => ({
+        payoutBatchId: batchId,
+        senderBatchId: `ms_${testMilestoneId}_unclaimed`,
+        batchStatus: 'SUCCESS' as const,
+        items: [
+          {
+            payoutItemId: 'item_unclaimed_1',
+            transactionStatus: 'SUCCESS' as const,
+            transactionId: 'tx_claimed_1',
+            amountCents: testMilestoneAmount,
+            receiver: 'unclaimed@sandbox.dev',
+          },
+        ],
+      }),
+    };
+
+    const successReport = await reconcilerService.reconcileStaleReleases(
+      successAdapter as unknown as PayPalPort,
+      20
+    );
+    expect(successReport.resolved).toBe(1);
+
+    const [mAfterSuccess] = await db.select().from(milestones).where(eq(milestones.id, testMilestoneId));
+    expect(mAfterSuccess.status).toBe('paid');
+    const [bAfterSuccess] = await db.select().from(payoutBatches).where(eq(payoutBatches.id, 'pb_unclaimed_01'));
+    expect(bAfterSuccess.status).toBe('SUCCESS');
   });
 });
 

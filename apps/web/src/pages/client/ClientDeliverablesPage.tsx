@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   PackageCheck,
@@ -6,12 +6,19 @@ import {
   Eye,
   DollarSign,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button } from '../../components/ui/Button.js';
 import { StatusBadge, type MoneyState } from '../../components/ui/StatusBadge.js';
 import { EvidenceChip, type DeliverableType } from '../../components/ui/EvidenceChip.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import {
+  useSystemLlmLabel,
+  formatModelLabel,
+  getReviewConfidencePct,
+  isApprovalVerdict,
+} from '../../lib/aiMeta.js';
 
 interface DeliverableItem {
   id: string;
@@ -24,10 +31,12 @@ interface DeliverableItem {
 interface ReviewItem {
   id: string;
   milestoneId: string;
-  verdict: 'pass' | 'request_changes' | 'escalate_to_human';
-  confidence: number;
-  reasoning: string;
-  evaluatedCriteria: Array<{ id: string; satisfied: boolean; reasoning: string }>;
+  model?: string;
+  verdict: 'pass' | 'release' | 'request_changes' | 'escalate_to_human';
+  confidence?: number;
+  minConfidence?: number;
+  reasoning?: string;
+  evaluatedCriteria?: Array<{ id: string; index?: number; satisfied: boolean; reasoning: string }>;
   promptInjectionSuspected?: boolean;
 }
 
@@ -36,6 +45,7 @@ interface MilestoneDetails {
   name: string;
   amountCents: number;
   status: string;
+  payoutStatus?: string | null;
   deliverableType?: string;
   acceptanceCriteria: string[];
 }
@@ -73,23 +83,26 @@ export const ClientDeliverablesPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Quick release action
+  // Quick release and reconcile actions
   const [releasingMilestoneId, setReleasingMilestoneId] = useState<string | null>(null);
+  const [isSyncingPayout, setIsSyncingPayout] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const llmLabel = useSystemLlmLabel();
 
   // Selected deliverable for modal/drawer preview
   const [selectedMilestone, setSelectedMilestone] = useState<MilestoneDetails | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    let isMounted = true;
-
-    async function fetchData() {
+  const fetchData = useCallback(
+    async (showSpinner = true) => {
+      if (!id) return;
       try {
-        setIsLoading(true);
+        if (showSpinner) {
+          setIsLoading(true);
+        }
         setError(null);
 
         const res = await fetch(`/api/projects/${id}/deliverables`, {
+          credentials: 'include',
           headers: { 'X-Persona': 'client' },
         });
 
@@ -98,36 +111,76 @@ export const ClientDeliverablesPage: React.FC = () => {
         }
 
         const data = await res.json();
-        if (isMounted) {
-          setMilestones(data.milestones || []);
-          setDeliverables(data.deliverables || []);
-          setReviews(data.reviews || []);
-        }
+        setMilestones(data.milestones || []);
+        setDeliverables(data.deliverables || []);
+        setReviews(data.reviews || []);
       } catch (err) {
-        if (isMounted) {
+        if (showSpinner) {
           setError(err instanceof Error ? err.message : 'Failed to load deliverables');
           setMilestones([]);
           setDeliverables([]);
           setReviews([]);
         }
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
-    }
+    },
+    [id]
+  );
 
-    fetchData();
-    return () => {
-      isMounted = false;
-    };
-  }, [id, actionSuccess]);
+  useEffect(() => {
+    void fetchData(true);
+  }, [fetchData, actionSuccess]);
+
+  const hasActiveAsyncState = milestones.some((m) =>
+    ['submitted', 'in_review', 'approved', 'appealed', 'releasing'].includes(m.status)
+  );
+  const hasReleasingState = milestones.some((m) => m.status === 'releasing');
+
+  useEffect(() => {
+    if (!id || !hasActiveAsyncState) return;
+    const pollInterval = setInterval(() => {
+      void fetchData(false);
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, [id, hasActiveAsyncState, fetchData]);
+
+  useEffect(() => {
+    if (!id || !hasReleasingState) return;
+    const reconcileInterval = setInterval(() => {
+      void fetch(`/api/projects/${id}/reconcile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Persona': 'client' },
+      }).then(() => fetchData(false)).catch(() => undefined);
+    }, 10000);
+    return () => clearInterval(reconcileInterval);
+  }, [id, hasReleasingState, fetchData]);
+
+  const handleSyncPayout = async () => {
+    if (!id) return;
+    setIsSyncingPayout(true);
+    try {
+      await fetch(`/api/projects/${id}/reconcile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Persona': 'client' },
+      });
+      await fetchData(false);
+    } catch {
+      // ignore transient errors
+    } finally {
+      setIsSyncingPayout(false);
+    }
+  };
 
   const handleRelease = async (milestoneId: string) => {
     setReleasingMilestoneId(milestoneId);
+    setError(null);
     try {
       const res = await fetch(`/api/milestones/${milestoneId}/release`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-Persona': 'client',
@@ -136,9 +189,12 @@ export const ClientDeliverablesPage: React.FC = () => {
       if (res.ok) {
         setActionSuccess('Milestone payout released successfully!');
         setTimeout(() => setActionSuccess(null), 3000);
+      } else {
+        const errData = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+        setError(errData.message || errData.error || 'Failed to initiate payout release');
       }
     } catch (err) {
-      console.error('Release failed:', err);
+      setError(err instanceof Error ? err.message : 'Release request failed');
     } finally {
       setReleasingMilestoneId(null);
     }
@@ -296,18 +352,17 @@ export const ClientDeliverablesPage: React.FC = () => {
                               fontSize: '0.75rem',
                               fontWeight: 700,
                               textTransform: 'uppercase',
-                              color:
-                                review.verdict === 'pass'
-                                  ? 'var(--teal-ink)'
-                                  : review.verdict === 'request_changes'
-                                  ? 'var(--amber)'
-                                  : 'var(--ink)',
+                              color: isApprovalVerdict(review.verdict)
+                                ? 'var(--teal-ink)'
+                                : review.verdict === 'request_changes'
+                                ? 'var(--amber)'
+                                : 'var(--ink)',
                             }}
                           >
-                            AI: {review.verdict.replace('_', ' ')}
+                            AI: {review.verdict.replace(/_/g, ' ')}
                           </span>
                           <span style={{ fontSize: '0.6875rem', color: 'var(--ink-3)' }}>
-                            ({Math.round(review.confidence * 100)}%)
+                            ({getReviewConfidencePct(review)}%)
                           </span>
                         </div>
 
@@ -357,6 +412,28 @@ export const ClientDeliverablesPage: React.FC = () => {
                       <span style={{ fontSize: '0.8125rem', color: 'var(--teal-ink)', fontWeight: 600 }}>
                         ✓ Paid & Settled
                       </span>
+                    ) : m.status === 'releasing' ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={isSyncingPayout}
+                          onClick={handleSyncPayout}
+                          leftIcon={<RefreshCw size={14} />}
+                        >
+                          {isSyncingPayout ? 'Checking...' : 'Sync payout'}
+                        </Button>
+                        {deliverable && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSelectedMilestone(m)}
+                            leftIcon={<Eye size={14} />}
+                          >
+                            Inspect
+                          </Button>
+                        )}
+                      </div>
                     ) : deliverable ? (
                       <Button
                         variant="secondary"
@@ -433,6 +510,67 @@ export const ClientDeliverablesPage: React.FC = () => {
                 })}
               </ul>
             </div>
+
+            {(() => {
+              const modalDeliverable = deliverables.find((d) => d.milestoneId === selectedMilestone.id);
+              const modalReview = reviews.find((r) => r.milestoneId === selectedMilestone.id);
+              const modalPayloadText =
+                typeof modalDeliverable?.payload?.text === 'string'
+                  ? modalDeliverable.payload.text
+                  : '';
+              return (
+                <>
+                  {modalPayloadText && (
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)', textTransform: 'uppercase' }}>
+                        Submitted Text
+                      </span>
+                      <pre
+                        style={{
+                          margin: '0.5rem 0 0',
+                          padding: '0.75rem',
+                          borderRadius: 'var(--radius-input)',
+                          border: '1px solid var(--line)',
+                          backgroundColor: 'var(--paper)',
+                          fontSize: '0.75rem',
+                          maxHeight: '160px',
+                          overflowY: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {modalPayloadText}
+                      </pre>
+                    </div>
+                  )}
+
+                  {modalReview && (
+                    <div
+                      style={{
+                        marginBottom: '1.25rem',
+                        padding: '0.85rem',
+                        borderRadius: 'var(--radius-input)',
+                        backgroundColor: isApprovalVerdict(modalReview.verdict)
+                          ? 'var(--teal-wash)'
+                          : 'var(--amber-wash)',
+                        fontSize: '0.8125rem',
+                        color: 'var(--ink)',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <strong style={{ display: 'block', marginBottom: '0.25rem' }}>
+                        AI Verdict: {modalReview.verdict.replace(/_/g, ' ').toUpperCase()} (
+                        {getReviewConfidencePct(modalReview)}% confidence ·{' '}
+                        {modalReview.model ? formatModelLabel(modalReview.model) : llmLabel})
+                      </strong>
+                      <span>
+                        {modalReview.reasoning || `AI verdict: ${modalReview.verdict.replace(/_/g, ' ')}`}
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
               <Button variant="secondary" onClick={() => setSelectedMilestone(null)}>

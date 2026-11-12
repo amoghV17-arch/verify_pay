@@ -4,6 +4,7 @@ import { buildServer } from './server.js';
 import { initDb } from './db/index.js';
 import { seedDatabase } from './db/seed.js';
 import { AutonomySchedulerService } from './services/autonomyScheduler.js';
+import { ReconcilerService } from './services/reconciler.js';
 
 const config = loadConfig(process.env);
 const server = buildServer(config);
@@ -20,13 +21,17 @@ async function start() {
     });
     server.log.info(`Milestone API server listening on ${address}`);
 
-    // Start assisted release window scheduler
+    // Start assisted release window scheduler and payout reconciler
     const paypalAdapter = (server as unknown as { paypalAdapter: PayPalPort }).paypalAdapter;
     const scheduler = new AutonomySchedulerService(db, paypalAdapter);
     scheduler.start(paypalAdapter, 2000);
 
+    const reconciler = new ReconcilerService(db, paypalAdapter);
+    reconciler.start(paypalAdapter, 10_000, 10);
+
     const shutdown = async () => {
       scheduler.stop();
+      reconciler.stop();
       await server.close();
       process.exit(0);
     };

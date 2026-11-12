@@ -20,6 +20,11 @@ import { LifecycleProgress } from '../components/ui/LifecycleProgress.js';
 import { SubmitSlideOver, type DeliverableKind } from '../components/freelancer/SubmitSlideOver.js';
 import { AppealModal } from '../components/AppealModal.js';
 import { Dialog } from '../components/ui/Dialog.js';
+import {
+  useSystemLlmLabel,
+  formatModelLabel,
+  getReviewConfidencePct,
+} from '../lib/aiMeta.js';
 
 interface ReviewPageProps {
   role?: 'client' | 'freelancer';
@@ -35,9 +40,11 @@ interface EvaluatedCriterion {
 interface ReviewData {
   id: string;
   milestoneId: string;
-  verdict: 'pass' | 'request_changes' | 'escalate_to_human';
-  confidence: number;
-  reasoning: string;
+  model?: string;
+  verdict: 'pass' | 'release' | 'request_changes' | 'escalate_to_human';
+  confidence?: number;
+  minConfidence?: number;
+  reasoning?: string;
   evaluatedCriteria: EvaluatedCriterion[];
   promptInjectionSuspected?: boolean;
   toolTrace?: Array<{
@@ -112,7 +119,7 @@ const DEFAULT_TOOL_TRACE = [
   },
   {
     toolName: 'evaluateCriteria',
-    summary: 'Matched observable criteria against extracted AST evidence using Claude 3.5 Sonnet',
+    summary: 'Matched observable criteria against extracted AST evidence',
     durationMs: 540,
     status: 'success' as const,
   },
@@ -126,6 +133,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
 
   const projectId = routeProjectId || '';
   const targetMilestoneId = routeMilestoneId || '';
+  const llmLabel = useSystemLlmLabel();
 
   const [milestone, setMilestone] = useState<MilestoneData | null>(null);
   const [deliverable, setDeliverable] = useState<DeliverableData | null>(null);
@@ -640,7 +648,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
                   AI Review Evaluation completed
                 </span>
                 <span style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--ink-2)' }}>
-                  Claude 3.5 Sonnet verified criteria
+                  {review?.model ? formatModelLabel(review.model) : llmLabel} verified criteria
                 </span>
               </div>
 
@@ -704,7 +712,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ role = 'client' }) => {
                     borderRadius: 'var(--radius-chip)',
                   }}
                 >
-                  {Math.round(review.confidence * 100)}% Confidence
+                  {getReviewConfidencePct(review)}% Confidence
                 </span>
               )}
             </div>

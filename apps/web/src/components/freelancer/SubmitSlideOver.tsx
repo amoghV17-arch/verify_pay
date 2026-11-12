@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, Clock, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatCents } from '@milestone/shared';
 import { Button, IconButton } from '../ui/Button.js';
+import { useSystemLlmLabel } from '../../lib/aiMeta.js';
 
 export type DeliverableKind = 'text' | 'repo' | 'url' | 'image' | 'document';
 
@@ -71,6 +72,7 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
   initialKind = 'url',
   onSubmitted,
 }) => {
+  const llmLabel = useSystemLlmLabel();
   const [kind, setKind] = useState<DeliverableKind>(initialKind);
   const [content, setContent] = useState('');
   const [notes, setNotes] = useState('');
@@ -168,7 +170,7 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
 
   function handleSimulatedReview() {
     setActiveStep(2);
-    setReviewSteps((prev) => [...prev, 'Review queued: Claude Sonnet 3.5 assigned']);
+    setReviewSteps((prev) => [...prev, `Review queued: ${llmLabel} assigned`]);
 
     const timer1 = setTimeout(() => {
       setReviewSteps((prev) => [
@@ -618,7 +620,7 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
               >
                 <p style={{ margin: 0 }}>
                   <strong style={{ color: 'var(--ink)' }}>AI Review Process:</strong> Deliverables are evaluated
-                  strictly against the agreed acceptance criteria by Claude 3.5 Sonnet. Payout releases immediately
+                  strictly against the agreed acceptance criteria by {llmLabel}. Payout releases immediately
                   upon approval if the client enabled auto-mode.
                 </p>
               </div>
@@ -731,7 +733,7 @@ export const SubmitSlideOver: React.FC<SubmitSlideOverProps> = ({
                   </div>
                   <div>
                     <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>
-                      2. AI Evaluation (Claude 3.5 Sonnet)
+                      2. AI Evaluation ({llmLabel})
                     </span>
                     <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'var(--ink-2)' }}>
                       {reviewDone

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   PackageCheck,
@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Sparkles,
   RotateCcw,
+  RefreshCw,
   Scale,
   Check,
 } from 'lucide-react';
@@ -17,6 +18,12 @@ import { EvidenceChip, type DeliverableType } from '../../components/ui/Evidence
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { SubmitSlideOver, type DeliverableKind } from '../../components/freelancer/SubmitSlideOver.js';
 import { AppealModal } from '../../components/AppealModal.js';
+import {
+  useSystemLlmLabel,
+  formatModelLabel,
+  getReviewConfidencePct,
+  isApprovalVerdict,
+} from '../../lib/aiMeta.js';
 
 interface DeliverableItem {
   id: string;
@@ -30,10 +37,12 @@ interface DeliverableItem {
 interface ReviewItem {
   id: string;
   milestoneId: string;
-  verdict: 'pass' | 'request_changes' | 'escalate_to_human';
-  confidence: number;
-  reasoning: string;
-  evaluatedCriteria: Array<{ id: string; satisfied: boolean; reasoning: string }>;
+  model?: string;
+  verdict: 'pass' | 'release' | 'request_changes' | 'escalate_to_human';
+  confidence?: number;
+  minConfidence?: number;
+  reasoning?: string;
+  evaluatedCriteria?: Array<{ id: string; index?: number; satisfied: boolean; reasoning: string }>;
   promptInjectionSuspected?: boolean;
 }
 
@@ -42,6 +51,7 @@ interface MilestoneDetails {
   name: string;
   amountCents: number;
   status: string;
+  payoutStatus?: string | null;
   deliverableType?: string;
   acceptanceCriteria: string[];
 }
@@ -78,13 +88,15 @@ export const FreelancerDeliverablesPage: React.FC = () => {
   const [deliverables, setDeliverables] = useState<DeliverableItem[]>([]);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncingPayout, setIsSyncingPayout] = useState(false);
+  const llmLabel = useSystemLlmLabel();
 
   // Slide-over and Appeal state
   const [activeSlideOverMilestone, setActiveSlideOverMilestone] = useState<MilestoneDetails | null>(null);
   const [appealMilestone, setAppealMilestone] = useState<MilestoneDetails | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
+  const loadData = useCallback(
+    async (showLoadingSpinner = true) => {
       if (!projectId) {
         setMilestones([]);
         setDeliverables([]);
@@ -92,54 +104,115 @@ export const FreelancerDeliverablesPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      setIsLoading(true);
+      if (showLoadingSpinner) {
+        setIsLoading(true);
+      }
       try {
-        const [msRes, delivRes, revRes] = await Promise.all([
-          fetch(`/api/projects/${projectId}/milestones`, {
-            credentials: 'include',
-            headers: { 'X-Persona': 'freelancer' },
-          }),
+        const [delivRes, msRes, revRes] = await Promise.all([
           fetch(`/api/projects/${projectId}/deliverables`, {
             credentials: 'include',
             headers: { 'X-Persona': 'freelancer' },
           }).catch(() => null),
+          fetch(`/api/projects/${projectId}/milestones`, {
+            credentials: 'include',
+            headers: { 'X-Persona': 'freelancer' },
+          }),
           fetch(`/api/projects/${projectId}/reviews`, {
             credentials: 'include',
             headers: { 'X-Persona': 'freelancer' },
           }).catch(() => null),
         ]);
 
-        if (msRes.ok) {
-          const msData = (await msRes.json()) as any;
-          setMilestones(Array.isArray(msData) ? msData : (msData.milestones || []));
-        } else {
-          setMilestones([]);
-        }
-
         if (delivRes && delivRes.ok) {
-          const delivData = (await delivRes.json()) as any;
-          setDeliverables(Array.isArray(delivData) ? delivData : (delivData.deliverables || []));
+          const delivData = (await delivRes.json()) as {
+            milestones?: MilestoneDetails[];
+            deliverables?: DeliverableItem[];
+            reviews?: ReviewItem[];
+          };
+          if (Array.isArray(delivData.milestones) && delivData.milestones.length > 0) {
+            setMilestones(delivData.milestones);
+          } else if (msRes.ok) {
+            const msData = (await msRes.json()) as MilestoneDetails[] | { milestones?: MilestoneDetails[] };
+            setMilestones(Array.isArray(msData) ? msData : msData.milestones || []);
+          }
+          setDeliverables(Array.isArray(delivData) ? (delivData as DeliverableItem[]) : delivData.deliverables || []);
+          if (Array.isArray(delivData.reviews)) {
+            setReviews(delivData.reviews);
+          }
         } else {
-          setDeliverables([]);
+          if (msRes.ok) {
+            const msData = (await msRes.json()) as MilestoneDetails[] | { milestones?: MilestoneDetails[] };
+            setMilestones(Array.isArray(msData) ? msData : msData.milestones || []);
+          } else if (showLoadingSpinner) {
+            setMilestones([]);
+          }
+          if (showLoadingSpinner) {
+            setDeliverables([]);
+          }
         }
 
         if (revRes && revRes.ok) {
-          const revData = (await revRes.json()) as any;
-          setReviews(Array.isArray(revData) ? revData : (revData.reviews || []));
-        } else {
-          setReviews([]);
+          const revData = (await revRes.json()) as ReviewItem[] | { reviews?: ReviewItem[] };
+          setReviews(Array.isArray(revData) ? revData : revData.reviews || []);
         }
       } catch {
-        setMilestones([]);
-        setDeliverables([]);
-        setReviews([]);
+        if (showLoadingSpinner) {
+          setMilestones([]);
+          setDeliverables([]);
+          setReviews([]);
+        }
       } finally {
         setIsLoading(false);
       }
-    }
+    },
+    [projectId]
+  );
 
-    loadData();
-  }, [projectId]);
+  useEffect(() => {
+    void loadData(true);
+  }, [loadData]);
+
+  const handleSyncPayout = useCallback(async () => {
+    if (!projectId) return;
+    setIsSyncingPayout(true);
+    try {
+      await fetch(`/api/projects/${projectId}/reconcile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Persona': 'freelancer' },
+      });
+      await loadData(false);
+    } catch {
+      // ignore transient network errors
+    } finally {
+      setIsSyncingPayout(false);
+    }
+  }, [projectId, loadData]);
+
+  const hasActiveAsyncState = milestones.some((m) =>
+    ['submitted', 'in_review', 'approved', 'appealed', 'releasing'].includes(m.status)
+  );
+  const hasReleasingState = milestones.some((m) => m.status === 'releasing');
+
+  useEffect(() => {
+    if (!projectId || !hasActiveAsyncState) return;
+    const pollInterval = setInterval(() => {
+      void loadData(false);
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, [projectId, hasActiveAsyncState, loadData]);
+
+  useEffect(() => {
+    if (!projectId || !hasReleasingState) return;
+    const reconcileInterval = setInterval(() => {
+      void fetch(`/api/projects/${projectId}/reconcile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Persona': 'freelancer' },
+      }).then(() => loadData(false)).catch(() => undefined);
+    }, 10000);
+    return () => clearInterval(reconcileInterval);
+  }, [projectId, hasReleasingState, loadData]);
 
   function handleDeliverableSubmitted(newDeliverableId: string) {
     if (!activeSlideOverMilestone) return;
@@ -225,9 +298,23 @@ export const FreelancerDeliverablesPage: React.FC = () => {
             const review = reviews.find((r) => r.milestoneId === milestone.id);
             const isFunded = milestone.status === 'funded' || milestone.status === 'active';
             const isPaid = milestone.status === 'paid' || milestone.status === 'closed';
+            const isReleasing = milestone.status === 'releasing';
+            const isApproved = milestone.status === 'approved' || milestone.status === 'awaiting_client';
             const isInReview = milestone.status === 'in_review' || milestone.status === 'submitted';
             const isChangesRequested = milestone.status === 'changes_requested';
             const isAppealed = milestone.status === 'appealed';
+            const hasHeldFunds =
+              isFunded || isInReview || isApproved || isChangesRequested || isAppealed;
+
+            const amountSubLabel = isPaid
+              ? 'Deposited to PayPal'
+              : isReleasing
+              ? milestone.payoutStatus === 'UNCLAIMED'
+                ? 'Sent — accept payment in PayPal'
+                : 'PayPal payout processing'
+              : hasHeldFunds
+              ? 'Locked in sandbox'
+              : 'Awaiting client funding';
 
             return (
               <div
@@ -297,9 +384,21 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                         {formatCents(milestone.amountCents)}
                       </span>
                       <span style={{ fontSize: '0.6875rem', color: 'var(--ink-2)' }}>
-                        {isPaid ? 'Deposited to PayPal' : isFunded ? 'Locked in sandbox' : 'Awaiting client funding'}
+                        {amountSubLabel}
                       </span>
                     </div>
+
+                    {isReleasing && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<RefreshCw size={14} />}
+                        disabled={isSyncingPayout}
+                        onClick={handleSyncPayout}
+                      >
+                        {isSyncingPayout ? 'Checking PayPal...' : 'Refresh payout status'}
+                      </Button>
+                    )}
 
                     {/* Action button */}
                     {isFunded && (
@@ -382,7 +481,10 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                   >
                     {((milestone.acceptanceCriteria || (milestone as any).criteria || []) as any[]).map((rawC: any, i: number) => {
                       const c = typeof rawC === 'string' ? rawC : rawC?.description || rawC?.id || '';
-                      const criterionEval = review?.evaluatedCriteria?.find((ec) => ec.id.includes(String(i + 1)) || ec.reasoning?.includes(c));
+                      const criterionEval =
+                        review?.evaluatedCriteria?.find((ec) => ec.index === i) ||
+                        review?.evaluatedCriteria?.[i] ||
+                        review?.evaluatedCriteria?.find((ec) => ec.id.includes(String(i + 1)) || ec.reasoning?.includes(c));
                       return (
                         <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                           <span style={{ color: criterionEval?.satisfied ? 'var(--forest)' : 'var(--ink-2)', flexShrink: 0, marginTop: '2px' }}>
@@ -465,7 +567,7 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                           }}
                         >
                           <Sparkles size={14} />
-                          Claude Sonnet 3.5 evaluating criteria
+                          {llmLabel} evaluating criteria
                         </span>
                       )}
 
@@ -515,17 +617,21 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                           marginTop: '0.5rem',
                           padding: '0.75rem',
                           borderRadius: 'var(--radius-input)',
-                          backgroundColor:
-                            review.verdict === 'pass' ? 'var(--teal-wash)' : 'var(--amber-wash)',
+                          backgroundColor: isApprovalVerdict(review.verdict)
+                            ? 'var(--teal-wash)'
+                            : 'var(--amber-wash)',
                           fontSize: '0.8125rem',
                           color: 'var(--ink)',
                           lineHeight: 1.4,
                         }}
                       >
                         <strong style={{ display: 'block', marginBottom: '0.2rem' }}>
-                          AI Review Evaluation ({Math.round(review.confidence * 100)}% confidence):
+                          AI Review Evaluation ({getReviewConfidencePct(review)}% confidence ·{' '}
+                          {review.model ? formatModelLabel(review.model) : llmLabel}):
                         </strong>
-                        <span>{review.reasoning}</span>
+                        <span>
+                          {review.reasoning || `AI verdict: ${review.verdict.replace(/_/g, ' ')}`}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -547,6 +653,18 @@ export const FreelancerDeliverablesPage: React.FC = () => {
                     <span>
                       {isFunded
                         ? 'Ready to work: Deliverable can be submitted when finished.'
+                        : isInReview
+                        ? 'Deliverable is currently under AI evaluation.'
+                        : isApproved
+                        ? 'Deliverable approved; preparing PayPal payout release.'
+                        : isReleasing
+                        ? 'PayPal sandbox payout is releasing.'
+                        : isPaid
+                        ? 'Milestone paid and settled via PayPal.'
+                        : isChangesRequested
+                        ? 'Changes requested; submit a revision or appeal.'
+                        : isAppealed
+                        ? 'Independent appeal review in progress.'
                         : 'Awaiting client funding before submission unlocks.'}
                     </span>
                     <span style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
@@ -564,7 +682,10 @@ export const FreelancerDeliverablesPage: React.FC = () => {
       {activeSlideOverMilestone && (
         <SubmitSlideOver
           isOpen={!!activeSlideOverMilestone}
-          onClose={() => setActiveSlideOverMilestone(null)}
+          onClose={() => {
+            setActiveSlideOverMilestone(null);
+            void loadData(false);
+          }}
           milestoneId={activeSlideOverMilestone.id}
           milestoneTitle={activeSlideOverMilestone.name}
           amountCents={activeSlideOverMilestone.amountCents}

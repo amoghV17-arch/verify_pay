@@ -7,6 +7,7 @@ import { ReconcilerService } from '../services/reconciler.js';
 import { ReviewerService } from '../services/reviewer.js';
 import { AutonomySchedulerService } from '../services/autonomyScheduler.js';
 import { sseHub } from '../services/sse.js';
+import { formatReviewRecord } from '../services/reviewFormatter.js';
 import { createRateLimitHandler, checkAndRecordLlmCall } from '../services/abuseGuards.js';
 import { getDb } from '../db/index.js';
 import { milestones, deliverables, activity, reviews } from '../db/schema.js';
@@ -166,7 +167,7 @@ export const registerMilestoneRoutes: FastifyPluginAsync<MilestoneRoutesOptions>
       return reply.send({
         success: true,
         milestoneId: milestone.id,
-        reviews: milestoneReviews,
+        reviews: milestoneReviews.map(formatReviewRecord),
         deliverables: milestoneDeliverables,
       });
     }

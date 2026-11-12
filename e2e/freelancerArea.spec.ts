@@ -131,6 +131,10 @@ test.describe('Phase P5: Freelancer Area Suite', () => {
 
     await expect(page.getByRole('heading', { name: 'My Deliverables & AI Reviews' })).toBeVisible();
     await expect(page.locator('text=Brand Strategy Approved')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('NaN%');
+    await expect(page.locator('body')).not.toContainText('Claude Sonnet 3.5');
+    await expect(page.locator('body')).not.toContainText('Claude 3.5 Sonnet');
+    await expect(page.locator('body')).not.toContainText('Awaiting client funding');
 
     for (const bp of BREAKPOINTS) {
       await page.setViewportSize({ width: bp.width, height: bp.height });
