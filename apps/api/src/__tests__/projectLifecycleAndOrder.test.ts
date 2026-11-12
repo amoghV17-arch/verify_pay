@@ -471,4 +471,42 @@ describe('Project Lifecycle, Synced Balances, Schedule Progress & Milestone Orde
     expect(remainingTasks).toHaveLength(0);
     expect(remainingLedger).toHaveLength(0);
   });
+
+  it('hides unaccepted client drafts and awaiting-invite projects from freelancer project list', async () => {
+    const unacceptedId = 'proj_unaccepted_freelancer_hide';
+    await db.delete(projects).where(eq(projects.id, unacceptedId));
+    await db.insert(projects).values({
+      id: unacceptedId,
+      title: 'Unaccepted Brand Identity Draft',
+      brief: 'Client created this draft without any freelancer accepting the invite yet.',
+      currency: 'USD',
+      totalCents: 40000,
+      status: 'planned',
+      autonomyMode: 'assisted',
+      releaseWindowSeconds: 20,
+      clientId: 'user_client_01',
+      freelancerId: null,
+      version: 1,
+    });
+
+    const clientListRes = await server.inject({
+      method: 'GET',
+      url: '/api/projects',
+      headers: { cookie: clientCookieHeader, 'x-persona': 'client' },
+    });
+    expect(clientListRes.statusCode).toBe(200);
+    const clientList = JSON.parse(clientListRes.body).projects as Array<{ id: string }>;
+    expect(clientList.some((p) => p.id === unacceptedId)).toBe(true);
+
+    const freelancerListRes = await server.inject({
+      method: 'GET',
+      url: '/api/projects',
+      headers: { cookie: freelancerCookieHeader, 'x-persona': 'freelancer' },
+    });
+    expect(freelancerListRes.statusCode).toBe(200);
+    const freelancerList = JSON.parse(freelancerListRes.body).projects as Array<{ id: string }>;
+    expect(freelancerList.some((p) => p.id === unacceptedId)).toBe(false);
+
+    await db.delete(projects).where(eq(projects.id, unacceptedId));
+  });
 });

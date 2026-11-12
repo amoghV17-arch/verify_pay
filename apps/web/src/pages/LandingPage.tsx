@@ -20,7 +20,7 @@ import {
 
 export const LandingPage: React.FC = () => {
   return (
-    <div style={{ backgroundColor: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)', overflowX: 'hidden' }}>
+    <div style={{ backgroundColor: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)', overflowX: 'clip' }}>
       {/* ========================================================= */}
       {/* SECTION 1: HERO (Above the fold)                          */}
       {/* ========================================================= */}

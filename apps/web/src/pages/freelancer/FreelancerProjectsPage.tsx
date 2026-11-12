@@ -40,7 +40,9 @@ export const FreelancerProjectsPage: React.FC = () => {
 
         const data = await res.json();
         if (isMounted && Array.isArray(data.projects)) {
-          const loadedProjects: ProjectListItem[] = data.projects;
+          const loadedProjects: ProjectListItem[] = (data.projects as ProjectListItem[]).filter(
+            (p) => Boolean(p.freelancerId) && p.status !== 'draft'
+          );
           setProjectsList(loadedProjects);
 
           const ledgers: Record<string, NormalizedBalances> = {};

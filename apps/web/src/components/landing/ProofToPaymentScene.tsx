@@ -101,7 +101,8 @@ const STAGES: StageData[] = [
 
 export const ProofToPaymentScene: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [activeStageIdx, setActiveStageIdx] = useState(0);
+  const [scrollStageIdx, setScrollStageIdx] = useState(0);
+  const [hoveredStageIdx, setHoveredStageIdx] = useState<number | null>(null);
   const [isMobileOrReduced, setIsMobileOrReduced] = useState(false);
 
   useEffect(() => {
@@ -134,8 +135,8 @@ export const ProofToPaymentScene: React.FC = () => {
 
       const progress = Math.max(0, Math.min(1, currentScroll / totalScrollable));
       // Map progress to 5 stages (0, 1, 2, 3, 4)
-      const stage = Math.min(4, Math.floor(progress * 5));
-      setActiveStageIdx(stage);
+      const stage = Math.min(4, Math.floor(progress * 4.99));
+      setScrollStageIdx(stage);
     };
 
     const onScroll = () => {
@@ -151,6 +152,17 @@ export const ProofToPaymentScene: React.FC = () => {
       cancelAnimationFrame(rafId);
     };
   }, [isMobileOrReduced]);
+
+  const handleSelectStage = (idx: number) => {
+    setScrollStageIdx(idx);
+    if (!containerRef.current) return;
+    const containerTop = window.scrollY + containerRef.current.getBoundingClientRect().top;
+    const totalScrollable = Math.max(0, containerRef.current.offsetHeight - window.innerHeight);
+    const targetScroll = containerTop + ((idx + 0.15) / 5) * totalScrollable;
+    window.scrollTo({ top: targetScroll, behavior: 'smooth' });
+  };
+
+  const activeStageIdx = hoveredStageIdx ?? scrollStageIdx;
 
   // Mobile or Reduced Motion: render stacked list
   if (isMobileOrReduced) {
@@ -238,7 +250,7 @@ export const ProofToPaymentScene: React.FC = () => {
         position: 'relative',
         backgroundColor: 'var(--forest)',
         color: 'var(--paper)',
-        minHeight: '380vh',
+        minHeight: '240vh',
       }}
       aria-label="Proof to payment interactive scroll scene"
     >
@@ -247,13 +259,12 @@ export const ProofToPaymentScene: React.FC = () => {
         style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          padding: '2rem 2rem',
+          padding: '2.5rem 2rem',
           boxSizing: 'border-box',
-          overflow: 'hidden',
         }}
       >
         <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
@@ -314,7 +325,53 @@ export const ProofToPaymentScene: React.FC = () => {
             }}
           >
             {/* Left Column: Stage Copy & Perspectives */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Interactive Stage Selector Strip */}
+              <div
+                role="tablist"
+                aria-label="Select lifecycle stage"
+                onMouseLeave={() => setHoveredStageIdx(null)}
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.45rem',
+                }}
+              >
+                {STAGES.map((stage, idx) => {
+                  const isActive = idx === activeStageIdx;
+                  return (
+                    <button
+                      key={stage.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setHoveredStageIdx(idx)}
+                      onFocus={() => setHoveredStageIdx(idx)}
+                      onBlur={() => setHoveredStageIdx(null)}
+                      onClick={() => handleSelectStage(idx)}
+                      style={{
+                        padding: '0.35rem 0.7rem',
+                        borderRadius: '6px',
+                        border: isActive
+                          ? '1px solid #7ee7d2'
+                          : '1px solid rgba(255, 255, 255, 0.14)',
+                        backgroundColor: isActive
+                          ? 'rgba(126, 231, 210, 0.16)'
+                          : 'rgba(255, 255, 255, 0.04)',
+                        color: isActive ? '#7ee7d2' : 'var(--paper-muted)',
+                        fontSize: '0.78rem',
+                        fontWeight: isActive ? 600 : 500,
+                        cursor: 'pointer',
+                        transition: 'all 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        transform: isActive ? 'translateY(-1px)' : 'none',
+                      }}
+                    >
+                      {stage.title}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div>
                 <span
                   style={{
@@ -541,52 +598,76 @@ export const ProofToPaymentScene: React.FC = () => {
                 })}
               </div>
 
-              {/* Evidence Chips when Submitted/Verified/Paid */}
-              {activeStage.chipsVisible && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    flexWrap: 'wrap',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--surface-sunken)',
-                    borderRadius: '8px',
-                  }}
-                >
-                  <EvidenceChip type="repo" label="PR #42 merged" />
-                  <EvidenceChip type="figma" label="figma.com/proto/v2" />
-                  <EvidenceChip type="url" label="Lighthouse Report (98/100)" />
+              {/* Evidence Chips when Submitted/Verified/Paid (smooth height + opacity) */}
+              <div
+                aria-hidden={!activeStage.chipsVisible}
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: activeStage.chipsVisible ? '1fr' : '0fr',
+                  opacity: activeStage.chipsVisible ? 1 : 0,
+                  marginTop: activeStage.chipsVisible ? '0' : '-0.75rem',
+                  transition: 'grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, margin-top 320ms ease',
+                  pointerEvents: activeStage.chipsVisible ? 'auto' : 'none',
+                }}
+              >
+                <div style={{ overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap',
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--surface-sunken)',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <EvidenceChip type="repo" label="PR #42 merged" />
+                    <EvidenceChip type="figma" label="figma.com/proto/v2" />
+                    <EvidenceChip type="url" label="Lighthouse Report (98/100)" />
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Final Paid Receipt Stamp */}
-              {activeStage.payoutVisible && (
-                <div
-                  style={{
-                    padding: '0.85rem 1rem',
-                    backgroundColor: 'rgba(15, 165, 115, 0.08)',
-                    border: '1px solid var(--teal)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Receipt size={18} style={{ color: 'var(--teal)' }} />
-                    <div>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)' }}>
-                        PayPal Sandbox Payout Released
-                      </div>
-                      <div style={{ fontSize: '0.6875rem', color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>
-                        Ref: PAYID-M3-982104 • Ledger seq #42
+              {/* Final Paid Receipt Stamp (smooth height + opacity) */}
+              <div
+                aria-hidden={!activeStage.payoutVisible}
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: activeStage.payoutVisible ? '1fr' : '0fr',
+                  opacity: activeStage.payoutVisible ? 1 : 0,
+                  marginTop: activeStage.payoutVisible ? '0' : '-0.75rem',
+                  transition: 'grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, margin-top 320ms ease',
+                  pointerEvents: activeStage.payoutVisible ? 'auto' : 'none',
+                }}
+              >
+                <div style={{ overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      padding: '0.85rem 1rem',
+                      backgroundColor: 'rgba(15, 165, 115, 0.08)',
+                      border: '1px solid var(--teal)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Receipt size={18} style={{ color: 'var(--teal)' }} />
+                      <div>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)' }}>
+                          PayPal Sandbox Payout Released
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>
+                          Ref: PAYID-M3-982104 • Ledger seq #42
+                        </div>
                       </div>
                     </div>
+                    <Sparkles size={16} style={{ color: 'var(--teal)' }} />
                   </div>
-                  <Sparkles size={16} style={{ color: 'var(--teal)' }} />
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

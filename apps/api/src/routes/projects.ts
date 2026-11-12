@@ -87,7 +87,12 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
       request.user?.role === 'freelancer' ||
       (request.headers['x-persona'] as string | undefined)?.toLowerCase() === 'freelancer';
 
-    const projectIds = allProjects.map((p) => p.id);
+    // Freelancers only see projects where they have accepted the invite (not unaccepted client drafts)
+    const visibleProjects = isFreelancer
+      ? allProjects.filter((p) => Boolean(p.freelancerId) && p.status !== 'draft')
+      : allProjects;
+
+    const projectIds = visibleProjects.map((p) => p.id);
     const allMilestones =
       projectIds.length > 0
         ? await db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
@@ -101,7 +106,7 @@ export async function registerProjectRoutes(server: FastifyInstance): Promise<vo
     }
 
     const enrichedProjects = await Promise.all(
-      allProjects.map(async (p) => {
+      visibleProjects.map(async (p) => {
         const projMs = milestonesByProject.get(p.id) ?? [];
         const transitionedToClosed = await syncProjectCompletionStatus(db, p.id);
         const effectiveStatus = transitionedToClosed ? 'closed' : p.status;

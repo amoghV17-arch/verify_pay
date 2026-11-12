@@ -62,8 +62,11 @@ const STATES: StateConfig[] = [
 
 export const ProductPreview: React.FC = () => {
   const [currentState, setCurrentState] = useState<PreviewState>(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  const isPaused = isHovered || isFocused;
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -86,30 +89,44 @@ export const ProductPreview: React.FC = () => {
     return () => clearTimeout(timer);
   }, [currentState, isPaused, prefersReducedMotion]);
 
-  const activeConfig = prefersReducedMotion ? STATES[3] : STATES[currentState];
+  const activeConfig = prefersReducedMotion && !isPaused ? STATES[3] : STATES[currentState];
+  const isPaidStage = activeConfig.timelineStep === 4;
+
+  const smoothEase = prefersReducedMotion ? '0ms linear' : '360ms cubic-bezier(0.22, 1, 0.36, 1)';
+  const fastEase = prefersReducedMotion ? '0ms linear' : '240ms cubic-bezier(0.22, 1, 0.36, 1)';
 
   return (
     <div
       role="region"
       aria-label="Milestone product preview demonstration"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onFocus={() => setIsPaused(true)}
-      onBlur={() => setIsPaused(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setIsFocused(false);
+        }
+      }}
       tabIndex={0}
       style={{
         position: 'relative',
         backgroundColor: 'var(--surface)',
-        border: '1px solid var(--line)',
+        border: isHovered
+          ? '1px solid rgba(21, 52, 43, 0.34)'
+          : '1px solid var(--line)',
         borderRadius: '16px',
         padding: '1.5rem',
-        boxShadow: 'var(--shadow-lg)',
+        boxShadow: isHovered && !prefersReducedMotion
+          ? '0 26px 56px -14px rgba(21, 52, 43, 0.22), 0 8px 20px -6px rgba(15, 165, 115, 0.14)'
+          : 'var(--shadow-lg)',
+        transform: isHovered && !prefersReducedMotion ? 'translateY(-6px) scale(1.016)' : 'translateY(0) scale(1)',
         outline: 'none',
         maxWidth: '540px',
         width: '100%',
         boxSizing: 'border-box',
         margin: '0 auto',
-        transition: 'border-color var(--duration-fast)',
+        transition: `transform ${smoothEase}, box-shadow ${smoothEase}, border-color ${fastEase}`,
+        willChange: 'transform',
       }}
     >
       {/* Screen reader only description */}
@@ -118,7 +135,7 @@ export const ProductPreview: React.FC = () => {
         Verified at $2,400.00 progressing from Funded through Submitted, Verified, and Paid with automated acceptance checks.
       </span>
 
-      {/* Top Context Bar: Sample Project & State Pills */}
+      {/* Top Context Bar: Sample Project & State Diamonds */}
       <div
         style={{
           display: 'flex',
@@ -137,7 +154,9 @@ export const ProductPreview: React.FC = () => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: 'var(--teal)',
+              backgroundColor: isPaidStage ? 'var(--teal)' : 'var(--forest)',
+              boxShadow: isPaidStage ? '0 0 0 4px rgba(15, 165, 115, 0.16)' : 'none',
+              transition: `background-color ${fastEase}, box-shadow ${fastEase}`,
             }}
             aria-hidden="true"
           />
@@ -150,7 +169,7 @@ export const ProductPreview: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} aria-hidden="true">
           {[1, 2, 3, 4].map((step) => {
             const isCurrent = step === 3;
-            const isDone = step < 3 || (isCurrent && activeConfig.timelineStep === 4);
+            const isDone = step < 3 || (isCurrent && isPaidStage);
             return (
               <div
                 key={step}
@@ -158,14 +177,16 @@ export const ProductPreview: React.FC = () => {
                 style={{
                   width: '10px',
                   height: '10px',
-                  transform: 'rotate(45deg)',
+                  transform: isCurrent && isHovered && !prefersReducedMotion
+                    ? 'rotate(45deg) scale(1.18)'
+                    : 'rotate(45deg) scale(1)',
                   borderRadius: '1px',
                   backgroundColor: isDone
                     ? 'var(--teal)'
                     : isCurrent
                     ? 'var(--forest)'
                     : 'var(--line-strong)',
-                  transition: 'background-color var(--duration-normal)',
+                  transition: `background-color ${smoothEase}, transform ${smoothEase}`,
                 }}
               />
             );
@@ -177,12 +198,14 @@ export const ProductPreview: React.FC = () => {
       <div
         style={{
           backgroundColor: 'var(--paper)',
-          border: '1px solid var(--line)',
+          border: isPaidStage ? '1px solid rgba(15, 165, 115, 0.35)' : '1px solid var(--line)',
           borderRadius: '12px',
           padding: '1.25rem',
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
+          transition: `border-color ${smoothEase}, box-shadow ${smoothEase}`,
+          boxShadow: isPaidStage ? '0 8px 22px -12px rgba(15, 165, 115, 0.25)' : 'none',
         }}
       >
         {/* Card Header: Title + Status + Amount */}
@@ -200,7 +223,9 @@ export const ProductPreview: React.FC = () => {
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-2)' }}>
                 Milestone 3 of 4
               </span>
-              <StatusBadge state={activeConfig.badgeState} label={activeConfig.badgeLabel} size="sm" />
+              <span style={{ transition: `transform ${fastEase}`, display: 'inline-flex' }}>
+                <StatusBadge state={activeConfig.badgeState} label={activeConfig.badgeLabel} size="sm" />
+              </span>
             </div>
             <h4
               style={{
@@ -218,8 +243,8 @@ export const ProductPreview: React.FC = () => {
           <FinancialFigure
             amountCents={240000}
             size="md"
-            label="Milestone budget"
-            trend="held"
+            label={isPaidStage ? 'Released payout' : 'Milestone budget'}
+            trend={isPaidStage ? 'paid' : 'held'}
           />
         </div>
 
@@ -232,7 +257,7 @@ export const ProductPreview: React.FC = () => {
             padding: '0.75rem 0.85rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.5rem',
+            gap: '0.45rem',
           }}
         >
           <div
@@ -245,10 +270,17 @@ export const ProductPreview: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              marginBottom: '0.15rem',
             }}
           >
             <span>Acceptance Criteria</span>
-            <span style={{ color: 'var(--teal-ink)', fontWeight: 500 }}>
+            <span
+              style={{
+                color: isPaidStage ? 'var(--teal)' : 'var(--teal-ink)',
+                fontWeight: 600,
+                transition: `color ${fastEase}`,
+              }}
+            >
               {activeConfig.checks.filter(Boolean).length} of 3 verified
             </span>
           </div>
@@ -267,52 +299,68 @@ export const ProductPreview: React.FC = () => {
                   alignItems: 'center',
                   gap: '0.5rem',
                   fontSize: '0.8125rem',
+                  padding: '0.22rem 0.4rem',
+                  marginLeft: '-0.4rem',
+                  marginRight: '-0.4rem',
+                  borderRadius: '6px',
+                  backgroundColor: isChecked ? 'rgba(15, 165, 115, 0.06)' : 'transparent',
                   color: isChecked ? 'var(--ink)' : 'var(--ink-2)',
-                  transition: 'color var(--duration-fast)',
+                  transition: `background-color ${fastEase}, color ${fastEase}`,
+                  transitionDelay: prefersReducedMotion ? '0ms' : `${idx * 45}ms`,
                 }}
               >
-                {isChecked ? (
-                  <CheckCircle2
-                    size={15}
-                    style={{
-                      color: 'var(--teal)',
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Circle
-                    size={15}
-                    style={{
-                      color: 'var(--line-strong)',
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
-                )}
-                <span style={{ textDecoration: isChecked ? 'none' : 'none' }}>{criterion}</span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    flexShrink: 0,
+                    transform: isChecked ? 'scale(1)' : 'scale(0.9)',
+                    transition: `transform ${fastEase}`,
+                    transitionDelay: prefersReducedMotion ? '0ms' : `${idx * 45}ms`,
+                  }}
+                >
+                  {isChecked ? (
+                    <CheckCircle2 size={15} style={{ color: 'var(--teal)' }} aria-hidden="true" />
+                  ) : (
+                    <Circle size={15} style={{ color: 'var(--line-strong)' }} aria-hidden="true" />
+                  )}
+                </span>
+                <span>{criterion}</span>
               </div>
             );
           })}
         </div>
 
-        {/* Evidence Chips when Submitted or Beyond */}
-        {activeConfig.showEvidence && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              flexWrap: 'wrap',
-              fontSize: '0.75rem',
-            }}
-          >
-            <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Submitted proof:</span>
-            <EvidenceChip type="figma" label="figma.com/file/v4..." />
-            <EvidenceChip type="repo" label="PR #28 merged" />
-            <EvidenceChip type="url" label="Lighthouse Report" />
+        {/* Smooth animated collapsible Evidence Row (prevents height snapping) */}
+        <div
+          aria-hidden={!activeConfig.showEvidence}
+          style={{
+            display: 'grid',
+            gridTemplateRows: activeConfig.showEvidence ? '1fr' : '0fr',
+            opacity: activeConfig.showEvidence ? 1 : 0,
+            transform: activeConfig.showEvidence || prefersReducedMotion ? 'translateY(0)' : 'translateY(6px)',
+            marginTop: activeConfig.showEvidence ? '0' : '-0.65rem',
+            transition: `grid-template-rows ${smoothEase}, opacity ${fastEase}, transform ${smoothEase}, margin-top ${smoothEase}`,
+            pointerEvents: activeConfig.showEvidence ? 'auto' : 'none',
+          }}
+        >
+          <div style={{ overflow: 'hidden' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                fontSize: '0.75rem',
+                paddingTop: '0.1rem',
+              }}
+            >
+              <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Submitted proof:</span>
+              <EvidenceChip type="figma" label="figma.com/file/v4..." />
+              <EvidenceChip type="repo" label="PR #28 merged" />
+              <EvidenceChip type="url" label="Lighthouse Report" />
+            </div>
           </div>
-        )}
+        </div>
 
         {/* State Status Line */}
         <div
@@ -320,7 +368,8 @@ export const ProductPreview: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingTop: '0.5rem',
+            gap: '0.75rem',
+            paddingTop: '0.6rem',
             borderTop: '1px solid var(--line)',
             fontSize: '0.8125rem',
             color: 'var(--ink-2)',
@@ -328,11 +377,11 @@ export const ProductPreview: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {activeConfig.timelineStep === 4 ? (
-              <DollarSign size={14} style={{ color: 'var(--teal)' }} />
+              <DollarSign size={14} style={{ color: 'var(--teal)', flexShrink: 0 }} />
             ) : activeConfig.timelineStep === 3 ? (
-              <Sparkles size={14} style={{ color: 'var(--teal)' }} />
+              <Sparkles size={14} style={{ color: 'var(--teal)', flexShrink: 0 }} />
             ) : (
-              <Clock size={14} style={{ color: 'var(--ink-2)' }} />
+              <Clock size={14} style={{ color: 'var(--ink-2)', flexShrink: 0 }} />
             )}
             <span>{activeConfig.description}</span>
           </div>
@@ -342,7 +391,9 @@ export const ProductPreview: React.FC = () => {
               fontFamily: 'var(--font-mono)',
               fontSize: '0.75rem',
               fontWeight: 600,
-              color: 'var(--forest)',
+              color: isPaidStage ? 'var(--teal)' : 'var(--forest)',
+              whiteSpace: 'nowrap',
+              transition: `color ${fastEase}`,
             }}
           >
             {activeConfig.actionText}
@@ -350,41 +401,89 @@ export const ProductPreview: React.FC = () => {
         </div>
       </div>
 
-      {/* Loop control indicator */}
+      {/* Interactive Stage Selector Bar: auto-cycles on idle; hover or click any box manually */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: '0.85rem',
-          fontSize: '0.75rem',
-          color: 'var(--ink-2)',
+          flexDirection: 'column',
+          gap: '0.55rem',
+          marginTop: '0.95rem',
         }}
       >
-        <div style={{ display: 'flex', gap: '0.35rem' }}>
-          {STATES.map((s, idx) => (
-            <button
-              key={s.name}
-              type="button"
-              onClick={() => setCurrentState(idx as PreviewState)}
-              aria-label={`Jump to ${s.name} simulation stage`}
-              style={{
-                width: idx === currentState ? '24px' : '8px',
-                height: '6px',
-                borderRadius: '3px',
-                backgroundColor: idx === currentState ? 'var(--forest)' : 'var(--line-strong)',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                transition: 'all var(--duration-fast)',
-              }}
-            />
-          ))}
+        <div
+          role="tablist"
+          aria-label="Preview lifecycle stages"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '0.45rem',
+          }}
+        >
+          {STATES.map((s, idx) => {
+            const isSelected = idx === currentState;
+            return (
+              <button
+                key={s.name}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                aria-label={`Jump to ${s.name} simulation stage`}
+                onMouseEnter={() => setCurrentState(idx as PreviewState)}
+                onFocus={() => setCurrentState(idx as PreviewState)}
+                onClick={() => setCurrentState(idx as PreviewState)}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  padding: '0.45rem 0.5rem',
+                  borderRadius: '8px',
+                  border: isSelected
+                    ? '1px solid var(--forest)'
+                    : '1px solid var(--line)',
+                  backgroundColor: isSelected
+                    ? 'var(--forest)'
+                    : isHovered
+                    ? 'var(--paper)'
+                    : 'transparent',
+                  color: isSelected ? 'var(--paper)' : 'var(--ink-2)',
+                  fontSize: '0.75rem',
+                  fontWeight: isSelected ? 600 : 500,
+                  cursor: 'pointer',
+                  transform: isSelected && isHovered && !prefersReducedMotion
+                    ? 'translateY(-2px)'
+                    : 'translateY(0)',
+                  boxShadow: isSelected
+                    ? '0 4px 12px rgba(21, 52, 43, 0.16)'
+                    : 'none',
+                  transition: `all ${fastEase}`,
+                }}
+              >
+                <span>{idx + 1}. {s.name}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <span style={{ fontSize: '0.6875rem', color: 'var(--ink-2)' }}>
-          {isPaused ? 'Paused on hover' : 'Hover or focus to pause'}
-        </span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.6875rem',
+            color: 'var(--ink-2)',
+          }}
+        >
+          <span>
+            {isPaused
+              ? 'Paused • Hover or click any stage to switch'
+              : 'Auto-playing • Move cursor here to explore'}
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+            {currentState + 1} / 4
+          </span>
+        </div>
       </div>
     </div>
   );
