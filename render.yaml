@@ -21,7 +21,19 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: JWT_SECRET
+      - key: SESSION_SECRET
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      - key: EMAIL_PROVIDER
+        value: "outbox"
+      - key: EMAIL_VERIFICATION
+        value: "soft"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: GEMINI_API_KEY
         sync: false
