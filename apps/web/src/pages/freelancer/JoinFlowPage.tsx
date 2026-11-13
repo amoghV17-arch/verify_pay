@@ -58,10 +58,14 @@ export const JoinFlowPage: React.FC = () => {
   const [acceptSuccess, setAcceptSuccess] = useState(false);
 
   useEffect(() => {
-    if (user?.payoutPaypalEmail && !paypalEmail) {
+    if (user?.payoutPaypalEmail) {
       setPaypalEmail(user.payoutPaypalEmail);
     }
-  }, [user?.payoutPaypalEmail, paypalEmail]);
+  }, [user?.payoutPaypalEmail]);
+
+  const isOwnInvite = Boolean(
+    user && preview && (user.id === preview.client.id || (preview.invite.isOwnInvite && (!preview.client.id || user.id === preview.client.id)))
+  );
 
   // Look up invite function (public preview)
   const lookupInvite = async (tokenOrCode: string) => {
@@ -99,12 +103,13 @@ export const JoinFlowPage: React.FC = () => {
     }
   };
 
-  // If URL has token, lookup immediately
+  // If URL has token, lookup immediately (re-check if authenticated user changes)
   useEffect(() => {
-    if (urlToken) {
-      void lookupInvite(urlToken);
+    const code = urlToken || inputCode;
+    if (code) {
+      void lookupInvite(code);
     }
-  }, [urlToken]);
+  }, [urlToken, user?.id]);
 
   // Handle invitation acceptance (signed-in account required)
   const handleAccept = async (e: React.FormEvent) => {
@@ -416,7 +421,7 @@ export const JoinFlowPage: React.FC = () => {
               </div>
             )}
 
-            {preview.invite.isOwnInvite && (
+            {isOwnInvite && (
               <div className="ms-alert ms-alert-warning" role="alert">
                 <span>
                   You created this project invite. Share this link with your freelancer rather than accepting it yourself.
@@ -533,7 +538,7 @@ export const JoinFlowPage: React.FC = () => {
                   acceptSuccess ||
                   !authenticated ||
                   !user ||
-                  Boolean(preview.invite.isOwnInvite) ||
+                  isOwnInvite ||
                   !paypalEmail.trim()
                 }
                 leftIcon={<UserCheck size={18} />}
