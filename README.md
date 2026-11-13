@@ -8,10 +8,6 @@
 [![Bryntum Gantt](https://img.shields.io/badge/Gantt-Bryntum%20Gantt%20v6.2.5-orange)](https://www.bryntum.com/products/gantt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-Built for the hackathon **"Build What's Next with PayPal and AI"**.
-- **Primary Target:** The Bryntum Prize (Best Interactive Gantt & Timeline Implementation).
-- **Secondary Targets:** Best Use of PayPal + AI, Most Impactful, Most Creative.
-
 ---
 
 ## The Problem
@@ -34,19 +30,31 @@ Existing freelance platforms charge heavy platform fees (up to 20%), force rigid
 ## Live Demo & Screenshots
 
 - **Hosted URL:** [https://verify-pay.onrender.com](https://verify-pay.onrender.com)
-- **Dedicated User Accounts:** Real user authentication powered by `crypto.scrypt` password hashing, opaque SHA-256 session tokens, double-submit CSRF protection, and email notifications. In demo mode, judges can switch between Client and Freelancer roles or launch an isolated split session with one click.
+- **Dedicated User Accounts:** Real user authentication powered by `crypto.scrypt` password hashing, opaque SHA-256 session tokens, double-submit CSRF protection, and email notifications. In demo mode, you can explore Client and Freelancer workspaces or launch an isolated split-screen session with one click.
 
-### 1. Interactive Bryntum Gantt Workspace
-*Live dependencies, critical milestones with currency badges, and real-time funding progress.*
-![Milestone Bryntum Gantt Workspace](docs/screens/m1-gantt.png)
+### 1. Modern Landing Page & Project Brief Planner
+*Clean typography, live project simulation feed, and instant plan generation.*
+![Milestone Landing Page](docs/screens/p2/landing-1440.png)
 
-### 2. The Settle Moment & Trust Panel
+### 2. Interactive Bryntum Gantt Workspace
+*Live dependencies, critical milestones with currency badges, inspector slide-over, and real-time funding progress.*
+![Milestone Bryntum Gantt Workspace](docs/screens/p7/p7-client-gantt-1440.png)
+
+### 3. AI Proof Reviewer & Evidence Inspection
+*Per-criterion evidence verification, confidence scores, tool execution logs, and automated PayPal payout approval.*
+![Milestone AI Proof Reviewer](docs/screens/p6/client-review-1440.png)
+
+### 4. The Settle Moment & Trust Panel
 *When criteria pass, the milestone settles: celebratory coin trajectory, real-time count-up balance chip, and an append-only ledger entry with PayPal transaction reference.*
 ![Milestone Payout Settle Moment](docs/screens/m9-settle-moment.png)
 
-### 3. Responsive 1024px Layout
+### 5. Dual Client / Freelancer Split Workspace
+*Simultaneous real-time collaboration testing with isolated session slots and live status synchronisation.*
+![Milestone Dual Workspace Split Screen](docs/screens/p8/split-overview-1440.png)
+
+### 6. Responsive 1024px Layout
 *Full keyboard accessibility (WCAG AA), screen-reader announcements, and responsive viewport support.*
-![Milestone Responsive View](docs/screens/m1-gantt-1024.png)
+![Milestone Responsive View](docs/screens/p7/p7-client-gantt-1024.png)
 
 ---
 
@@ -128,10 +136,11 @@ cp .env.example .env
 pnpm dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser. You can:
-- Click **"Use Sample Brief"** and generate a 12-task, 4-milestone project plan in seconds.
-- Switch to Sarah Lin to fund the project via the simulated PayPal checkout.
-- Switch to Arjun Mehta to submit deliverables.
-- Submit a good deliverable to trigger simulated review, approval, and the settle payout moment!
+- Click **"Use Sample Brief"** to generate an automated 12-task, 4-milestone project plan in seconds.
+- Explore the interactive Bryntum Gantt schedule with dependencies and milestone funding states.
+- Fund milestones using integrated PayPal Sandbox checkout.
+- Submit deliverables to test the AI proof reviewer with automated GitHub/URL inspection.
+- Trigger approval to experience the animated settle moment and cryptographic ledger audit!
 
 ---
 
@@ -145,7 +154,8 @@ To run against the live **PayPal Sandbox** and **Neon PostgreSQL**:
    NODE_ENV=development
    PORT=8080
    DATABASE_URL=postgres://user:password@host/database?sslmode=require
-   JWT_SECRET=super-secret-jwt-signing-key-minimum-32-chars
+   SESSION_SECRET=super-secret-session-key-minimum-32-chars
+   APP_BASE_URL=http://localhost:5173
    PAYPAL_ENV=sandbox
    PAYPAL_CLIENT_ID=your-sandbox-client-id
    PAYPAL_CLIENT_SECRET=your-sandbox-client-secret
@@ -153,6 +163,8 @@ To run against the live **PayPal Sandbox** and **Neon PostgreSQL**:
    LLM_PROVIDER=gemini
    GEMINI_API_KEY=your-gemini-api-key
    LLM_MODEL=gemini-2.5-flash
+   EMAIL_PROVIDER=outbox
+   EMAIL_VERIFICATION=soft
    ```
 3. Apply database migrations and seed demo data:
    ```bash
@@ -177,7 +189,8 @@ To run against the live **PayPal Sandbox** and **Neon PostgreSQL**:
 | `NODE_ENV` | Runtime environment (`development`, `production`, `test`) | Yes (defaults to `development`) | Yes |
 | `PORT` | API server port (default: `8080` locally, `10000` on Render) | No | No |
 | `DATABASE_URL` | PostgreSQL connection string. When omitted, falls back to persistent local PGlite | No (uses PGlite) | Yes (e.g. Neon) |
-| `JWT_SECRET` | Secret key for signing session authentication cookies | No (uses fallback) | Yes |
+| `SESSION_SECRET` | Secret key for signing session authentication cookies | No (uses fallback) | Yes |
+| `APP_BASE_URL` | Public base URL for email verification and action links | No (defaults to `http://localhost:5173`) | Yes |
 | `PAYPAL_ENV` | PayPal environment (`mock` or `sandbox`). Live endpoints are blocked | No (defaults to `mock`) | Yes (`sandbox`) |
 | `PAYPAL_CLIENT_ID` | PayPal Sandbox REST App Client ID | No | Yes |
 | `PAYPAL_CLIENT_SECRET` | PayPal Sandbox REST App Secret | No | Yes |
@@ -185,6 +198,8 @@ To run against the live **PayPal Sandbox** and **Neon PostgreSQL**:
 | `LLM_PROVIDER` | LLM adapter: `fixture`, `gemini`, `anthropic`, `openai-compatible` | No (defaults to `fixture`) | Yes (e.g. `gemini`) |
 | `LLM_API_KEY` | API key for Gemini / Anthropic / OpenAI | No | Yes (unless fixture) |
 | `LLM_MODEL` | Model identifier (e.g. `gemini-2.5-flash` or `claude-3-5-sonnet-20241022`) | No | No |
+| `EMAIL_PROVIDER` | Outgoing email mode: `outbox` (in-app demo mailbox), `resend`, or `smtp` | No (defaults to `outbox`) | No |
+| `EMAIL_VERIFICATION` | Email verification mode: `off`, `soft`, or `required` | No (defaults to `soft`) | No |
 
 ---
 
@@ -305,20 +320,8 @@ Milestone follows defense-in-depth principles to ensure an LLM can never trigger
 
 ---
 
-## Limitations and Production Path
-
-Milestone is an engineered hackathon prototype demonstrating technical feasibility in the PayPal Sandbox environment. Bringing Milestone to commercial production requires:
-
-1. **Regulatory Licensing & Custody:** Operating real-money milestone holding requires regulated money-transmitter licenses (MTL) or formal partnership with a licensed banking institution.
-2. **KYC / AML Compliance:** Integrating identity verification and Know-Your-Customer / Anti-Money-Laundering checks for all transacting clients and freelancers.
-3. **Dispute Resolution & Arbitration:** Providing human-in-the-loop arbitration workflows, evidence submission windows, and legal terms of service for contested milestones.
-4. **Chargebacks & Reversals:** Handling credit card chargebacks, dispute webhooks, and clawback accounting within the append-only ledger.
-5. **Platform Economics:** Implementing platform fee collection, multi-currency conversion, and payout fee optimizations.
-
----
-
 ## License & Acknowledgements
 
 - **License:** [MIT License](LICENSE) (c) 2026 Amogh Mhase.
 - **Third-Party Notices:** See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full attribution of open-source dependencies and Bryntum evaluation licensing notices.
-- **Bryntum Gantt Pro:** Used under Bryntum evaluation terms. Bryntum is an official sponsor of the hackathon.
+- **Bryntum Gantt Pro:** Used under Bryntum evaluation terms.
