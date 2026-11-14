@@ -31,6 +31,66 @@ Existing freelance platforms charge heavy platform fees (up to 20%), force rigid
 
 - **Hosted URL:** [https://verify-pay.onrender.com](https://verify-pay.onrender.com)
 - **Dedicated User Accounts:** Real user authentication powered by `crypto.scrypt` password hashing, opaque SHA-256 session tokens, double-submit CSRF protection, and email notifications. In demo mode, you can explore Client and Freelancer workspaces or launch an isolated split-screen session with one click.
+- **Dual-Pane Evaluation Mode:** Open `/demo/split` at any time to experience Client and Freelancer perspectives side-by-side in one window with synchronized real-time SSE updates.
+
+### End-to-End Evaluation Guide (How Judges Can Test Milestone)
+
+Follow this 5-step walkthrough to experience the entire end-to-end lifecycle—from initial project brief generation to Bryntum Gantt inspection, milestone deliverable submission, AI review, and PayPal Sandbox payout:
+
+#### Step 1: Generate a Project Plan via the AI Planner
+1. Navigate to [https://verify-pay.onrender.com](https://verify-pay.onrender.com) and click **"Plan a project"** (or use the planner input on the landing page).
+2. Click **"Use Sample Brief"** (e.g., *Crumb & Co Bakery Website*) or enter any custom brief.
+3. The AI Planner generates a complete DAG project schedule: tasks, finish-to-start dependencies, duration estimates, and verifiable milestone acceptance criteria.
+4. Click **"Save project & invite freelancer"** to open the project onboarding wizard.
+
+#### Step 2: Create Two Accounts & Accept the Project Agreement
+> **Tip for Session Isolation:** Web browsers share cookie jars per domain. To test Client and Freelancer personas simultaneously on the live site, open Window A in normal browsing mode and Window B in an **Incognito / Private Window** (or Microsoft Edge).
+
+1. **Client Window (Normal Browser):**
+   - Sign up or sign in as the **Client** (e.g., `client@example.com`).
+   - In Step 3 (*Invite your freelancer*), copy the **Short Invitation Code** (e.g., `MILE-XXXX`) or the **Direct Invitation URL** (`/join/...`).
+   - Notice the status: *"Waiting for your freelancer to sign in and accept this invitation link..."*.
+2. **Freelancer Window (Incognito / Private Browser):**
+   - Open [https://verify-pay.onrender.com](https://verify-pay.onrender.com) in your private window and create a **Freelancer** account (e.g., `freelancer@example.com`).
+   - Paste the invitation URL (or navigate to `/join` and enter the 10-character code).
+   - Review the project deliverables, milestones, and amounts.
+   - Enter your **PayPal Sandbox payout email** (e.g., `sb-freelancer@personal.example.com`) and click **"Accept agreement & open freelancer workspace"**.
+3. **Switch back to the Client Window:**
+   - The wizard instantly updates in real time to show that the freelancer accepted the agreement.
+   - The **"Continue to Funding"** button unlocks!
+
+#### Step 3: Inspect the Bryntum Gantt & Fund the Milestones
+1. **Interactive Bryntum Gantt Exploration:**
+   - Open the **Gantt Workspace** in both client and freelancer views.
+   - Inspect milestone diamond markers, currency badges, critical paths, and dependencies.
+   - Drag, zoom in/out, or click any milestone row to open the **Inspector slide-over panel** displaying acceptance criteria, deliverables, and financial state.
+2. **Commit Milestone Funds:**
+   - In the Client workspace, click **"Fund Milestones"** (or use the funding wizard).
+   - Complete checkout using PayPal Sandbox credentials. Funds are held in PayPal Sandbox for the project holding balance.
+   - Watch the funding progress meter update to 100% funded with immediate ledger entry attribution.
+
+#### Step 4: Submit Milestone Deliverables & Run AI Review
+1. **Freelancer Submission:**
+   - In the Freelancer workspace, navigate to Milestone #1 and click **"Submit Deliverable"**.
+   - Provide deliverable proof: attach a live URL, link a public GitHub repository, or supply deliverable verification text.
+2. **Autonomous AI Reviewer:**
+   - Click **"Run AI Review"**. The AI reviewer evaluates each acceptance criterion against the evidence using SSRF-safe tools (`fetch_url`, GitHub API inspector).
+   - Inspect the review drawer: each criterion receives an evidence quote, confidence score (0.0 to 1.0), and execution trace.
+   - The server policy recomputes the verdict (`release`, `request_changes`, or `escalate_to_human`).
+
+#### Step 5: Release Payout, Settle on Gantt, and Verify in PayPal Sandbox
+1. **The Settle Moment:**
+   - Upon review passing, approve the milestone payout (or let the autonomy window auto-release).
+   - Watch **The Settle Moment** on the Bryntum Gantt: the celebratory gold coin animation travels across the screen into the balance chip, the milestone turns solid teal with a checkmark, and sound effects play.
+2. **Ledger & Cryptographic Proof:**
+   - Open the **Trust Panel** to inspect the append-only ledger transaction, cumulative totals, and immutable SHA-256 audit entry.
+3. **Verify in PayPal Developer Sandbox:**
+   - Log into the [PayPal Developer Dashboard](https://developer.paypal.com) ➔ **Testing Tools** ➔ **Sandbox Accounts**.
+   - Check the freelancer account's sandbox balance or notifications: verify the milestone payout transfer was received with the matching PayPal batch ID!
+
+---
+
+### Key Screenshots & Interface Highlights
 
 ### 1. Modern Landing Page & Project Brief Planner
 *Clean typography, live project simulation feed, and instant plan generation.*
